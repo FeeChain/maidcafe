@@ -1,0 +1,376 @@
+/* ===========================================================================
+   maidcafe — listen.css  (drop-in replacement for static/listen.css)
+   听力室列表 / 播放器 / 生词本 / 释义卡。依赖 style.css 的变量，须在其后加载。
+   =========================================================================== */
+
+/* --- 导航与标签 ------------------------------------------------------------ */
+.navlink { color: var(--muted-2); font-size: 13.5px; }
+.navlink:hover { color: var(--accent); }
+
+.tab {
+  font-size: 13.5px;
+  padding: 8px 15px;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted-2);
+  cursor: pointer;
+  min-height: 36px;
+}
+.tab:hover { color: var(--accent); }
+.tab.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-deep);
+  font-weight: 700;
+}
+
+/* 听力室三视图共用更宽的容器 */
+#listView, #playerView, #wordbookView { max-width: 100%; }
+body:has(#listView) main, body:has(#playerView) main { max-width: 1000px; }
+
+/* --- 生成区 ---------------------------------------------------------------- */
+.gen-row {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+#customWords { flex: 1; min-width: 220px; }
+.daily-line { font-size: 13px; color: var(--muted-2); align-self: center; line-height: 1.7; }
+
+/* 今日任务卡：把 #dailyBtn 所在的 .gen-row 包成卡片感（无需改 HTML） */
+#listView .gen-row:first-of-type {
+  background: var(--card);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-lg);
+  padding: 20px 22px;
+  box-shadow: var(--sh-1);
+  margin-bottom: 14px;
+}
+#dailyBtn { font-size: 17px; padding: 15px 28px; min-height: 52px; border-radius: 14px; }
+#genStatus { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); }
+
+/* 生成中提示（后端把 #genStatus 文本写进来即可；加 .working 变进度条样式） */
+#genStatus.working {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--accent-deep);
+  border-radius: var(--r-md);
+  padding: 8px 14px;
+  font-family: var(--font-ui);
+  font-weight: 700;
+}
+
+/* --- 对话列表 -------------------------------------------------------------- */
+.dlist { display: flex; flex-direction: column; gap: 12px; }
+
+.ditem {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  cursor: pointer;
+  box-shadow: var(--sh-1);
+  transition: border-color .15s, transform .1s;
+}
+.ditem:hover { border-color: var(--accent-line); }
+.ditem:active { transform: translateY(1px); }
+
+.d-top {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--muted);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.d-top b { color: var(--muted-2); }
+.d-scene {
+  margin-top: 6px;
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 17px;
+  color: var(--ink);
+}
+.d-targets { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* --- 播放器 ---------------------------------------------------------------- */
+.player-card { padding: 0; }
+
+.player-info {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--sunken);
+}
+.scene-line {
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 20px;
+  color: var(--ink);
+}
+.scene-line::first-line { line-height: 1.4; }
+.target-chips { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+.target-chip small { color: var(--muted-2); margin-left: 2px; }
+.ratio-badge {
+  margin-top: 12px;
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px;
+  padding: 7px 14px; border-radius: 999px;
+  background: var(--green-soft); border: 1px solid var(--green-line);
+  color: var(--green-ink);
+}
+.ratio-badge:empty { display: none; }
+
+.player-controls {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+}
+#playBtn2 { border: none; background: var(--accent); color: #fff9f0; font-weight: 700; box-shadow: 0 3px 0 var(--accent-deep); }
+#playBtn2:hover { background: var(--accent-deep); color: #fff9f0; }
+#loopBtn[data-on="1"], #loopBtn.on {
+  background: var(--accent-soft); border-color: var(--accent-line);
+  color: var(--accent-deep); font-weight: 700;
+}
+#subMode {
+  font-size: 13px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--sunken);
+  color: var(--ink);
+  min-height: 38px;
+  cursor: pointer;
+}
+#delBtn { margin-left: auto; }
+
+/* --- 字幕区 ---------------------------------------------------------------- */
+.turn-list {
+  padding: 14px 12px 20px;
+  max-height: 58vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.turn {
+  display: flex; gap: 16px; align-items: flex-start;
+  padding: 12px 16px;
+  border-radius: 14px;
+  cursor: pointer;
+  position: relative;
+  transition: background .15s;
+}
+.turn:hover { background: var(--sunken); }
+
+/* 当前轮：米白高亮块 + 左侧主色轴 + 放大一档 */
+.turn.current {
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  padding: 14px 16px;
+}
+.turn.current::before {
+  content: "";
+  position: absolute; left: 0; top: 14px; bottom: 14px;
+  width: 3px; border-radius: 99px;
+  background: var(--accent);
+}
+.turn.current .txt { font-size: 21px; color: var(--ink); }
+
+.spk {
+  min-width: 92px;
+  flex: none;
+  text-align: right;
+  font-size: 13.5px; font-weight: 700;
+  padding-top: 5px;
+  line-height: 1.5;
+}
+
+.txt {
+  font-family: var(--font-en);
+  font-size: 19px;
+  line-height: 1.75;
+  color: var(--muted-2);
+}
+/* 目标生词：红字 + 实线下划 —— 让「可点」成为静态可见属性 */
+.txt .tword {
+  color: var(--red);
+  font-weight: 600;
+  border-bottom: 2px solid var(--red-line);
+  cursor: pointer;
+}
+.turn.current .txt .tword { border-bottom-color: var(--red); }
+.txt .tword:hover { background: var(--red-soft); }
+
+/* 任意单词可点 */
+.txt .wclick { cursor: pointer; }
+.txt .wclick:hover { border-bottom: 1px dotted var(--muted); }
+
+/* 未播轮遮罩：点低对比是故意的，但说话人名保持可读 */
+.txt.veiled {
+  font-family: var(--font-mono);
+  color: var(--veil);
+  letter-spacing: .3em;
+  cursor: default;
+}
+.turn:has(.txt.veiled) .spk { color: var(--muted) !important; }
+
+/* --- 释义卡 ---------------------------------------------------------------- */
+.word-card {
+  position: fixed;
+  bottom: 32px; left: 50%;
+  transform: translateX(-50%);
+  width: 340px; max-width: calc(100vw - 32px);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-2);
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  z-index: 50;
+  animation: wc-in .12s ease-out;
+}
+@keyframes wc-in { from { opacity: 0; transform: translate(-50%, 4px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+.wc-word {
+  font-family: var(--font-en);
+  font-size: 30px; font-weight: 600;
+  padding: 20px 22px 0;
+}
+.wc-phon {
+  font-family: var(--font-mono);
+  font-size: 14px; color: var(--muted-2);
+  padding: 4px 22px 0;
+}
+.wc-def {
+  font-size: 14.5px; line-height: 1.85;
+  white-space: pre-line;
+  padding: 12px 22px 18px;
+  max-height: 9.5em; overflow: hidden;
+}
+.wc-actions {
+  display: flex; gap: 8px;
+  padding: 12px 18px;
+  background: var(--sunken);
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+#wcAdd {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-deep);
+  font-weight: 700;
+}
+#wcAdd:hover { background: #ebd4b9; color: var(--accent-deep); }
+#wcClose { margin-left: auto; color: var(--muted); }
+
+/* --- 生词本 ---------------------------------------------------------------- */
+.wb-section {
+  margin: 28px 0 12px;
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 19px;
+}
+.wb-section small { color: var(--muted-2); font-weight: 400; font-size: 12.5px; }
+
+.wb-list { display: flex; flex-direction: column; gap: 10px; }
+
+.wb-item {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 14px 18px;
+  box-shadow: var(--sh-1);
+}
+.wb-item:hover { border-color: var(--accent-line); }
+
+.wb-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.wb-head > b {
+  font-family: var(--font-en);
+  font-size: 21px; font-weight: 600;
+  line-height: 1.2;
+}
+.wb-phon { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted-2); }
+
+.wb-play {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--sunken);
+  color: var(--accent-deep);
+  font-size: 13px; line-height: 1;
+  cursor: pointer;
+}
+.wb-play:hover { background: var(--accent-soft); border-color: var(--accent-line); }
+
+/* 梯级徽章三态 */
+.wb-srs {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11.5px; font-weight: 700;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  color: var(--muted-2);
+}
+.wb-srs.pool { background: var(--amber-soft); border-color: var(--amber-line); color: var(--amber-ink); }
+.wb-srs.due  { background: var(--accent); border-color: var(--accent-deep); color: #fff6ea; }
+/* 无修饰类 = 第 N 级 · X 天后 */
+.wb-srs:not(.pool):not(.due) { background: var(--green-soft); border-color: var(--green-line); color: var(--green-ink); }
+
+.wb-dl {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.wb-def {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--muted-2);
+  line-height: 1.8;
+}
+.wb-learned:hover { border-color: var(--green-ink) !important; color: var(--green-ink) !important; }
+.wb-unfam { color: var(--muted); }
+.wb-unfam:hover  { border-color: var(--red) !important; color: var(--red) !important; }
+.wb-readd:hover  { border-color: var(--accent) !important; color: var(--accent) !important; }
+
+/* 已毕业区更紧凑 */
+#gradList { flex-direction: row; flex-wrap: wrap; gap: 10px; }
+#gradList .wb-item { padding: 8px 12px; box-shadow: none; }
+#gradList .wb-head > b { font-size: 17px; }
+#gradList .wb-dl { display: none; }
+
+/* --- 响应式 ---------------------------------------------------------------- */
+@media (max-width: 959px) {
+  body:has(#listView) main, body:has(#playerView) main { max-width: 100%; }
+
+  .player-info { padding: 16px; }
+  .scene-line { font-size: 18px; }
+
+  /* 控制排吸底，三段：上一轮 / 播放 / 下一轮 */
+  .player-controls {
+    position: sticky; bottom: 0; z-index: 20;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line); border-bottom: none;
+    box-shadow: 0 -6px 18px rgba(90,60,30,.08);
+  }
+  #playBtn2 { flex: 1; justify-content: center; min-height: 56px; border-radius: 16px; }
+  #prevBtn, #nextBtn { width: 52px; min-height: 52px; justify-content: center; padding: 0; }
+  #delBtn { order: 9; }
+
+  .turn-list { max-height: none; padding: 8px 4px 16px; }
+  .turn { flex-direction: column; gap: 4px; padding: 10px 12px; }
+  .spk { text-align: left; min-width: 0; padding-top: 0; font-size: 12.5px; }
+  .txt { font-size: 17px; }
+  .turn.current .txt { font-size: 19px; }
+  .turn.current::before { top: 10px; bottom: 10px; }
+
+  .word-card {
+    left: 0; right: 0; bottom: 0;
+    transform: none;
+    width: 100%; max-width: 100%;
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  @keyframes wc-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .wb-head > b { font-size: 19px; }
+  .wb-dl { margin-left: 0; width: 100%; }
+  .wb-item .mk.small { min-height: var(--tap); flex: 1; justify-content: center; }
+}

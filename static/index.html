@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>maidcafe ☕ 词汇校准</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">maidcafe <span class="cup">☕</span></div>
+  <nav class="controls">
+    <span class="tab active">校准</span>
+    <a href="/listen" class="tab">听力室</a>
+  </nav>
+  <div class="controls">
+    <select id="tierSelect"><option value="all">全部难度</option></select>
+    <select id="deckSelect"><option value="all">全部词库</option></select>
+    <select id="modeSelect">
+      <option value="unmarked">只看未标记</option>
+      <option value="all">全部（含已标记）</option>
+    </select>
+    <button id="hintToggle" class="hint-toggle" title="按键提示">?</button>
+    <button id="endBtn" class="end-btn" title="结束这一轮">结束本轮</button>
+  </div>
+  <div class="stats" id="statsBar">…</div>
+</header>
+
+<main id="main">
+  <div id="startOverlay" class="overlay">
+    <div class="overlay-card">
+      <h1>欢迎回来，客人 ☕</h1>
+      <div id="continueBar" class="hint-line hidden" style="margin-bottom:12px;"></div>
+      <p>听音优先的词汇校准：先凭耳朵判断，再看词形确认。</p>
+      <p class="rhythm">每个词两下：<b>第一下</b>凭耳朵——听出来了吗？<br>
+      <b>第二下</b>凭眼睛——会读吗？两下都"会" = 认识；有一个"不会" = 进生词本。</p>
+      <p class="hint-line">用鼠标点按钮和用键盘完全一样，不影响统计。</p>
+      <details class="keys-fold">
+        <summary>键盘玩家看这里 ▾</summary>
+        <table class="keys">
+          <tr><td>听发音后</td><td><kbd>Space</kbd> 听出来了 · <kbd>J</kbd> 没听出来</td></tr>
+          <tr><td>显示词后</td><td><kbd>Space</kbd> 我会读 · <kbd>J</kbd> 我不会读</td></tr>
+          <tr><td>任何时候</td><td><kbd>K</kbd> 重听发音</td></tr>
+        </table>
+      </details>
+      <button id="startBtn">开始（按任意键）</button>
+    </div>
+  </div>
+
+  <div id="card" class="card hidden">
+    <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="card-body">
+      <div id="listenState" class="listen-state">
+        <div class="step-dots"><i class="on"></i><i></i></div>
+        <button id="playBtn" class="play-btn" title="播放发音">🔊</button>
+        <div class="hint">刚才这个音，你听出来了吗？</div>
+        <div id="noAudioNote" class="no-audio hidden">（这个词没有音频，直接看词判断）</div>
+        <div id="wordPreview" class="word-preview hidden"></div>
+      </div>
+      <div id="answerState" class="answer-state hidden">
+        <div class="step-dots"><i></i><i class="on"></i></div>
+        <div class="mark-tag" id="markTag"></div>
+        <div class="word" id="wordText"></div>
+        <div class="phonetic" id="phoneticText"></div>
+        <div class="definition" id="defText"></div>
+        <div class="example" id="exEn"></div>
+        <div class="example cn" id="exCn"></div>
+        <div class="sources" id="srcText"></div>
+      </div>
+      <div id="judgeBtns" class="mark-btns">
+        <button id="btnKnow" class="mk mk3">听出来了 <kbd>Space</kbd></button>
+        <button id="btnShow" class="mk mk1">没听出来 <kbd>J</kbd></button>
+      </div>
+      <div id="nextBtns" class="mark-btns hidden">
+        <div class="ask-line hint-line" style="width:100%;text-align:center;">那么这个词，你会读吗？</div>
+        <button id="btnNext" class="mk mk3">我会读 <kbd>Space</kbd></button>
+        <button id="btnOops" class="mk mk1">我不会读 <kbd>J</kbd></button>
+      </div>
+    </div>
+    <div id="hintBar" class="hint-bar">
+      <span>听后：<kbd>Space</kbd> 听出来了 · <kbd>J</kbd> 没听出来</span>
+      <span>看后：<kbd>Space</kbd> 会读 · <kbd>J</kbd> 不会读</span>
+      <span><kbd>K</kbd> 重听</span>
+      <button id="hintClose" title="关闭提示">×</button>
+    </div>
+  </div>
+
+  <div id="doneCard" class="card done hidden">
+    <h2 id="doneTitle">这一轮结束 🎉</h2>
+    <div id="doneStats"></div>
+    <p>进度已自动保存，随时回来继续。</p>
+    <button id="nextTierBtn" class="mk mknext hidden">进入下一块 →</button>
+    <button id="resumeBtn" class="mk">继续过词</button>
+  </div>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

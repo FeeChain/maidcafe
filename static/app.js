@@ -1,0 +1,288 @@
+/* maidcafe calibration UI — listen-first, two-key rhythm.
+ *
+ * Flow per word:
+ *   audio plays (no text)
+ *     Space = recognized by ear  -> mark 3, reveal word to confirm
+ *     J     = need to see it     -> mark 1 (= unknown), reveal word
+ *   then Space = clear, advance, next audio.
+ */
+
+let queue = [];
+let idx = 0;
+let phase = "listen";   // "listen" | "revealed"
+let heard = true;       // stage-1 answer: recognized by ear?
+let started = false;
+let stats = null;
+let audioEl = null;
+
+const $ = (id) => document.getElementById(id);
+
+async function fetchJSON(url, opts) {
+  const r = await fetch(url, opts);
+  return r.json();
+}
+
+function fmtDur(sec) {
+  const m = sec / 60;
+  return m < 90 ? `${Math.round(m)}分钟` : `${(m / 60).toFixed(1)}小时`;
+}
+
+async function loadDecks() {
+  const decks = await fetchJSON("/api/decks");
+  const sel = $("deckSelect");
+  decks.forEach((d) => {
+    const o = document.createElement("option");
+    o.value = d;
+    o.textContent = d;
+    sel.appendChild(o);
+  });
+}
+
+let tiers = [];  // [{tier, total, marked, unknown, bmin, bmax}]
+
+const BAND_NAMES = { 1: "中考", 2: "高考", 3: "四级", 4: "六级",
+                     5: "考研", 6: "托福雅思", 7: "GRE", 8: "考纲外" };
+
+function tierLabel(t) {
+  let band = "";
+  if (t.bmin != null) {
+    band = BAND_NAMES[t.bmin] || "";
+    if (t.bmax != null && t.bmax !== t.bmin) {
+      band += "→" + (BAND_NAMES[t.bmax] || "");
+    }
+  }
+  return band ? `第${t.tier}块 · ${band}` : `第${t.tier}块`;
+}
+
+async function loadTiers(keepSelection) {
+  tiers = await fetchJSON(`/api/tiers?deck=${encodeURIComponent(currentDeck())}`);
+  const sel = $("tierSelect");
+  const prev = keepSelection ? sel.value : null;
+  while (sel.options.length > 1) sel.remove(1);
+  tiers.forEach((t) => {
+    const o = document.createElement("option");
+    o.value = t.tier;
+    o.textContent = `${tierLabel(t)} (${t.marked}/${t.total})`;
+    sel.appendChild(o);
+  });
+  if (prev !== null && [...sel.options].some((o) => o.value === prev)) {
+    sel.value = prev;
+  } else {
+    // default: first block that still has unmarked words
+    const first = tiers.find((t) => t.marked < t.total);
+    sel.value = first ? String(first.tier) : "all";
+  }
+}
+
+function currentDeck() { return $("deckSelect").value; }
+function currentMode() { return $("modeSelect").value; }
+function currentTier() { return $("tierSelect").value; }
+
+async function loadStats() {
+  const scope = currentTier() === "all" ? "全部" : `本块`;
+  stats = await fetchJSON(
+    `/api/stats?deck=${encodeURIComponent(currentDeck())}&tier=${currentTier()}`);
+  const remain = stats.total - stats.marked;
+  const overallRemain = stats.overall_total - stats.overall_marked;
+  let eta = "";
+  if (remain > 0) {
+    eta = ` · 剩≈${fmtDur(remain * stats.pace)}`;
+    if (currentTier() !== "all" && overallRemain > remain) {
+      eta += `（全库≈${fmtDur(overallRemain * stats.pace)}）`;
+    }
+  }
+  $("statsBar").innerHTML =
+    `${scope}已标 <b>${stats.marked}</b>/${stats.total} · ` +
+    `<span class="s3">认识 ${stats.ear_known}</span> · ` +
+    `<span class="s1">生词 ${stats.unknown + stats.eye_only}</span>` + eta;
+  const pct = stats.total ? (stats.marked / stats.total) * 100 : 0;
+  $("progressFill").style.width = pct.toFixed(2) + "%";
+}
+
+async function loadQueue() {
+  $("statsBar").textContent = "加载词库中…";
+  queue = await fetchJSON(
+    `/api/words?deck=${encodeURIComponent(currentDeck())}&mode=${currentMode()}` +
+    `&tier=${currentTier()}`);
+  idx = 0;
+  showCurrent();
+}
+
+function cur() { return queue[idx]; }
+
+function playAudio() {
+  const w = cur();
+  if (!w || !w.has_audio) return;
+  if (audioEl) { audioEl.pause(); }
+  audioEl = new Audio("/audio/" + encodeURIComponent(w.word));
+  audioEl.play().catch(() => {});
+}
+
+function showDone() {
+  $("card").classList.add("hidden");
+  $("doneCard").classList.remove("hidden");
+  const t = currentTier();
+  const hasNext = t !== "all" && tiers.some((x) => x.tier === parseInt(t, 10) + 1);
+  const remaining = stats ? stats.total - stats.marked : 0;
+  $("doneTitle").textContent =
+    t === "all" ? "这一轮结束 🎉"
+      : remaining > 0 ? `第${t}块先到这里 ☕` : `第${t}块过完了 🎉`;
+  $("nextTierBtn").classList.toggle("hidden", !hasNext);
+  $("resumeBtn").classList.toggle("hidden", remaining <= 0);
+  $("resumeBtn").textContent = `继续过完这一块（剩 ${remaining} 词）`;
+  if (stats) {
+    $("doneStats").innerHTML =
+      `认识 <b>${stats.ear_known}</b> · 生词 <b>${stats.unknown + stats.eye_only}</b> · ` +
+      `已标 ${stats.marked}/${stats.total}`;
+  }
+  loadTiers(true);
+}
+
+function showCurrent() {
+  if (!queue.length || idx >= queue.length) {
+    loadStats().then(showDone);
+    return;
+  }
+  loadStats();
+  $("doneCard").classList.add("hidden");
+  $("card").classList.remove("hidden");
+  phase = "listen";
+  const w = cur();
+
+  $("listenState").classList.remove("hidden");
+  $("answerState").classList.add("hidden");
+  $("judgeBtns").classList.remove("hidden");
+  $("nextBtns").classList.add("hidden");
+
+  if (w.has_audio) {
+    $("playBtn").classList.remove("hidden");
+    $("noAudioNote").classList.add("hidden");
+    $("wordPreview").classList.add("hidden");
+    playAudio();
+  } else {
+    // no audio: judge by sight instead
+    $("playBtn").classList.add("hidden");
+    $("noAudioNote").classList.remove("hidden");
+    $("wordPreview").textContent = w.word;
+    $("wordPreview").classList.remove("hidden");
+  }
+}
+
+/* Stage 1 (listen): Space = heard it, J = missed it. Either way, reveal. */
+function judge(didHear) {
+  const w = cur();
+  if (!w || phase !== "listen") return;
+  phase = "revealed";
+  heard = didHear;
+  $("listenState").classList.add("hidden");
+  $("answerState").classList.remove("hidden");
+  $("judgeBtns").classList.add("hidden");
+  $("nextBtns").classList.remove("hidden");
+  $("markTag").textContent = didHear ? "听出来了" : "没听出来 → 生词";
+  $("markTag").className = "mark-tag " + (didHear ? "mt3" : "mt1");
+  $("wordText").textContent = w.word;
+  $("phoneticText").textContent = w.phonetic || "";
+  $("defText").textContent = w.definition || "";
+  $("exEn").textContent = w.example_en || "";
+  $("exCn").textContent = w.example_cn || "";
+  $("srcText").textContent = (w.sources || []).join(" · ");
+}
+
+/* Stage 2 (revealed): Space = know it by sight, J = don't. Writes the final
+ * status and advances. Space+Space=3 known; J+Space=2 (eye-only, counts as
+ * 生词 in the UI but kept distinct in the DB); any ending in J = 1 unknown. */
+async function finalize(canRead) {
+  const w = cur();
+  if (!w || phase !== "revealed") return;
+  const status = heard && canRead ? 3 : (!heard && canRead ? 2 : 1);
+  idx += 1;
+  showCurrent();
+  await fetchJSON("/api/mark", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ word: w.word, status }),
+  });
+  loadStats();
+}
+
+function endRound() {
+  if (!started) return;
+  idx = queue.length;
+  showCurrent();
+}
+
+async function start() {
+  if (started) return;
+  started = true;
+  $("startOverlay").classList.add("hidden");
+  await loadTiers(false);
+  loadQueue();
+}
+
+function gotoNextTier() {
+  const t = parseInt(currentTier(), 10);
+  $("tierSelect").value = String(t + 1);
+  loadQueue();
+}
+
+document.addEventListener("keydown", (e) => {
+  if (!started) { start(); e.preventDefault(); return; }
+  if (e.repeat) return;
+  switch (e.key) {
+    case " ":
+      e.preventDefault();
+      phase === "listen" ? judge(true) : finalize(true);
+      break;
+    case "j": case "J":
+      phase === "listen" ? judge(false) : finalize(false);
+      break;
+    case "k": case "K": case "r": case "R":
+      playAudio();
+      break;
+  }
+});
+
+$("startBtn").addEventListener("click", start);
+$("playBtn").addEventListener("click", (e) => { e.currentTarget.blur(); playAudio(); });
+$("btnKnow").addEventListener("click", (e) => { e.currentTarget.blur(); judge(true); });
+$("btnShow").addEventListener("click", (e) => { e.currentTarget.blur(); judge(false); });
+$("btnNext").addEventListener("click", (e) => { e.currentTarget.blur(); finalize(true); });
+$("btnOops").addEventListener("click", (e) => { e.currentTarget.blur(); finalize(false); });
+$("endBtn").addEventListener("click", (e) => { e.currentTarget.blur(); endRound(); });
+$("resumeBtn").addEventListener("click", () => loadQueue());
+$("nextTierBtn").addEventListener("click", () => gotoNextTier());
+$("deckSelect").addEventListener("change", async () => {
+  if (started) { await loadTiers(false); loadQueue(); }
+});
+$("modeSelect").addEventListener("change", () => { if (started) loadQueue(); });
+$("tierSelect").addEventListener("change", () => { if (started) loadQueue(); });
+
+/* --- dismissable key-hint bar --- */
+function setHints(visible) {
+  $("hintBar").classList.toggle("hidden", !visible);
+  try { localStorage.setItem("maidcafe_hints", visible ? "1" : "0"); } catch (_) {}
+}
+$("hintClose").addEventListener("click", () => setHints(false));
+$("hintToggle").addEventListener("click", (e) => {
+  e.currentTarget.blur();
+  setHints($("hintBar").classList.contains("hidden"));
+});
+try {
+  if (localStorage.getItem("maidcafe_hints") === "0") setHints(false);
+} catch (_) {}
+
+/* D4: 回访「从哪继续」——有到期词就把客人引去听力室 */
+(async function continueBar() {
+  try {
+    const s = await fetchJSON("/api/daily_status");
+    if (s.due > 0) {
+      const bar = $("continueBar");
+      bar.innerHTML =
+        `今天有 <b>${s.due}</b> 个词等着与你重逢 —— <a href="/listen">去听力室 ☕</a>`;
+      bar.classList.remove("hidden");
+    }
+  } catch (_) {}
+})();
+
+loadDecks();
+loadStats();

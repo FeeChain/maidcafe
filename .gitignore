@@ -1,0 +1,23 @@
+# 用户学习数据（永不入库）
+progress.db
+progress.backup-*.db
+
+# 用户自备词库 / 下载的大文件 / 生成产物
+decks/
+cache/
+data/
+audio_out/
+generate.log
+
+# 环境
+.venv-tts/
+__pycache__/
+*.pyc
+
+# 本地字体（自托管可选项）
+static/fonts/
+
+# 杂项
+.DS_Store
+static/_css_backup/
+*.zip

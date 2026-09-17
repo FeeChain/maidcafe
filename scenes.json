@@ -1,0 +1,18 @@
+{
+  "scenes": [
+    "the main hall during a slow afternoon",
+    "the main hall during the lunch rush",
+    "the kitchen before opening",
+    "the kitchen after closing, cleaning up",
+    "the manager's tiny office, going over the schedule",
+    "the front door, opening the shop in the morning",
+    "the storage room, doing inventory",
+    "the staff break room during a short rest",
+    "the hall during a themed event day",
+    "outside the shop, handing out flyers",
+    "a rainy evening with almost no customers",
+    "preparing a surprise for a regular customer's birthday"
+  ],
+  "guest_probability": 0.3,
+  "hidden_side_probability": 0.1
+}
