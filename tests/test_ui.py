@@ -368,7 +368,8 @@ class TestAudioAndTimeout(UIBase):
                                    "status": status, "src": "probe"})
         else:
             raise RuntimeError("probe seeding did not converge")
-        cls.page.add_init_script("window.MC_GEN_TIMEOUT = 4;")
+        # 8 秒：给 w02 的秒表断言留出走字窗口，之后才允许撞超时
+        cls.page.add_init_script("window.MC_GEN_TIMEOUT = 8;")
         cls.page.add_init_script("""
             window.__mcAudio = [];
             const RealAudio = window.Audio;
@@ -416,7 +417,15 @@ class TestAudioAndTimeout(UIBase):
         self.assertIn("灶上", self.page.text_content(".grp.cooking"))
         self.page.click(".grp.cooking")
         self.page.wait_for_selector("#vListen", state="visible")
-        # tick 每 5 秒一次：第二拍越过 4 秒钩子阈值 -> 超时红字
+        # 实时秒表：进度行必须带"已 m:ss · 平常约 m:ss"且每秒走字
+        self.page.wait_for_function(
+            "document.getElementById('lsGenLine').textContent"
+            ".includes('平常约')", timeout=8000)
+        t1 = self.page.text_content("#lsGenLine")
+        self.page.wait_for_function(
+            "document.getElementById('lsGenLine').textContent !== %s"
+            % json.dumps(t1), timeout=8000)
+        # 秒表每秒一拍都在查超时：越过 8 秒钩子阈值 -> 超时红字
         self.page.wait_for_function(
             "document.getElementById('lsGenLine').textContent"
             ".includes('超时')", timeout=20000)
