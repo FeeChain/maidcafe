@@ -219,6 +219,8 @@ class TestMaidcafe(unittest.TestCase):
     # ---------------- dialogue generation: error path is visible ----------------
 
     def test_10_generation_error_is_reported(self):
+        # 边界内被全扫揪出的漏词：显式标不认识 -> 必须被剔出已知集
+        call("/api/mark", {"word": "w010", "status": 1, "src": "scan"})
         words = [w["word"] for w in call("/api/session")["words"][:3]]
         r = call("/api/generate", {"words": words})
         self.assertTrue(r["started"])
@@ -230,6 +232,11 @@ class TestMaidcafe(unittest.TestCase):
             known = set(json.load(f))
         self.assertIn("w050", known, "known-side block words are all known")
         self.assertNotIn("w250", known, "unknown-side words are not")
+        self.assertNotIn("w010", known,
+                         "full-scan-found gaps inside the boundary beat the presumption")
+        ws = [w["word"] for w in call("/api/session")["words"]]
+        self.assertEqual(ws[0], "w010",
+                         "boundary-inside gaps must be served first (lowest rank)")
         for _ in range(30):  # bogus model -> pipeline must fail fast & visibly
             ds = call("/api/dialogues")
             if ds and ds[0]["status"] == "error":
