@@ -67,7 +67,9 @@ class TestMaidcafe(unittest.TestCase):
                    MAIDCAFE_DB=cls.db_path,
                    MAIDCAFE_CACHE=cache,
                    MAIDCAFE_PORT=str(PORT),
-                   MAIDCAFE_MODEL="no-such-model-for-error-path")
+                   MAIDCAFE_MODEL="no-such-model-for-error-path",
+                   # 开发机上真 ECDICT 会命中合成词、扰动排序——指向空路径隔离
+                   MAIDCAFE_ECDICT=os.path.join(cls.tmp, "no-ecdict.db"))
         cls.proc = subprocess.Popen(
             [sys.executable, os.path.join(ROOT, "server.py")], env=env,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -143,13 +145,15 @@ class TestMaidcafe(unittest.TestCase):
     # ---------------- session: fixed portion, difficulty-ordered ----------------
 
     def test_04_session_composition(self):
+        # 核心模型：从边界出发向外扩张——生词池不满配额时，
+        # 边界块之外未标记的词按难度顺序推定为生词补满一份
         ws = call("/api/session")["words"]
-        self.assertTrue(ws, "probe J-words must feed the session")
+        self.assertEqual(len(ws), 20, "a portion must fill to the quota")
         self.assertTrue(all(w["is_new"] for w in ws))
         idxs = [widx(w["word"]) for w in ws]
-        self.assertTrue(all(i >= KNOWN_BELOW for i in idxs))
+        self.assertTrue(all(i >= KNOWN_BELOW for i in idxs),
+                        "known-side words must never be served for learning")
         self.assertEqual(idxs, sorted(idxs), "new words must come easiest-first")
-        self.assertLessEqual(len(ws), 20)
 
     def test_05_word_pass_persists_and_is_idempotent(self):
         w = call("/api/session")["words"][0]["word"]
@@ -218,6 +222,14 @@ class TestMaidcafe(unittest.TestCase):
         words = [w["word"] for w in call("/api/session")["words"][:3]]
         r = call("/api/generate", {"words": words})
         self.assertTrue(r["started"])
+        # 已知集快照：边界块之内的全部单词推定已知（用户定稿的核心定义）
+        snap = os.path.join(os.path.dirname(self.db_path), "cache",
+                            "known_words.json")
+        self.assertTrue(os.path.exists(snap), "generate must write the snapshot")
+        with open(snap) as f:
+            known = set(json.load(f))
+        self.assertIn("w050", known, "known-side block words are all known")
+        self.assertNotIn("w250", known, "unknown-side words are not")
         for _ in range(30):  # bogus model -> pipeline must fail fast & visibly
             ds = call("/api/dialogues")
             if ds and ds[0]["status"] == "error":
@@ -228,6 +240,16 @@ class TestMaidcafe(unittest.TestCase):
             self.fail("dialogue stuck in status %r" % ds[0]["status"])
         # no row at all = generator crashed before the placeholder insert
         self.fail("no dialogue row appeared; check generate.log handling")
+
+
+    def test_11_event_log(self):
+        call("/api/log", {"events": [
+            {"page": "/", "view": "vLearn", "event": "click",
+             "detail": "button#examBtn"}]})
+        rows = call("/api/log?limit=10")
+        self.assertTrue(any(r["event"] == "click" and
+                            r["detail"] == "button#examBtn" for r in rows),
+                        "logged events must be readable back")
 
 
 if __name__ == "__main__":

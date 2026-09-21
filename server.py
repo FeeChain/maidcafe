@@ -30,7 +30,7 @@ CACHE_DIR = os.environ.get("MAIDCAFE_CACHE", os.path.join(ROOT, "cache"))
 STATIC_DIR = os.path.join(ROOT, "static")
 DB_PATH = os.environ.get("MAIDCAFE_DB", os.path.join(ROOT, "progress.db"))
 WORDS_CACHE = os.path.join(CACHE_DIR, "words_cache.json")
-ECDICT_DB = os.path.join(ROOT, "data", "stardict.db")
+ECDICT_DB = os.environ.get("MAIDCAFE_ECDICT", os.path.join(ROOT, "data", "stardict.db"))
 PORT = int(os.environ.get("MAIDCAFE_PORT", "8770"))
 BLOCK_SIZE = 100    # words per difficulty block
 
@@ -119,7 +119,7 @@ def attach_tiers():
 
 AUDIO_OUT = os.path.join(ROOT, "audio_out")
 GEN_MODEL = os.environ.get("MAIDCAFE_MODEL", "qwen3.6:27b-mlx")
-ECDICT_PATH = os.path.join(ROOT, "data", "stardict.db")
+ECDICT_PATH = ECDICT_DB
 
 # 复习梯子: 第 N 次听完后，下次到期 = INTERVALS[N-1] 天后；爬完毕业
 INTERVALS = [1, 3, 7, 15, 30]
@@ -159,6 +159,11 @@ def db():
         "primary key(session, word))")
     con.execute(
         "create table if not exists kv(key text primary key, value text)")
+    # 操作日志：前端每次点击/按键/视图跳转都记一行，测试回放用
+    con.execute(
+        "create table if not exists events("
+        "id integer primary key autoincrement, ts real, page text,"
+        "view text, event text, detail text)")
     # 同一天内重复复习不重复爬梯（听完对话 + 考试通过只算一次）
     try:
         con.execute("alter table word_srs add column reviewed_ts real")
@@ -260,7 +265,25 @@ def build_session():
         due = [w for w, s in sorted(srs.items(), key=lambda x: x[1]["due_ts"])
                if s["state"] == "learning" and s["due_ts"] <= now]
         quota = int(kv_get("new_quota", 20))
-        fresh = get_backlog(con)[:quota]
+        candidates = get_backlog(con)
+        if len(candidates) < quota:
+            # 生词池不够一份：探针已定位边界，边界之外没标过的词
+            # 本来就推定为生词——按难度顺序补满（考过才进梯，其余零记录）
+            nxt = probe_next("all")
+            if nxt.get("done"):
+                frontier = nxt["bracket"][1]  # 第一个生词侧的块
+                marks = get_marks()
+                taken = set(candidates)
+                for w in sorted(WORDS, key=lambda x: x.get("rank", 10 ** 9)):
+                    lw = w["word"].lower()
+                    if (w.get("tier", 1) >= frontier and lw not in marks
+                            and lw not in srs and lw not in taken):
+                        candidates.append(lw)
+                        taken.add(lw)
+                        if len(candidates) >= quota:
+                            break
+        rank_of = {w["word"].lower(): w.get("rank", 10 ** 9) for w in WORDS}
+        fresh = sorted(candidates, key=lambda w: rank_of.get(w, 10 ** 9))[:quota]
     finally:
         con.close()
     return {"words": ([session_word_out(w, False) for w in due] +
@@ -279,7 +302,32 @@ def get_backlog(con):
     return backlog
 
 
+def write_known_snapshot():
+    """已知词集快照，dialogue.py 校验已知占比用。
+    核心定义（用户定稿）：已知 = 边界块之内的**全部**单词（推定已知）
+    + 显式标记认识的词。边界由探针无状态重放得出。"""
+    known = set()
+    try:
+        nxt = probe_next("all")
+        if nxt.get("done"):
+            frontier = nxt["bracket"][1]  # 第一个生词侧的块
+            known.update(w["word"].lower() for w in WORDS
+                         if w.get("tier", 1) < frontier)
+    except Exception:
+        pass
+    con = db()
+    try:
+        known.update(w for (w,) in
+                     con.execute("select word from marks where status=3"))
+    finally:
+        con.close()
+    with open(os.path.join(CACHE_DIR, "known_words.json"), "w",
+              encoding="utf-8") as f:
+        json.dump(sorted(known), f, ensure_ascii=False)
+
+
 def spawn_generation(words):
+    write_known_snapshot()
     cmd = [sys.executable, os.path.join(ROOT, "dialogue.py"),
            "--words", ",".join(words)]
     env = dict(os.environ, MAIDCAFE_MODEL=GEN_MODEL)
@@ -914,6 +962,19 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/session":
             return self._send(200, build_session())
 
+        if path == "/api/log":
+            limit = min(int(qs.get("limit", ["300"])[0]), 2000)
+            con = db()
+            try:
+                rows = con.execute(
+                    "select ts, page, view, event, detail from events "
+                    "order by id desc limit ?", (limit,)).fetchall()
+            finally:
+                con.close()
+            return self._send(200, [
+                {"ts": r[0], "page": r[1], "view": r[2],
+                 "event": r[3], "detail": r[4]} for r in reversed(rows)])
+
         if path == "/api/config":
             return self._send(200, {"new_quota": int(kv_get("new_quota", 20))})
 
@@ -1051,6 +1112,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/generate":
             words = payload.get("words") or []
+            write_known_snapshot()
             cmd = [sys.executable, os.path.join(ROOT, "dialogue.py")]
             if words:
                 cmd += ["--words", ",".join(words)]
@@ -1061,6 +1123,28 @@ class Handler(BaseHTTPRequestHandler):
             subprocess.Popen(cmd, env=env, stdout=log, stderr=log,
                              start_new_session=True)
             return self._send(200, {"started": True})
+
+        if parsed.path == "/api/log":
+            events = payload.get("events") or []
+            if not isinstance(events, list) or len(events) > 200:
+                return self._send(400, {"error": "bad events"})
+            now = time.time()
+            con = db()
+            try:
+                for e in events:
+                    con.execute(
+                        "insert into events(ts,page,view,event,detail) "
+                        "values(?,?,?,?,?)",
+                        (float(e.get("t") or now), str(e.get("page", ""))[:120],
+                         str(e.get("view", ""))[:40], str(e.get("event", ""))[:40],
+                         str(e.get("detail", ""))[:200]))
+                # 滚动保留最近 10000 条
+                con.execute("delete from events where id <= "
+                            "(select max(id) from events) - 10000")
+                con.commit()
+            finally:
+                con.close()
+            return self._send(200, {"ok": True})
 
         if parsed.path == "/api/word_pass":
             # 考试通过——整个产品唯一的学习落库动作（SRS 爬梯即实时记录）

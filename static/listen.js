@@ -95,6 +95,8 @@ async function loadList() {
 
 /* ---------------- player ---------------- */
 async function openDialogue(id) {
+  window.__mcview = "player#" + id;
+  if (window.mclog) mclog("view", "player#" + id);
   current = await fetchJSON("/api/dialogue/" + id);
   turnIdx = -1;
   playing = false;
@@ -572,6 +574,7 @@ $("delBtn").addEventListener("click", async () => {
   $("backBtn").click();
 });
 $("tabList").addEventListener("click", () => {
+  window.__mcview = "list";
   $("tabList").classList.add("active");
   $("tabWordbook").classList.remove("active");
   $("wordbookView").classList.add("hidden");
@@ -580,6 +583,7 @@ $("tabList").addEventListener("click", () => {
   loadList();
 });
 $("tabWordbook").addEventListener("click", () => {
+  window.__mcview = "wordbook";
   $("tabWordbook").classList.add("active");
   $("tabList").classList.remove("active");
   $("listView").classList.add("hidden");
