@@ -80,11 +80,21 @@ async function boot() {
   enterLearn();                                  // 其余一律直落 S2
 }
 
+let passed = new Set();   // 本次会话已考过的词
+
+/* 学习顺序 = 组顺序（第1组5个→第2组5个→…循环），这样才能按组凑出对话；
+ * 随机只在用户点「打乱重新分组」时发生（用户裁决） */
+function rebuildPool() {
+  pool = sessionWords.filter((w) => !passed.has(w.word));
+  li = 0;
+}
+
 async function loadSession() {
   const r = await fetchJSON("/api/session");
   sessionWords = r.words;
-  pool = shuffle(sessionWords.slice());
-  li = 0;
+  passed = new Set();
+  viewed = new Set();
+  rebuildPool();
   cycles = 0;
   mclog("session", `${sessionWords.length} 词: ${sessionWords.map((w) => w.word).slice(0, 8).join(",")}`);
 }
@@ -148,7 +158,10 @@ function showLearnCard() {
   const w = curLearn();
   if (!w) return;
   lRevealed = false;
-  $("newTag").classList.toggle("hidden", !w.is_new);
+  const gi = Math.floor(
+    sessionWords.findIndex((x) => x.word === w.word) / 5) + 1;
+  $("newTag").textContent = `第${gi}组${w.is_new ? " · 新词" : " · 复习"}`;
+  $("newTag").classList.remove("hidden");
   $("lWord").textContent = "· · ·";
   $("lWord").classList.add("veiled-word");
   $("lPhon").textContent = "";
@@ -178,10 +191,7 @@ let cycles = 0;         // 转满几圈了（只做中性展示，不催——�
 
 function nextLearn() {
   li += 1;
-  if (li % pool.length === 0) {
-    shuffle(pool);       // 每转完一圈重新洗
-    cycles += 1;
-  }
+  if (li % pool.length === 0) cycles += 1;   // 循环回到第1组，顺序不变
   renderLearnTop();
   showLearnCard();
 }
@@ -537,7 +547,8 @@ async function examFinalize(canRead) {
   mclog("exam", `${w.word} ${pass ? "过" : "挂"}`);
   if (pass) {
     exPassed += 1;
-    pool = pool.filter((x) => x.word !== w.word);
+    passed.add(w.word);
+    rebuildPool();
     POST("/api/word_pass", { word: w.word });
   } else {
     exFailed += 1;
@@ -569,9 +580,9 @@ $("lNextBtn").addEventListener("click", (e) => { e.currentTarget.blur(); nextLea
 $("introStartBtn").addEventListener("click", enterLearn);
 $("shuffleBtn").addEventListener("click", () => {
   sessionWords = shuffle(sessionWords.slice());   // 重新排列，四组重分
-  pool = shuffle(pool.slice());
-  li = 0;
+  rebuildPool();                                  // 学习顺序跟随新的组顺序
   mclog("shuffle", "重新分组");
+  renderLearnTop();
   renderGroups();
   showLearnCard();
 });
