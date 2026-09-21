@@ -234,12 +234,12 @@ class TestMainJourney(UIBase):
         self.page.click("#examQuitBtn")
         self.page.wait_for_selector("#vLearn", state="visible")
         self.assertIn("2/20", self.page.text_content("#learnProgress"))
-        # 考过的词绝不再进篮子（白盒读页面状态，操作全是真点击）
-        q = self.page.evaluate("brewQueue()")
+        # 考试=一轮的分界：回来篮子清空重新攒（用户裁决）
+        self.assertEqual(self.page.evaluate("brewQueue()"), [],
+                         "an exam resets the basket")
+        self.assertTrue(self.page.locator("#brewBtn").is_disabled())
         ps = self.page.evaluate("Array.from(passed)")
         self.assertEqual(sorted(ps), sorted(passed_words))
-        self.assertFalse(set(q) & set(ps),
-                         "passed words never enter the basket")
         session = [w["word"] for w in self.api("/api/session")["words"]]
         self.page.click("#lRevealBtn")
         first = self.page.text_content("#lWord").strip()
@@ -247,7 +247,7 @@ class TestMainJourney(UIBase):
         self.assertIn(first, session, "cards keep serving unpassed words")
 
     def test_u08b_basket_refills_after_a_brew(self):
-        # u06 已把第一篮 5 词送进锅——继续翻新卡，篮子续攒且仍 5 封顶
+        # 考试清篮后重新翻卡攒——进过锅的 5 词就算再翻开也不回篮
         for _ in range(30):
             if "5 个词" in self.page.text_content("#brewBtn"):
                 break
