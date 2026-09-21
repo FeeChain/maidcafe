@@ -26,12 +26,12 @@ import deckparse  # noqa: E402
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DECKS_DIR = os.path.join(ROOT, "decks")
-CACHE_DIR = os.path.join(ROOT, "cache")
+CACHE_DIR = os.environ.get("MAIDCAFE_CACHE", os.path.join(ROOT, "cache"))
 STATIC_DIR = os.path.join(ROOT, "static")
-DB_PATH = os.path.join(ROOT, "progress.db")
+DB_PATH = os.environ.get("MAIDCAFE_DB", os.path.join(ROOT, "progress.db"))
 WORDS_CACHE = os.path.join(CACHE_DIR, "words_cache.json")
 ECDICT_DB = os.path.join(ROOT, "data", "stardict.db")
-PORT = 8770
+PORT = int(os.environ.get("MAIDCAFE_PORT", "8770"))
 BLOCK_SIZE = 100    # words per difficulty block
 
 WORDS = []          # list of word dicts, difficulty-block order
@@ -108,6 +108,7 @@ def attach_tiers():
     ordered = sorted(WORDS, key=sort_key)
     for i, w in enumerate(ordered):
         w["tier"] = i // BLOCK_SIZE + 1
+        w["rank"] = i          # 全局难度序号（band+词频），生词池按它出词
         band, rank = info.get(w["word"].lower(), (None, None))
         w["band"] = band
         w["freq_rank"] = rank
@@ -267,13 +268,14 @@ def build_session():
 
 
 def get_backlog(con):
-    """Marked unknown but not yet in the SRS ladder, easiest tier first."""
+    """Marked unknown but not yet in the SRS ladder, strict difficulty order
+    (global band+frequency rank, not just block number)."""
     srs = srs_map(con)
-    tier_of = {w["word"].lower(): w.get("tier", 999) for w in WORDS}
+    rank_of = {w["word"].lower(): w.get("rank", 10 ** 9) for w in WORDS}
     rows = con.execute(
         "select word from marks where status in (1,2)").fetchall()
     backlog = [r[0] for r in rows if r[0] not in srs]
-    backlog.sort(key=lambda w: tier_of.get(w, 999))
+    backlog.sort(key=lambda w: rank_of.get(w, 10 ** 9))
     return backlog
 
 
@@ -894,8 +896,6 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/home_status":
             con = db()
             try:
-                n_probe = con.execute(
-                    "select count(*) from marks where src='probe'").fetchone()[0]
                 n_all = con.execute(
                     "select count(*) from marks where src in ('scan','probe') "
                     "or src is null").fetchone()[0]
@@ -904,10 +904,11 @@ class Handler(BaseHTTPRequestHandler):
                     "where status in ('done','adopted')").fetchone()[0]
             finally:
                 con.close()
-            # 已校准 = 探针跑完过（折半收敛最少 21 样本，阈值放 15）
+            # 已校准 = 动态探针已收敛（无状态重放判定，任意词库规模都成立）
             #         或 全扫过 50+ 词 或 有盲测档案
+            probe_done = bool(probe_next("all").get("done"))
             return self._send(200, {
-                "calibrated": n_probe >= 15 or n_all >= 50 or n_sessions > 0,
+                "calibrated": probe_done or n_all >= 50 or n_sessions > 0,
                 "new_quota": int(kv_get("new_quota", 20))})
 
         if path == "/api/session":
