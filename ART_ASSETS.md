@@ -15,7 +15,8 @@ high resolution
 ## 交付总则
 
 - 角色类：**PNG 透明底**；插画/背景类：PNG 或高质量 WebP
-- 命名按下表 ID（如 `B1_haruka_full.png`），交付后放 `static/art/`
+- 命名严格按下方「文件名对照」，交付后放 `static/art/`——**前端已按这些
+  文件名接线**：文件一到即显示，缺席则图位自动隐藏；后续升级画稿=同名覆盖
 - 色板对齐：奶油底 `#F6F1E7` / 咖啡棕 `#A4632E` / 墨棕 `#3A2F28`（画面主色调靠拢即可，不必精确）
 - 全部画面**不带任何文字**
 
@@ -63,6 +64,24 @@ high resolution
 | H1–H5 | 隐藏面彩蛋 ×5 | ≥1024×2048 透明底 | 10% 触发的隐藏面对话专属立绘 | P2 | ☐☐☐☐☐ |
 | G1–G3 | 乱入客人头像 ×3 | 512² 透明底 | 30% 乱入客人的字幕头像 | P2 | ☐☐☐ |
 | M1 | Momo Q版（chibi） | 512² 透明底 | 每日提醒通知、宣传贴纸 | P2 | ☐ |
+
+## 文件名对照（放 `static/art/`；标 ⚡ 的图位前端已接线）
+
+| ID | 文件名 |
+|---|---|
+| A1 ⚡ | `A1_logo.png`（顶栏 logo + favicon 自动升级） |
+| A2 | `A2_hero.png`（官网用，暂不进 app） |
+| B1–B5 | `B1_haruka_full.png` `B2_momo_full.png` `B3_shizuku_full.png` `B4_suzu_full.png` `B5_aoi_full.png` |
+| V1–V5 ⚡ | `V1_haruka.png` `V2_momo.png` `V3_shizuku.png` `V4_suzu.png` `V5_aoi.png`（播放器说话人头像） |
+| C1 ⚡ | `C1_welcome.png`（校准欢迎卡） |
+| C2 ⚡ | `C2_empty.png`（听力室空列表） |
+| C3 ⚡ | `C3_cooking.png`（生成等待中） |
+| C4 ⚡ | `C4_celebrate.png`（整块过完的结算页） |
+| C5 | `C5_error.png`（错误页，暂未接） |
+| S1–S4 | `S1_hall.png` `S2_rain.png` `S3_kitchen.png` `S4_office.png` |
+| H1–H5 | `H1_haruka_hidden.png` `H2_momo_hidden.png` `H3_shizuku_hidden.png` `H4_suzu_hidden.png` `H5_aoi_hidden.png` |
+| G1–G3 | `G1_gentleman.png` `G2_student.png` `G3_worker.png` |
+| M1 | `M1_chibi.png` |
 
 ---
 

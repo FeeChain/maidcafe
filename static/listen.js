@@ -42,8 +42,14 @@ async function loadList() {
   dialogues = await fetchJSON("/api/dialogues");
   const box = $("dialogueList");
   box.innerHTML = "";
+  const cooking = !!localStorage.getItem("mc_gen_pending");
+  if (cooking) {
+    box.insertAdjacentHTML("beforeend", artBanner("cooking", "cooking"));
+  }
   if (!dialogues.length) {
-    box.innerHTML = '<p class="empty">还没有对话——先在校准页积累生词，然后点上面的按钮生成。</p>';
+    box.insertAdjacentHTML("beforeend",
+      (cooking ? "" : artBanner("empty")) +
+      '<p class="empty">还没有对话——先在校准页积累生词，然后点上面的按钮生成。</p>');
     return;
   }
   let listenedRec = {};
@@ -134,7 +140,7 @@ function renderTurns() {
       (mode === "pure" && revealedOnce.has(i));
     const color = speakerColor[t.speaker] || "#999";
     let inner =
-      `<span class="spk" style="color:${color}">${t.speaker}</span>` +
+      `<span class="spk" style="color:${color}">${artAvatar(t.speaker)}${t.speaker}</span>` +
       (show ? `<span class="txt">${highlightTargets(t.text)}</span>`
             : `<span class="txt veiled">●●●</span>`);
     // C4: 纯听模式当前轮给一个"只揭示这一句"的出口

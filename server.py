@@ -255,6 +255,12 @@ CONTENT_TYPES = {
     ".css": "text/css; charset=utf-8",
     ".mp3": "audio/mpeg",
     ".json": "application/json; charset=utf-8",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml",
+    ".gif": "image/gif",
 }
 
 
@@ -296,8 +302,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_file(os.path.join(STATIC_DIR, "index.html"))
 
         if path.startswith("/static/"):
-            fname = os.path.basename(unquote(path))
-            return self._send_file(os.path.join(STATIC_DIR, fname))
+            # allow subdirectories (static/art/...) but never path traversal
+            rel = os.path.normpath(unquote(path[len("/static/"):]))
+            if rel.startswith("..") or os.path.isabs(rel):
+                return self._send(404, {"error": "not found"})
+            return self._send_file(os.path.join(STATIC_DIR, rel))
 
         if path.startswith("/audio/"):
             word = unquote(path[len("/audio/"):]).lower()

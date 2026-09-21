@@ -413,6 +413,16 @@ input:focus { outline: none; border-color: var(--accent); background: var(--card
   color: var(--accent); font-size: 13px; text-decoration: underline;
 }
 
+/* 5.6x 画稿图位：文件缺席时 img onerror 自删，图位无痕消失 */
+.art-banner {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto 18px;
+  border-radius: var(--r-lg);
+}
+.brand-logo { width: 26px; height: 26px; border-radius: 50%; display: block; }
+
 /* 5.65 折叠区（details/summary）：统一小箭头，替换浏览器默认黑三角 */
 details > summary {
   cursor: pointer;

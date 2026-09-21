@@ -31,6 +31,7 @@
 <main id="main">
   <div id="startOverlay" class="overlay">
     <div class="overlay-card">
+      <img class="art-banner" src="/static/art/C1_welcome.png" alt="" onerror="this.remove()">
       <h1>欢迎回来，客人 ☕</h1>
       <div id="continueBar" class="hint-line hidden" style="margin-bottom:12px;"></div>
       <p>听音优先的词汇校准：先凭耳朵判断，再看词形确认。</p>
@@ -88,6 +89,7 @@
   </div>
 
   <div id="doneCard" class="card done hidden">
+    <img id="doneArt" class="art-banner hidden" src="/static/art/C4_celebrate.png" alt="" onerror="this.remove()">
     <h2 id="doneTitle">这一轮结束 🎉</h2>
     <div id="doneStats"></div>
     <p>进度已自动保存，随时回来继续。</p>
@@ -96,6 +98,7 @@
   </div>
 </main>
 
+<script src="/static/art.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

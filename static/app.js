@@ -129,6 +129,8 @@ function showDone() {
       : remaining > 0 ? `第${t}块先到这里 ☕` : `第${t}块过完了 🎉`;
   $("nextTierBtn").classList.toggle("hidden", !hasNext);
   $("resumeBtn").classList.toggle("hidden", remaining <= 0);
+  const da = $("doneArt");           // 庆祝画稿只在整块真过完时亮
+  if (da) da.classList.toggle("hidden", remaining > 0);
   $("resumeBtn").textContent = `继续过完这一块（剩 ${remaining} 词）`;
   if (stats) {
     $("doneStats").innerHTML =
