@@ -266,13 +266,10 @@ def build_session():
                if s["state"] == "learning" and s["due_ts"] <= now]
         quota = int(kv_get("new_quota", 20))
         candidates = get_backlog(con)
-        n_evidence = con.execute(
-            "select count(*) from marks where src in ('scan','probe') "
-            "or src is null").fetchone()[0]
-        if len(candidates) < quota and n_evidence:
+        if len(candidates) < quota and has_probe_evidence():
             # 生词池不够一份：探针已定位边界，边界之外没标过的词
             # 本来就推定为生词——按难度顺序补满（考过才进梯，其余零记录）。
-            # 零校准证据时不结算边界：没测过就一个词都不端（S0 会先拦住）
+            # 证据门槛（>=3 样本的块存在）不满足时不结算边界（S0 会先拦住）
             nxt = probe_next("all", settle=True)
             if nxt.get("done"):
                 frontier = nxt["bracket"][1]  # 第一个生词侧的块
@@ -312,11 +309,12 @@ def write_known_snapshot():
     + 显式标记认识的词。边界由探针无状态重放得出。"""
     known = set()
     try:
-        nxt = probe_next("all", settle=True)
-        if nxt.get("done"):
-            frontier = nxt["bracket"][1]  # 第一个生词侧的块
-            known.update(w["word"].lower() for w in WORDS
-                         if w.get("tier", 1) < frontier)
+        if has_probe_evidence():
+            nxt = probe_next("all", settle=True)
+            if nxt.get("done"):
+                frontier = nxt["bracket"][1]  # 第一个生词侧的块
+                known.update(w["word"].lower() for w in WORDS
+                             if w.get("tier", 1) < frontier)
     except Exception:
         pass
     marks = get_marks()
@@ -476,6 +474,18 @@ def pick_block_words(ws, marks_src, deck, tier, k):
     rng = random.Random("probe:%s:%d" % (deck, tier))
     rng.shuffle(unmarked)
     return [probe_word_out(w, tier) for w in unmarked[:k]]
+
+
+def has_probe_evidence(marks_src=None):
+    """边界推定的证据门槛：至少有一个块攒到 >=3 个无偏样本
+    （零星一两个标记不足以"结算"出边界——防止 settle 模式过度推定）。"""
+    if marks_src is None:
+        marks_src = get_marks_src()
+    for _, ws in words_of_deck("all").items():
+        samples, _ = block_samples(ws, marks_src)
+        if len(samples) >= 3:
+            return True
+    return False
 
 
 def probe_next(deck, marks_src=None, settle=False):

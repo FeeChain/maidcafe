@@ -1,10 +1,11 @@
 # maidcafe 测试计划与覆盖矩阵
 
 > 规矩：**测试项从 FLOW.md 推导**——每个状态×每个控件×每条跳转×每条不变量
-> 至少一项。方式：`auto`=tests/test_e2e.py（CI 每次跑）；`walk`=浏览器人工
-> 走查脚本（隔离实例，逐按钮真点，记录执行日期）。
+> 至少一项。**三层自动化（2026-09-21 用户勒令确立，人工走查不再计入覆盖）**：
+> `unit`=test_server.py/test_dialogue.py · `e2e`=test_e2e.py ·
+> `ui`=test_ui.py（Playwright 真浏览器全点击）。walk 仅作探索性补充。
 > **纪律：改流程 → 先改 FLOW → 更新本矩阵 → 补测试 → 全绿才 push。**
-> 状态列：✅=已覆盖（注日期/用例）· ☐=缺口。
+> 状态列：✅=已有自动化用例 · ☐=缺口。
 
 ## A. 主页状态机（home）
 
@@ -102,6 +103,20 @@
 | 6 挂词零惩罚 | t05(挂无记录) + A13 |
 | 7 工具页无副作用 | t12 + C10 |
 | 8 边界即已知 | t04 + t10 快照断言 |
+
+## 自动化映射（2026-09-21 深夜重建后，walk 列整体被 test_ui.py 接管）
+
+| 矩阵区 | 自动化归属 |
+|---|---|
+| A 主页状态机 A01-A20 | ui u01-u13 + unit(SessionRecipe/SrsLadder) + e2e t01/03/04/05 |
+| B 听对话 B01-B03/05-11 | ui u06-u07 + e2e t10（B04 超时仍为缺口） |
+| C 校准 C01-C11 | ui u01-u03 + v01-v02 + unit(ProbeBisection/BlockClass/VocabEstimate) |
+| D 对话史/生词本 D01-D05 | ui v03 + e2e t08/t12（播放器全控件深度=9-21 走查存档，ui 覆盖核心路径） |
+| E 服务端契约 | e2e t01-t12（12 用例） |
+| F 不变量 1-8 | unit+e2e+ui 交叉（见各区） |
+
+合计 **62 个自动化用例**：test_server 21 · test_dialogue 13 · test_e2e 12 ·
+test_ui 16。本地 47 秒全跑完；CI 两个 job（core 双OS×双Py + ui@ubuntu）。
 
 ## 走查战果记录（2026-09-21 晚，首次按矩阵全测）
 
