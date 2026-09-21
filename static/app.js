@@ -157,6 +157,7 @@ function showCurrent() {
   }
   probeMode ? renderProbeStats() : loadStats();
   $("endBtn").classList.remove("hidden");
+  $("topNav").classList.remove("hidden");
   $("probeCard").classList.add("hidden");
   $("doneCard").classList.add("hidden");
   $("card").classList.remove("hidden");
@@ -291,6 +292,7 @@ const fmtN = (x) => x.toLocaleString("zh-CN");
 
 async function showProbeResult(r) {
   $("endBtn").classList.add("hidden");   // 结果页没有"本轮"可结束
+  $("topNav").classList.add("hidden");   // 出口只走结果卡上的按钮（用户裁决）
   window.__mcview = "probeResult";
   mclog("view", "probeResult" +
     (r && r.done ? ` 边界${r.boundary} 共${r.probe_words}词` : " (中止)"));
