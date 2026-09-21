@@ -16,5 +16,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - name: End-to-end tests (isolated server, synthetic wordbook)
+      - name: Unit tests (server core functions)
+        run: python3 tests/test_server.py -v
+      - name: Unit tests (dialogue pipeline)
+        run: python3 tests/test_dialogue.py -v
+      - name: Integration tests (HTTP, isolated server)
         run: python3 tests/test_e2e.py -v
+
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Playwright (dev-only; the product stays stdlib-only)
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Full-click UI tests (real headless Chromium)
+        run: python3 tests/test_ui.py -v
