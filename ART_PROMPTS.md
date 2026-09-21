@@ -16,10 +16,13 @@
 From the full-body Momo standing illustration (same pink twin-tails waitress), produce a bust portrait avatar: chest-up framing, face occupying about 50% of the frame, centered, looking at the viewer with a cheerful smile, fully transparent background (PNG), square image. This will be displayed cropped in a circle, so keep all four corners free of important elements.
 ```
 
-**H2 Momo 隐藏面（哥特）**
+**H2 Momo 隐藏面（哥特）**（强化版：只锚定脸/发型，服装配色全换，防参考图拽回明亮）
 ```
-Using the exact same character (same face, same pink twin-tails), draw a new full-body standing illustration in the same style: she now wears subtle black-lace gothic accessories over her maid outfit, quietly admiring a single black rose she holds, soft moody lighting, faint wistful smile instead of her usual energy. Fully transparent background (PNG), tall portrait format, about 5% margin above head and below feet, no ground shadow, no text, no watermark.
+Keep ONLY this character's identity: same face, same strawberry-pink twin-tails with star hairpins, same big magenta eyes. Everything else transforms completely — this is her secret hidden side. Full gothic lolita outfit: black dress with layered black lace ruffles, black ribbon choker, dark elegant makeup accents. She quietly holds a single black rose, faint mysterious smile instead of her usual cheerful energy. Dark moody palette: black and deep purple with candlelight. Same clean modern Japanese anime rendering quality as the reference image, but the COLOR MOOD is completely different — dark, elegant, quiet. Full-body standing illustration, fully transparent background (PNG) or plain flat solid light-grey (#EEEEEE), tall portrait format, no ground shadow, no text, no watermark.
 ```
+> 隐藏面通用要领：prompt 里**永远别写 subtle**——只锚定"脸+发型+瞳色"，
+> 服装/配色/气质写成"completely transforms"，并明说"渲染质量学参考图、
+> 色彩情绪完全不同"。H1/H3/H4/H5 同理套用。
 
 **M1 Momo Q版**
 ```
