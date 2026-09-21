@@ -269,14 +269,16 @@ async function showWordCard(word, opts) {
   const t = current
     ? current.targets.find((x) => x.word.toLowerCase() === word.toLowerCase())
     : null;
-  let info = t;
-  let showAdd = false;
-  let graduated = !!opts.graduated;
-  if (!t) {
-    info = await fetchJSON("/api/lookup?word=" + encodeURIComponent(word));
-    showAdd = !info.in_wordbook && !info.known && !info.error;
-    if (info.known) graduated = true;
-  }
+  // 无论是否 target 命中，都查一次在池/毕业标志——
+  // 否则毕业的目标词会丢「↺ 再学一遍」按钮（TESTPLAN D03 抓到的 bug）
+  let flags = {};
+  try {
+    flags = await fetchJSON("/api/lookup?word=" + encodeURIComponent(word));
+  } catch (_) {}
+  const info = t || flags;
+  const showAdd = !!flags.definition && !flags.in_wordbook &&
+                  !flags.known && !flags.error;
+  let graduated = !!opts.graduated || !!flags.known;
   // C2: 点词自动暂停，且暂停可见
   pausedByCard = false;
   if (playing) {

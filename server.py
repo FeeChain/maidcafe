@@ -688,6 +688,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        # 本地应用：页面与脚本永远要最新，否则改版后浏览器跑旧 JS（幽灵 bug）
+        if ext in (".html", ".js", ".css"):
+            self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         self.wfile.write(body)
 
@@ -939,10 +942,16 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 m = con.execute("select status from marks where word=?",
                                 (word.lower(),)).fetchone()
+                s = con.execute("select state from word_srs where word=?",
+                                (word.lower(),)).fetchone()
             finally:
                 con.close()
-            info["in_wordbook"] = bool(m and m[0] in (1, 2))
-            info["known"] = bool(m and m[0] == 3)
+            # 身份以 marks ∪ word_srs 合并判定：毕业记录在梯上，
+            # marks 可能无行（边界外推定词直接学会的场景）
+            info["in_wordbook"] = bool(m and m[0] in (1, 2)) or \
+                bool(s and s[0] == "learning")
+            info["known"] = bool(m and m[0] == 3) or \
+                bool(s and s[0] == "graduated")
             return self._send(200, info)
 
         if path == "/api/home_status":
@@ -1157,6 +1166,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(400, {"error": "bad word"})
             con = db()
             try:
+                # 边界外推定生词此前 marks 无行：补 status1/src=add，
+                # 生词本可见、不进统计样本、不入已知集（毕业时会翻成3）
+                con.execute(
+                    "insert or ignore into marks(word,status,ts,src) "
+                    "values(?,1,?,'add')", (word, time.time()))
                 srs_review(con, word)
                 con.commit()
             finally:
@@ -1211,7 +1225,9 @@ class Handler(BaseHTTPRequestHandler):
                     " on conflict(word) do update set state='graduated'",
                     (word, now, now))
                 con.execute(
-                    "update marks set status=3, ts=? where word=?", (now, word))
+                    "insert into marks(word,status,ts,src) values(?,3,?,NULL) "
+                    "on conflict(word) do update set status=3, ts=excluded.ts",
+                    (word, now))
                 con.commit()
             finally:
                 con.close()
@@ -1243,7 +1259,9 @@ class Handler(BaseHTTPRequestHandler):
             con = db()
             try:
                 con.execute(
-                    "update marks set status=1, ts=? where word=?", (now, word))
+                    "insert into marks(word,status,ts,src) values(?,1,?,'add') "
+                    "on conflict(word) do update set status=1, ts=excluded.ts",
+                    (word, now))
                 con.execute(
                     "insert into word_srs(word, level, due_ts, state, added_ts)"
                     " values(?,0,?, 'learning', ?)"
