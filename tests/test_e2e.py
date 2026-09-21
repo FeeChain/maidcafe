@@ -166,6 +166,12 @@ class TestMaidcafe(unittest.TestCase):
         self.assertEqual(self.sql(
             "select level from word_srs where word='%s'" % w), [(1,)],
             "same-day double pass must not climb twice")
+        # 推定生词考过后：marks 补行(1,'add') -> 生词本可见、不进统计、不入已知集
+        self.assertEqual(self.sql(
+            "select status, src from marks where word='%s'" % w),
+            [(1, "add")], "frontier word must gain a biased-source mark")
+        self.assertIn(w, [x["word"] for x in call("/api/wordbook")["learning"]],
+                      "passed frontier word must appear in the wordbook")
 
     def test_06_scan_marks_fill_the_quota(self):
         for i in range(150, 195):  # 45 more unknowns via full-scan marks
@@ -248,6 +254,46 @@ class TestMaidcafe(unittest.TestCase):
         # no row at all = generator crashed before the placeholder insert
         self.fail("no dialogue row appeared; check generate.log handling")
 
+
+    def test_12_word_actions_and_legacy_noop(self):
+        w = call("/api/session")["words"][0]["word"]
+        call("/api/word_pass", {"word": w})
+        call("/api/word/learned", {"word": w})     # 手动毕业（斩词）
+        self.assertEqual(self.sql(
+            "select state from word_srs where word='%s'" % w)[0][0], "graduated")
+        self.assertEqual(self.sql(
+            "select status from marks where word='%s'" % w)[0][0], 3)
+        self.assertTrue(call("/api/lookup?word=%s" % w)["known"],
+                        "graduated word must read back as known (upsert fix)")
+        # marks 无行的毕业词也必须被认出（lookup 合并 word_srs 判定）
+        con = sqlite3.connect(self.db_path)
+        con.execute("delete from marks where word='%s'" % w)
+        con.commit()
+        con.close()
+        self.assertTrue(call("/api/lookup?word=%s" % w)["known"],
+                        "graduation lives in word_srs; markless must still be known")
+        call("/api/word/readd", {"word": w})       # 毕业词拉回重学
+        self.assertEqual(self.sql(
+            "select state, level from word_srs where word='%s'" % w)[0],
+            ("learning", 0))
+        call("/api/word/unfamiliar", {"word": w})  # 打回梯底
+        row = self.sql("select level, reviewed_ts from word_srs "
+                       "where word='%s'" % w)
+        self.assertEqual(row[0][0], 0)
+        # /api/listened 已按裁决空转：不再计分（过词只有考试一条路）
+        con = sqlite3.connect(self.db_path)
+        con.execute("insert into dialogues(ts,scene,characters,target_words,"
+                    "turns,report,status) values(1,'t','[]',?, '[]','{}','done')",
+                    (json.dumps([w]),))
+        con.commit()
+        did = con.execute("select max(id) from dialogues").fetchone()[0]
+        con.close()
+        call("/api/listened", {"id": did})
+        self.assertEqual(self.sql("select level, reviewed_ts from word_srs "
+                                  "where word='%s'" % w), row,
+                         "listened must be a scoring no-op")
+        call("/api/dialogue_delete", {"id": did})
+        self.assertTrue(all(d["id"] != did for d in call("/api/dialogues")))
 
     def test_11_event_log(self):
         call("/api/log", {"events": [
