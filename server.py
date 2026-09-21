@@ -315,12 +315,10 @@ def write_known_snapshot():
                          if w.get("tier", 1) < frontier)
     except Exception:
         pass
-    con = db()
-    try:
-        known.update(w for (w,) in
-                     con.execute("select word from marks where status=3"))
-    finally:
-        con.close()
+    marks = get_marks()
+    known.update(w for w, s in marks.items() if s == 3)
+    # 全扫在边界内逐词揪出的漏词：显式标了不认识的，推定失效，从已知集剔除
+    known.difference_update(w for w, s in marks.items() if s in (1, 2))
     with open(os.path.join(CACHE_DIR, "known_words.json"), "w",
               encoding="utf-8") as f:
         json.dump(sorted(known), f, ensure_ascii=False)
