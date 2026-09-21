@@ -269,7 +269,7 @@ def build_session():
         if len(candidates) < quota:
             # 生词池不够一份：探针已定位边界，边界之外没标过的词
             # 本来就推定为生词——按难度顺序补满（考过才进梯，其余零记录）
-            nxt = probe_next("all")
+            nxt = probe_next("all", settle=True)
             if nxt.get("done"):
                 frontier = nxt["bracket"][1]  # 第一个生词侧的块
                 marks = get_marks()
@@ -308,7 +308,7 @@ def write_known_snapshot():
     + 显式标记认识的词。边界由探针无状态重放得出。"""
     known = set()
     try:
-        nxt = probe_next("all")
+        nxt = probe_next("all", settle=True)
         if nxt.get("done"):
             frontier = nxt["bracket"][1]  # 第一个生词侧的块
             known.update(w["word"].lower() for w in WORDS
@@ -474,10 +474,12 @@ def pick_block_words(ws, marks_src, deck, tier, k):
     return [probe_word_out(w, tier) for w in unmarked[:k]]
 
 
-def probe_next(deck, marks_src=None):
+def probe_next(deck, marks_src=None, settle=False):
     """动态探针：对按难度排好的块做折半查找，把「已知侧/生词侧」的边界
     夹到相邻两块，区间中点即真实边界。无状态——每次调用从现有标记重放
-    整个搜索，中断随时可续。"""
+    整个搜索，中断随时可续。
+    settle=True：结算模式（算已知集快照用）——含糊/缺样本的块按现有样本
+    多数硬归类，绝不返回「还要再测几个词」。"""
     if marks_src is None:
         marks_src = get_marks_src()
     by = words_of_deck(deck)
@@ -490,11 +492,11 @@ def probe_next(deck, marks_src=None):
         t = tiers[mid - 1]
         c = block_class(by[t], marks_src)
         if c in ("unsampled", "need_more"):
-            words = pick_block_words(by[t], marks_src, deck, t, 3)
-            if not words:               # 块抽干了，按现有样本硬归类
+            words = None if settle else pick_block_words(by[t], marks_src, deck, t, 3)
+            if not words:               # 结算模式/块抽干了：按现有样本硬归类
                 samples, _ = block_samples(by[t], marks_src)
                 u = sum(1 for s in samples if s != 3)
-                c = "low" if samples and u * 2 >= len(samples) else "high"
+                c = "high" if samples and u * 2 < len(samples) else "low"
             else:
                 return {"done": False, "tier": t, "phase": c,
                         "bracket": [tiers[lo - 1] if lo else 0,
