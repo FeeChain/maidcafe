@@ -129,20 +129,13 @@ function revealLearn() {
   $("lNextBtn").classList.remove("hidden");
 }
 
-let cycles = 0;         // 转满几圈了（考试轻推用）
-let nudged = false;
+let cycles = 0;         // 转满几圈了（只做中性展示，不催——产品原则）
 
 function nextLearn() {
   li += 1;
   if (li % pool.length === 0) {
     shuffle(pool);       // 每转完一圈重新洗
     cycles += 1;
-    // 行业教训：自主考试的拖延风险 -> 转满一圈后轻推，不强制
-    if (cycles >= 1 && !nudged) {
-      nudged = true;
-      $("examBtn").classList.add("pulse");
-      toast(`这 ${pool.length} 个词你已经转满一圈了——考考看？主动权在你 ☕`);
-    }
   }
   renderLearnTop();
   showLearnCard();
@@ -186,7 +179,6 @@ async function requestScene(words) {
 
 /* ---------------- 考试（两键自评，主动权在用户） ---------------- */
 function enterExam() {
-  $("examBtn").classList.remove("pulse");
   exQueue = shuffle(pool.slice());
   exIdx = 0;
   exPassed = 0;

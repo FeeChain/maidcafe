@@ -35,13 +35,6 @@
 }
 .cfg-links { border-top: 1px dashed var(--line); padding-top: 12px; }
 
-/* 考试按钮轻推（转满一圈后呼吸提示，不强制） */
-@keyframes pulse-mk {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(164, 99, 46, .35); }
-  50% { box-shadow: 0 0 0 7px rgba(164, 99, 46, 0); }
-}
-.mk.pulse { border-color: var(--accent); color: var(--accent); animation: pulse-mk 1.6s infinite; }
-
 @media (max-width: 959px) {
   .learn-top { position: sticky; top: 0; z-index: 10; background: var(--bg); padding: 8px 0; }
 }
