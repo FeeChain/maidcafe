@@ -230,6 +230,9 @@ async function startProbe(kind, fresh) {
   started = true;
   probeMode = true;
   probeKind = kind;
+  // 探针不需要全扫的工具排（难度/词库/模式），藏起来少分心
+  ["tierSelect", "deckSelect", "modeSelect", "hintToggle"].forEach((id) =>
+    $(id).classList.add("hidden"));
   if (fresh) {
     const r = await fetchJSON("/api/probe_session_start", {
       method: "POST",
@@ -390,6 +393,8 @@ $("probeMoreBtn").addEventListener("click", async () => {
 $("probeExitBtn").addEventListener("click", async () => {
   probeMode = false;
   probeSession = null;
+  ["tierSelect", "deckSelect", "modeSelect", "hintToggle"].forEach((id) =>
+    $(id).classList.remove("hidden"));
   $("probeCard").classList.add("hidden");
   await loadTiers(false);
   loadQueue();
