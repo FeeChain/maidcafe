@@ -519,6 +519,9 @@ $("wcAdd").addEventListener("click", async (e) => {
 
 /* ---------------- 考试（两键自评，主动权在用户） ---------------- */
 function enterExam() {
+  // 考试=一轮的分界：清空篮子，考完回来重新攒（用户裁决）
+  viewed = new Set();
+  viewedOrder = [];
   exQueue = shuffle(pool.slice());
   exIdx = 0;
   exPassed = 0;
