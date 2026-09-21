@@ -146,6 +146,16 @@ def db():
         "create table if not exists word_srs("
         "word text primary key, level integer, due_ts real,"
         "state text, added_ts real)")
+    # 盲测档案：重测的标记独立存放，不碰主记录；用户测完自选
+    # 「采用为主记录」（合并覆写）或仅存档/删除
+    con.execute(
+        "create table if not exists probe_sessions("
+        "id integer primary key autoincrement, ts real, kind text,"
+        "status text, result text)")
+    con.execute(
+        "create table if not exists probe_marks("
+        "session integer, word text, status integer, ts real,"
+        "primary key(session, word))")
     return con
 
 
@@ -275,6 +285,22 @@ def get_marks_src():
         con.close()
 
 
+def session_marks_src(session):
+    """盲测档案的标记，形状与 get_marks_src 一致（全部视为随机样本）。"""
+    con = db()
+    try:
+        return {w: (s, "probe") for w, s in con.execute(
+            "select word, status from probe_marks where session=?",
+            (session,)).fetchall()}
+    finally:
+        con.close()
+
+
+def marks_src_for(qs):
+    sess = qs.get("session", [None])[0]
+    return session_marks_src(int(sess)) if sess else get_marks_src()
+
+
 def block_samples(ws, marks_src):
     """一个块里可当随机样本的标记。规则：
     - src=scan/probe 一定是随机样本；
@@ -338,11 +364,12 @@ def pick_block_words(ws, marks_src, deck, tier, k):
     return [probe_word_out(w, tier) for w in unmarked[:k]]
 
 
-def probe_next(deck):
+def probe_next(deck, marks_src=None):
     """动态探针：对按难度排好的块做折半查找，把「已知侧/生词侧」的边界
     夹到相邻两块，区间中点即真实边界。无状态——每次调用从现有标记重放
     整个搜索，中断随时可续。"""
-    marks_src = get_marks_src()
+    if marks_src is None:
+        marks_src = get_marks_src()
     by = words_of_deck(deck)
     tiers = sorted(by)
     n_words = lambda: sum(1 for w, (s, src) in marks_src.items()
@@ -384,8 +411,9 @@ def probe_next(deck):
             "probe_words": n_words()}
 
 
-def probe_queue(deck, per):
-    marks_src = get_marks_src()
+def probe_queue(deck, per, marks_src=None):
+    if marks_src is None:
+        marks_src = get_marks_src()
     out = []
     for tier, ws in sorted(words_of_deck(deck).items()):
         samples, n_all = block_samples(ws, marks_src)
@@ -411,8 +439,9 @@ def probe_queue(deck, per):
     return out
 
 
-def vocab_estimate(deck):
-    marks_src = get_marks_src()
+def vocab_estimate(deck, marks_src=None):
+    if marks_src is None:
+        marks_src = get_marks_src()
     blocks = []
     for tier, ws in sorted(words_of_deck(deck).items()):
         total = len(ws)
@@ -636,16 +665,28 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/probe_next":
             deck = qs.get("deck", ["all"])[0]
-            return self._send(200, probe_next(deck))
+            return self._send(200, probe_next(deck, marks_src_for(qs)))
 
         if path == "/api/probe_queue":
             deck = qs.get("deck", ["all"])[0]
             per = int(qs.get("per", [PROBE_PER_BLOCK])[0])
-            return self._send(200, probe_queue(deck, per))
+            return self._send(200, probe_queue(deck, per, marks_src_for(qs)))
 
         if path == "/api/vocab_estimate":
             deck = qs.get("deck", ["all"])[0]
-            return self._send(200, vocab_estimate(deck))
+            return self._send(200, vocab_estimate(deck, marks_src_for(qs)))
+
+        if path == "/api/probe_sessions":
+            con = db()
+            try:
+                rows = con.execute(
+                    "select id, ts, kind, status, result from probe_sessions "
+                    "where status in ('done','adopted') order by id desc").fetchall()
+            finally:
+                con.close()
+            return self._send(200, [
+                {"id": r[0], "ts": r[1], "kind": r[2], "status": r[3],
+                 "result": json.loads(r[4]) if r[4] else None} for r in rows])
 
         if path == "/api/tiers":
             marks = get_marks()
@@ -823,8 +864,95 @@ class Handler(BaseHTTPRequestHandler):
             status = payload.get("status")  # 1 / 2 / 3 / None(=undo)
             if not word or status not in (1, 2, 3, None):
                 return self._send(400, {"error": "bad params"})
+            session = payload.get("session")
+            if session:  # 盲测档案：写独立表，不碰主记录
+                con = db()
+                try:
+                    if status is None:
+                        con.execute("delete from probe_marks where session=? and word=?",
+                                    (session, word))
+                    else:
+                        con.execute(
+                            "insert into probe_marks(session,word,status,ts) "
+                            "values(?,?,?,?) on conflict(session,word) do update "
+                            "set status=excluded.status, ts=excluded.ts",
+                            (session, word, status, time.time()))
+                    con.commit()
+                finally:
+                    con.close()
+                return self._send(200, {"ok": True})
             src = payload.get("src")
             set_mark(word, status, src if src in ("scan", "probe", "add") else None)
+            return self._send(200, {"ok": True})
+
+        if parsed.path == "/api/probe_session_start":
+            con = db()
+            try:
+                cur = con.execute(
+                    "insert into probe_sessions(ts,kind,status) values(?,?,?)",
+                    (time.time(), payload.get("kind", "dyn"), "open"))
+                con.commit()
+                sid = cur.lastrowid
+            finally:
+                con.close()
+            return self._send(200, {"session": sid})
+
+        if parsed.path == "/api/probe_session_finish":
+            sid = payload.get("session")
+            if not sid:
+                return self._send(400, {"error": "bad session"})
+            ms = session_marks_src(sid)
+            est = vocab_estimate("all", ms)
+            nxt = probe_next("all", ms)
+            result = {
+                "listening": est["listening"], "reading": est["reading"],
+                "ci95_listen": est["ci95_listen"], "ci95_read": est["ci95_read"],
+                "sampled": est["sampled"],
+                "unmeasured_blocks": est["unmeasured_blocks"],
+                "boundary": nxt.get("boundary") if nxt.get("done") else None,
+                "boundary_band": nxt.get("boundary_band") if nxt.get("done") else None,
+            }
+            con = db()
+            try:
+                con.execute("update probe_sessions set status='done', result=? where id=?",
+                            (json.dumps(result, ensure_ascii=False), sid))
+                con.commit()
+            finally:
+                con.close()
+            return self._send(200, result)
+
+        if parsed.path == "/api/probe_session_adopt":
+            sid = payload.get("session")
+            if not sid:
+                return self._send(400, {"error": "bad session"})
+            con = db()
+            try:
+                rows = con.execute(
+                    "select word, status from probe_marks where session=?",
+                    (sid,)).fetchall()
+            finally:
+                con.close()
+            for word, status in rows:  # 覆写主记录，来源记为 probe（随机样本）
+                set_mark(word, status, "probe")
+            con = db()
+            try:
+                con.execute("update probe_sessions set status='adopted' where id=?", (sid,))
+                con.commit()
+            finally:
+                con.close()
+            return self._send(200, {"ok": True, "merged": len(rows)})
+
+        if parsed.path == "/api/probe_session_discard":
+            sid = payload.get("session")
+            if not sid:
+                return self._send(400, {"error": "bad session"})
+            con = db()
+            try:
+                con.execute("delete from probe_marks where session=?", (sid,))
+                con.execute("delete from probe_sessions where id=?", (sid,))
+                con.commit()
+            finally:
+                con.close()
             return self._send(200, {"ok": True})
 
         if parsed.path == "/api/generate":

@@ -523,6 +523,14 @@ details > summary:hover { color: var(--accent-deep); }
 .probe-bands .bbar i.lst { background: var(--green); }
 .probe-bands .bnum { flex: none; font-family: var(--font-mono); font-size: 11px; }
 #probeCard .mk { margin: 4px 6px 0; }
+.probe-hist { margin-top: 4px; }
+.probe-hist summary { font-size: 12.5px; color: var(--muted); }
+.ph-row {
+  display: flex; align-items: center; gap: 8px; justify-content: center;
+  font-size: 12.5px; color: var(--muted-2);
+  padding: 5px 0;
+}
+.ph-row .mk.small { min-height: 26px; padding: 3px 9px; font-size: 12px; }
 
 /* --- 7. 插画占位与空状态 ---------------------------------------------------- */
 /* 画稿到位前用同尺寸灰框上线，替换真图不产生位移。用法：

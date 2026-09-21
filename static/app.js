@@ -18,6 +18,7 @@ let probeMode = false;  // 探针式词汇量测定（v1.5）
 let probeKind = "dyn";  // dyn=动态折半找边界（默认） | full=全覆盖抽样
 let probePer = 3;       // full 模式每块目标样本数
 let probeInfo = null;   // dyn 模式：当前 {tier, bracket} 状态
+let probeSession = null; // 盲测档案 id（null = 直接写主记录）
 
 const $ = (id) => document.getElementById(id);
 
@@ -213,7 +214,8 @@ async function finalize(canRead) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ word: w.word, status,
-                           src: probeMode ? "probe" : "scan" }),
+                           src: probeMode ? "probe" : "scan",
+                           session: probeSession || undefined }),
   });
   if (!probeMode) loadStats();
 }
@@ -222,10 +224,20 @@ async function finalize(canRead) {
 
 let probePace = 4.5;  // 秒/词，开针时从 /api/stats 取实测值
 
-async function startProbe(kind) {
+const sessParam = () => (probeSession ? `&session=${probeSession}` : "");
+
+async function startProbe(kind, fresh) {
   started = true;
   probeMode = true;
   probeKind = kind;
+  if (fresh) {
+    const r = await fetchJSON("/api/probe_session_start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind }),
+    });
+    probeSession = r.session;
+  }
   $("startOverlay").classList.add("hidden");
   try {
     const s = await fetchJSON(`/api/stats?deck=${encodeURIComponent(currentDeck())}&tier=all`);
@@ -233,7 +245,7 @@ async function startProbe(kind) {
     if (s.pace) probePace = s.pace;
   } catch (_) {}
   if (kind === "dyn") { probeNext(); return; }
-  queue = await fetchJSON(`/api/probe_queue?deck=${encodeURIComponent(currentDeck())}&per=${probePer}`);
+  queue = await fetchJSON(`/api/probe_queue?deck=${encodeURIComponent(currentDeck())}&per=${probePer}${sessParam()}`);
   idx = 0;
   if (!queue.length) { showProbeResult(null); return; }
   showCurrent();
@@ -242,7 +254,7 @@ async function startProbe(kind) {
 /* 动态折半：向服务端要下一批 3 词；服务端每次从全部标记重放搜索，
  * 所以中途退出、明天再来都严格接着走 */
 async function probeNext() {
-  const r = await fetchJSON(`/api/probe_next?deck=${encodeURIComponent(currentDeck())}`);
+  const r = await fetchJSON(`/api/probe_next?deck=${encodeURIComponent(currentDeck())}${sessParam()}`);
   if (r.done) { showProbeResult(r); return; }
   probeInfo = r;
   queue = r.words;
@@ -251,17 +263,18 @@ async function probeNext() {
 }
 
 function renderProbeStats() {
+  const tag = probeSession ? `盲测#${probeSession} · ` : "";
   if (probeKind === "dyn" && probeInfo) {
     const [lo, hi] = probeInfo.bracket;
     $("statsBar").innerHTML =
-      `🔍 折半试探第 <b>${probeInfo.tier}</b> 块 · 边界区间 (${lo}, ${hi}) · ` +
+      `🔍 ${tag}折半试探第 <b>${probeInfo.tier}</b> 块 · 边界区间 (${lo}, ${hi}) · ` +
       `本轮 ${idx}/${queue.length}`;
     $("progressFill").style.width = "0%";
     return;
   }
   const remain = queue.length - idx;
   $("statsBar").innerHTML =
-    `🔍 探针 <b>${idx}</b>/${queue.length}` +
+    `🔍 ${tag}探针 <b>${idx}</b>/${queue.length}` +
     (remain > 0 ? ` · 剩≈${fmtDur(remain * probePace)}` : "");
   $("progressFill").style.width =
     (queue.length ? (idx / queue.length) * 100 : 0).toFixed(2) + "%";
@@ -283,8 +296,17 @@ async function showProbeResult(r) {
   } else {
     bd.classList.add("hidden");
   }
+  $("adoptBtn").classList.toggle("hidden", !probeSession);
+  $("discardBtn").classList.toggle("hidden", !probeSession);
+  if (probeSession) {  // 结档：服务端存一份结果快照进历史
+    fetchJSON("/api/probe_session_finish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session: probeSession }),
+    }).catch(() => {});
+  }
   $("probeNums").innerHTML = "计算中…";
-  const v = await fetchJSON(`/api/vocab_estimate?deck=${encodeURIComponent(currentDeck())}`);
+  const v = await fetchJSON(`/api/vocab_estimate?deck=${encodeURIComponent(currentDeck())}${sessParam()}`);
   // 有未测块时数字是外推，标 ± 会假装精确——测满一轮才显示置信区间
   const ci = v.unmeasured_blocks === 0;
   $("probeNums").innerHTML =
@@ -367,10 +389,75 @@ $("probeMoreBtn").addEventListener("click", async () => {
 });
 $("probeExitBtn").addEventListener("click", async () => {
   probeMode = false;
+  probeSession = null;
   $("probeCard").classList.add("hidden");
   await loadTiers(false);
   loadQueue();
+  loadProbeHist();
 });
+
+async function sessionAction(url, msg) {
+  await fetchJSON(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session: probeSession }),
+  });
+  probeSession = null;
+  loadVocabLine();
+  $("probeExitBtn").click();
+}
+$("adoptBtn").addEventListener("click", () => {
+  if (confirm("把本次盲测的标记合并进主记录？（同词覆写旧标记）"))
+    sessionAction("/api/probe_session_adopt");
+});
+$("discardBtn").addEventListener("click", () => {
+  if (confirm("删除本次盲测档案？")) sessionAction("/api/probe_session_discard");
+});
+$("probeFreshBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  startProbe("dyn", true);
+});
+
+/* 历史测定列表（盲测档案；可回头采用或删除） */
+async function loadProbeHist() {
+  try {
+    const list = await fetchJSON("/api/probe_sessions");
+    if (!list.length) { $("probeHist").classList.add("hidden"); return; }
+    $("probeHist").classList.remove("hidden");
+    $("probeHistList").innerHTML = list.map((s) => {
+      const d = new Date(s.ts * 1000).toLocaleDateString("zh-CN",
+        { month: "numeric", day: "numeric" });
+      const r = s.result || {};
+      const nums = r.listening != null
+        ? `听 ${fmtN(r.listening)} · 读 ${fmtN(r.reading)}` +
+          (r.boundary ? ` · 边界 第${r.boundary}块` : "")
+        : "无结果";
+      const act = s.status === "adopted"
+        ? `<span class="s3">已采用</span>`
+        : `<button class="mk small" data-adopt="${s.id}">采用</button>` +
+          `<button class="mk small" data-del="${s.id}">删除</button>`;
+      return `<div class="ph-row">#${s.id} · ${d} · ${nums} ${act}</div>`;
+    }).join("");
+    $("probeHistList").querySelectorAll("[data-adopt]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        if (!confirm("把该档案的标记合并进主记录？（同词覆写旧标记）")) return;
+        await fetchJSON("/api/probe_session_adopt", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session: parseInt(b.dataset.adopt, 10) }),
+        });
+        loadVocabLine(); loadProbeHist();
+      }));
+    $("probeHistList").querySelectorAll("[data-del]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        if (!confirm("删除该档案？")) return;
+        await fetchJSON("/api/probe_session_discard", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session: parseInt(b.dataset.del, 10) }),
+        });
+        loadProbeHist();
+      }));
+  } catch (_) {}
+}
 $("playBtn").addEventListener("click", (e) => { e.currentTarget.blur(); playAudio(); });
 $("btnKnow").addEventListener("click", (e) => { e.currentTarget.blur(); judge(true); });
 $("btnShow").addEventListener("click", (e) => { e.currentTarget.blur(); judge(false); });
@@ -415,3 +502,4 @@ try {
 loadDecks();
 loadStats();
 loadVocabLine();
+loadProbeHist();

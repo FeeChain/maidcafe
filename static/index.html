@@ -51,6 +51,11 @@
         <button id="probeBtn" class="mk">🔍 探针测词汇量</button>
         <div class="hint-line">折半找到你的词汇边界，通常 2-3 分钟 · 全扫过的块自动用精确值</div>
         <div id="vocabLine" class="hint-line hidden"></div>
+        <button id="probeFreshBtn" class="mk small">重新盲测（新档案 · 不动现有记录）</button>
+        <details id="probeHist" class="probe-hist hidden">
+          <summary>历史测定</summary>
+          <div id="probeHistList"></div>
+        </details>
       </div>
     </div>
   </div>
@@ -109,6 +114,8 @@
     <div id="probeBands" class="probe-bands"></div>
     <p class="hint-line">精确块用真实计数，抽样块按比例推定；之后任何一块被全扫完成，
     数字会自动替换为精确值。</p>
+    <button id="adoptBtn" class="mk mknext hidden">采用为主记录</button>
+    <button id="discardBtn" class="mk hidden">删除本次</button>
     <button id="probeMoreBtn" class="mk">全覆盖抽样，出完整曲线与误差</button>
     <button id="probeExitBtn" class="mk">回到常规校准</button>
   </div>
