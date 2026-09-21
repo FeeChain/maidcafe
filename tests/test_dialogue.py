@@ -21,6 +21,7 @@ TMP = tempfile.mkdtemp(prefix="maidcafe-dlg-")
 os.environ["MAIDCAFE_DB"] = os.path.join(TMP, "dlg.db")
 os.environ["MAIDCAFE_CACHE"] = os.path.join(TMP, "cache")
 os.environ["MAIDCAFE_ECDICT"] = os.path.join(TMP, "no-ecdict.db")
+os.environ["MAIDCAFE_AUDIO_OUT"] = os.path.join(TMP, "audio_out")
 os.makedirs(os.environ["MAIDCAFE_CACHE"])
 
 sys.path.insert(0, ROOT)

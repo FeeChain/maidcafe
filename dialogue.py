@@ -25,7 +25,8 @@ DB_PATH = os.environ.get("MAIDCAFE_DB", os.path.join(ROOT, "progress.db"))
 ECDICT_DB = os.environ.get("MAIDCAFE_ECDICT", os.path.join(ROOT, "data", "stardict.db"))
 ROSTER = json.load(open(os.path.join(ROOT, "roster.json"), encoding="utf-8"))
 SCENES = json.load(open(os.path.join(ROOT, "scenes.json"), encoding="utf-8"))
-AUDIO_OUT = os.path.join(ROOT, "audio_out")
+AUDIO_OUT = os.environ.get("MAIDCAFE_AUDIO_OUT",
+                           os.path.join(ROOT, "audio_out"))
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL = os.environ.get("MAIDCAFE_MODEL", "qwen3.5:9b-mlx")

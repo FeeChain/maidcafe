@@ -117,7 +117,8 @@ def attach_tiers():
         ordered, key=lambda w: (w["tier"], hashlib.md5(w["word"].encode()).hexdigest()))
 
 
-AUDIO_OUT = os.path.join(ROOT, "audio_out")
+AUDIO_OUT = os.environ.get("MAIDCAFE_AUDIO_OUT",
+                           os.path.join(ROOT, "audio_out"))
 GEN_MODEL = os.environ.get("MAIDCAFE_MODEL", "qwen3.6:27b-mlx")
 ECDICT_PATH = ECDICT_DB
 
