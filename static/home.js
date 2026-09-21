@@ -13,6 +13,7 @@ const fmtN = (x) => x.toLocaleString("zh-CN");
 
 let view = "";           // vNew | vEmpty | vLearn | vExam | vExamDone | vDone
 let sessionWords = [];   // 本次会话的一份词（/api/session 现抓，零落库）
+let sessionTotal = 0;    // 整份词数（顶行/庆祝用；打乱会从 sessionWords 剔已过词）
 let pool = [];           // 还没考过的词（学习循环用，乱序）
 let li = 0;              // 学习卡游标
 let lRevealed = false;
@@ -92,6 +93,7 @@ function rebuildPool() {
 async function loadSession() {
   const r = await fetchJSON("/api/session");
   sessionWords = r.words;
+  sessionTotal = r.words.length;   // 整份词数（打乱重分组会从 sessionWords 剔掉已考过的）
   passed = new Set();
   viewed = new Set();
   rebuildPool();
@@ -123,17 +125,24 @@ function renderGroups() {
   const pending = getPending();
   box.innerHTML = "";
   groupsOf().forEach((g, gi) => {
-    const words = g.map((w) => w.word);
+    // 组框只显示还没考过的词——考过的当场消失；剩几个是几个，不硬凑
+    const remain = g.filter((w) => !passed.has(w.word));
+    const words = remain.map((w) => w.word);
     const seen = words.filter((w) => viewed.has(w)).length;
-    const ready = seen === words.length;
-    const cooking = pending && pending.words.join() === words.join();
+    const cleared = remain.length === 0;
+    const ready = !cleared && seen === words.length;
+    // 灶单词永远是该组某一时刻的剩余词（子集）——按归属匹配，考掉词不丢灶上态
+    const cooking = pending &&
+      pending.words.every((w) => g.some((x) => x.word === w));
     const el = document.createElement("div");
-    el.className = "grp" + (ready ? " ready" : "") + (cooking ? " cooking" : "");
+    el.className = "grp" + (ready ? " ready" : "") +
+      (cooking ? " cooking" : "") + (cleared ? " cleared" : "");
     el.innerHTML =
       `<div class="grp-head">第 ${gi + 1} 组 · ` +
-      (cooking ? "☕ 灶上" : ready ? "☕ 可开火" : `翻过 ${seen}/${words.length}`) +
+      (cooking ? "☕ 灶上" : cleared ? "✓ 已拿下"
+        : ready ? "☕ 可开火" : `翻过 ${seen}/${words.length}`) +
       `</div>` +
-      `<div class="grp-words">${g.map((w) =>
+      `<div class="grp-words">${remain.map((w) =>
         `<span class="gw${viewed.has(w.word) ? " on" : ""}${w.is_new ? "" : " rev"}">${w.word}</span>`
       ).join("")}</div>`;
     if (ready || cooking) {
@@ -141,14 +150,15 @@ function renderGroups() {
     }
     box.appendChild(el);
   });
+  const remainAll = sessionWords.filter((w) => !passed.has(w.word));
   $("shuffleBtn").classList.toggle(
-    "hidden", viewed.size < sessionWords.length || sessionWords.length === 0);
+    "hidden",
+    !remainAll.length || remainAll.some((w) => !viewed.has(w.word)));
 }
 
 function renderLearnTop() {
-  const done = sessionWords.length - pool.length;
   $("learnProgress").innerHTML =
-    `这一份 <b>${done}</b>/${sessionWords.length} 已拿下 · 在学 ${pool.length} 个`;
+    `这一份 <b>${passed.size}</b>/${sessionTotal} 已拿下 · 在学 ${pool.length} 个`;
   $("examBtn").textContent = `✍ 我准备好了，考试（${pool.length} 词）`;
 }
 
@@ -223,6 +233,7 @@ function enterListen(genWords) {
 function genIdle(msg) {
   $("lsGenLine").textContent = msg || "想再来一场：同组换场景，或回学习页点别的组 ☕";
   $("lsGenFill").style.width = "0%";
+  $("lsFreeHint").classList.add("hidden");
   $("lsAgainBtn").classList.toggle("hidden", !sceneGroup);
 }
 
@@ -265,12 +276,14 @@ function fmtDur(sec) {
 function genWatch(words, t0) {
   sceneGroup = words;
   $("lsAgainBtn").classList.add("hidden");
+  $("lsFreeHint").classList.remove("hidden");   // 安心话术：煮着可以回去学
   if (sceneWatch) clearInterval(sceneWatch);
   let list = null, tickN = 0;
   const stop = (clear) => {
     clearInterval(sceneWatch);
     sceneWatch = null;
     $("sceneHint").textContent = "";
+    $("lsFreeHint").classList.add("hidden");
     if (clear) { try { localStorage.removeItem("mc_home_gen"); } catch (_) {} }
     renderGroups();
   };
@@ -601,7 +614,7 @@ function examDone() {
 /* ---------------- S5a 这一份全拿下 ---------------- */
 function renderDone() {
   $("doneLine").innerHTML =
-    `${sessionWords.length} 个词全部通过考试`;
+    `${sessionTotal} 个词全部通过考试`;
   show("vDone");
 }
 
@@ -612,7 +625,8 @@ $("lRevealBtn").addEventListener("click", (e) => { e.currentTarget.blur(); revea
 $("lNextBtn").addEventListener("click", (e) => { e.currentTarget.blur(); nextLearn(); });
 $("introStartBtn").addEventListener("click", enterLearn);
 $("shuffleBtn").addEventListener("click", () => {
-  sessionWords = shuffle(sessionWords.slice());   // 重新排列，四组重分
+  // 只对还没考过的词重排重分——考过的不回锅；末组可以不足 5 个
+  sessionWords = shuffle(sessionWords.filter((w) => !passed.has(w.word)));
   rebuildPool();                                  // 学习顺序跟随新的组顺序
   mclog("shuffle", "重新分组");
   renderLearnTop();

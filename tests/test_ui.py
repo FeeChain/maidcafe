@@ -224,17 +224,54 @@ class TestMainJourney(UIBase):
     def test_u08_exam_partial_then_quit(self):
         self.page.click("#lsExamBtn")
         self.page.wait_for_selector("#vExam", state="visible")
+        passed_words = []
         for _ in range(2):
+            # 考卡是打乱出的——记下实际考过的词再断组框
+            passed_words.append(
+                self.page.text_content("#exWordPreview").strip())
             self.page.click("#exYes")
             self.page.click("#exYes2")
         self.page.click("#examQuitBtn")
         self.page.wait_for_selector("#vLearn", state="visible")
         self.assertIn("2/20", self.page.text_content("#learnProgress"))
+        # 考过的词当场从组框消失，只剩 18 个未过词
+        shown = self.page.locator(".gw").all_text_contents()
+        self.assertEqual(len(shown), 18, "boxes show only unpassed words")
+        for w in passed_words:
+            self.assertNotIn(w, shown, "passed word must leave its group box")
         session = [w["word"] for w in self.api("/api/session")["words"]]
         self.page.click("#lRevealBtn")
         first = self.page.text_content("#lWord").strip()
         self.page.click("#lNextBtn")
         self.assertIn(first, session, "cards keep serving unpassed words")
+
+    def test_u08b_shuffle_regroups_only_survivors(self):
+        # 把剩余词全部翻完 -> 打乱按钮出现（考过的词不挡路）
+        for _ in range(40):
+            if self.visible("#shuffleBtn"):
+                break
+            if self.visible("#lRevealBtn"):
+                self.page.click("#lRevealBtn")
+            self.page.click("#lNextBtn")
+        else:
+            self.fail("shuffle button never appeared")
+        self.page.click("#shuffleBtn")
+        heads = self.page.locator(".grp .grp-head").all_text_contents()
+        self.assertEqual(len(heads), 4, "18 survivors -> 5+5+5+3 groups")
+        last = self.page.locator(".grp").nth(3).locator(".gw")
+        self.assertEqual(len(last.all_text_contents()), 3,
+                         "last group keeps 3, no padding")
+        self.assertEqual(len(self.page.locator(".gw").all_text_contents()), 18)
+        self.assertIn("2/20", self.page.text_content("#learnProgress"),
+                      "portion counter keeps the full-portion denominator")
+        # 不足 5 个的组照样能开火（末组 3 词，全翻过=ready）
+        self.page.click(".grp >> nth=3")
+        self.page.wait_for_selector("#vListen", state="visible")
+        self.page.wait_for_function(
+            "document.getElementById('lsGenLine').textContent.includes('翻')",
+            timeout=20000)   # fake model -> 翻车红字，证明 3 词一样点得着火
+        self.page.click("#lsBackBtn")
+        self.page.wait_for_selector("#vLearn", state="visible")
 
     def test_u09_exam_all_pass_then_seconds(self):
         self.page.click("#examBtn")
@@ -417,6 +454,9 @@ class TestAudioAndTimeout(UIBase):
         self.assertIn("灶上", self.page.text_content(".grp.cooking"))
         self.page.click(".grp.cooking")
         self.page.wait_for_selector("#vListen", state="visible")
+        # 煮着可离开的安心提示必须在生成中亮着
+        self.assertTrue(self.visible("#lsFreeHint"),
+                        "free-to-leave hint shows while brewing")
         # 实时秒表：进度行必须带"已 m:ss · 平常约 m:ss"且每秒走字
         self.page.wait_for_function(
             "document.getElementById('lsGenLine').textContent"
@@ -432,6 +472,8 @@ class TestAudioAndTimeout(UIBase):
         self.assertIn("Ollama", self.page.text_content("#lsGenLine"))
         self.assertTrue(self.visible("#lsAgainBtn"),
                         "timeout must re-offer the retry button")
+        self.assertFalse(self.visible("#lsFreeHint"),
+                         "hint goes away once the stove stops")
         self.assertIsNone(
             self.page.evaluate("localStorage.getItem('mc_home_gen')"),
             "timed-out brew must be cleared, not resumed forever")
