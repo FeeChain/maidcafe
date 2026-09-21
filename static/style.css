@@ -106,6 +106,10 @@ header {
   flex-wrap: wrap;
 }
 .brand {
+  /* 品牌=全局逃生口：任意状态点它回主页（FLOW 全局条） */
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
   font-family: var(--font-display);
   font-weight: 900;
   font-size: 19px;
