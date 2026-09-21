@@ -35,6 +35,11 @@
 }
 .cfg-links { border-top: 1px dashed var(--line); padding-top: 12px; }
 
+/* S6 听对话：一场一条，展开/收起 */
+.ls-arrow { color: var(--accent); display: inline-block; width: 14px; }
+.ls-body { border-top: 1px dashed var(--line); margin-top: 12px; cursor: default; }
+.ls-body .turn-list { max-height: none; }
+
 @media (max-width: 959px) {
   .learn-top { position: sticky; top: 0; z-index: 10; background: var(--bg); padding: 8px 0; }
 }

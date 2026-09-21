@@ -68,12 +68,41 @@
 
     <div class="scene-row">
       <button id="sceneBtn" class="mk">☕ 给接下来 5 个词来一场对话</button>
-      <button id="sceneAgainBtn" class="mk hidden">换个场景，同 5 词再来一场</button>
-      <span id="sceneStatus" class="hint-line"></span>
-      <a id="sceneGoBtn" class="mk mknext hidden" style="text-decoration:none;">去听这一场 →</a>
-      <a href="/listen" class="hint-line" style="margin-left:auto;">今天听过的对话 →</a>
     </div>
   </section>
+
+  <!-- S6 听对话（会话内子页：词源=当前 S2 词池） -->
+  <section id="vListen" class="hidden">
+    <div class="learn-top">
+      <span id="lsInfo" class="hint-line"></span>
+      <span style="flex:1"></span>
+      <button id="lsBackBtn" class="mk">← 回去学</button>
+      <button id="lsExamBtn" class="mk">✍ 直接考试</button>
+    </div>
+    <div id="lsGenCard" class="card" style="padding:16px 20px;">
+      <div id="lsGenLine" class="hint-line">☕</div>
+      <div class="progress" style="margin-top:10px;border-radius:99px;overflow:hidden;">
+        <div id="lsGenFill" class="progress-fill"></div>
+      </div>
+      <div class="gen-row" style="margin-bottom:0;margin-top:12px;">
+        <button id="lsAgainBtn" class="mk hidden">☕ 同 5 词换个场景再来一场</button>
+        <button id="lsNext5Btn" class="mk hidden">换下 5 个词来一场</button>
+      </div>
+    </div>
+    <div id="lsDlgList" class="dlist" style="margin-top:14px;"></div>
+  </section>
+
+  <!-- 释义卡（S6 点词用） -->
+  <div id="wordCard" class="word-card hidden">
+    <div class="wc-word" id="wcWord"></div>
+    <div class="wc-phon" id="wcPhon"></div>
+    <div class="wc-def" id="wcDef"></div>
+    <div class="wc-actions">
+      <button id="wcPlay" class="mk small">🔊 单词发音</button>
+      <button id="wcAdd" class="mk small hidden">＋ 加入生词本</button>
+      <button id="wcClose" class="mk small">关闭</button>
+    </div>
+  </div>
 
   <!-- 考试 -->
   <section id="vExam" class="hidden">

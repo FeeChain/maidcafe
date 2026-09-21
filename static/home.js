@@ -26,7 +26,7 @@ let exHeard = false;
 let exPassed = 0; let exFailed = 0;
 
 function show(v) {
-  ["vNew", "vEmpty", "vLearn", "vExam", "vExamDone", "vDone"].forEach((id) =>
+  ["vNew", "vEmpty", "vLearn", "vListen", "vExam", "vExamDone", "vDone"].forEach((id) =>
     $(id).classList.toggle("hidden", id !== v));
   view = v;
 }
@@ -132,7 +132,7 @@ function nextLearn() {
   showLearnCard();
 }
 
-/* ---------------- 场景对话（5 词一场） ---------------- */
+/* ---------------- S6 听对话（会话内子页，词源=当前 S2 词池） ---------------- */
 function nextFive() {
   const out = [];
   for (let k = 0; k < Math.min(5, pool.length); k++) {
@@ -142,27 +142,55 @@ function nextFive() {
 }
 
 const GEN_TIMEOUT = 12 * 60;  // 秒；超过按报错处理
+const SCENE_BTN_IDLE = "☕ 给接下来 5 个词来一场对话";
+const SPK_COLORS = { haruka: "var(--spk-haruka)", momo: "var(--spk-momo)",
+                     shizuku: "var(--spk-shizuku)", suzu: "var(--spk-suzu)",
+                     aoi: "var(--spk-aoi)" };
 
-async function requestScene(words) {
+function getPending() {
+  try {
+    const p = JSON.parse(localStorage.getItem("mc_home_gen") || "null");
+    if (p && p.words && Date.now() / 1000 - p.t0 < GEN_TIMEOUT + 60) return p;
+  } catch (_) {}
+  return null;
+}
+
+function enterListen(gen) {
+  show("vListen");
+  $("lsInfo").innerHTML = `词源：当前在学的 <b>${pool.length}</b> 个词`;
+  loadTodayDialogues();
+  const p = getPending();
+  if (p) genWatch(p.words, p.t0);
+  else if (gen && pool.length) startGen(nextFive());
+  else genIdle("想来一场？");
+}
+
+function genIdle(msg) {
+  $("lsGenLine").textContent = msg || "想再来一场？";
+  $("lsGenFill").style.width = "0%";
+  $("lsAgainBtn").classList.toggle("hidden", !sceneGroup);
+  $("lsNext5Btn").classList.toggle("hidden", !pool.length);
+}
+
+async function startGen(words) {
   sceneGroup = words;
   const t0 = Date.now() / 1000;
   try { localStorage.setItem("mc_home_gen", JSON.stringify({ words, t0 })); } catch (_) {}
   await POST("/api/generate", { words });
-  watchScene(words, t0);
+  genWatch(words, t0);
 }
 
-/* 分步进度：①写稿(可能修 4 稿) ②配音 ③上桌；超时/报错都说人话 */
-function watchScene(words, t0) {
+/* 进度条：①写稿(第N/4稿) ②配音 ③上桌；超时/报错说人话 */
+function genWatch(words, t0) {
   sceneGroup = words;
-  $("sceneBtn").disabled = true;
-  $("sceneAgainBtn").classList.add("hidden");
-  $("sceneGoBtn").classList.add("hidden");
+  $("lsAgainBtn").classList.add("hidden");
+  $("lsNext5Btn").classList.add("hidden");
   if (sceneWatch) clearInterval(sceneWatch);
-  const stop = (clearPending) => {
+  const stop = (clear) => {
     clearInterval(sceneWatch);
     sceneWatch = null;
-    $("sceneBtn").disabled = false;
-    if (clearPending) { try { localStorage.removeItem("mc_home_gen"); } catch (_) {} }
+    $("sceneBtn").textContent = SCENE_BTN_IDLE;
+    if (clear) { try { localStorage.removeItem("mc_home_gen"); } catch (_) {} }
   };
   const tick = async () => {
     const mins = Math.max(1, Math.round((Date.now() / 1000 - t0) / 60));
@@ -170,49 +198,241 @@ function watchScene(words, t0) {
     try { list = await fetchJSON("/api/dialogues"); } catch (_) { return; }
     const hit = list.find((d) =>
       d.ts > t0 - 10 && words.every((w) => d.targets.includes(w)));
-    if (!hit) {
-      $("sceneStatus").textContent = `☕ 灶已点火（${words.join(", ")}）…`;
-    } else if (hit.status === "writing") {
-      const att = hit.progress && hit.progress.startsWith("attempt")
-        ? `第 ${hit.progress.slice(8)} 稿` : "";
-      $("sceneStatus").textContent =
-        `① 女仆们在写稿 ${att} · 已 ${mins} 分钟（写完还要配音）`;
-    } else if (hit.status === "tts") {
-      $("sceneStatus").textContent = `② 配音中 · 已 ${mins} 分钟，就快好了`;
-    } else if (hit.status === "error") {
-      $("sceneStatus").innerHTML =
+    let pct = 5, line = `☕ 灶已点火（${words.join(", ")}）…`;
+    if (hit && hit.status === "writing") {
+      const m = hit.progress && hit.progress.match(/attempt (\d)/);
+      const n = m ? parseInt(m[1], 10) : 1;
+      pct = 10 + n * 18;
+      line = `① 女仆们在写稿 第 ${n}/4 稿 · 已 ${mins} 分钟`;
+    } else if (hit && hit.status === "tts") {
+      pct = 90; line = "② 配音中 · 就快好了";
+    } else if (hit && hit.status === "error") {
+      $("lsGenLine").innerHTML =
         `<span class="s1">✗ 这一场翻车了：${hit.error || "未知原因"} · 详见 generate.log</span>`;
-      $("sceneAgainBtn").classList.remove("hidden");
+      $("lsGenFill").style.width = "0%";
       stop(true);
+      $("lsAgainBtn").classList.remove("hidden");
+      $("lsNext5Btn").classList.toggle("hidden", !pool.length);
       return;
-    } else {  // done
-      $("sceneStatus").textContent = "③ 上桌！";
-      $("sceneGoBtn").href = `/listen#dialogue=${hit.id}`;
-      $("sceneGoBtn").classList.remove("hidden");
-      $("sceneAgainBtn").classList.remove("hidden");
-      if (view !== "vLearn") toast("那场对话煮好了 ☕ 去对话史就能听");
+    } else if (hit) {  // done
       stop(true);
+      if (view === "vListen") {
+        $("lsGenLine").textContent = "③ 上桌！想再来：";
+        $("lsGenFill").style.width = "100%";
+        $("lsAgainBtn").classList.remove("hidden");
+        $("lsNext5Btn").classList.toggle("hidden", !pool.length);
+        await loadTodayDialogues();
+        lsToggle(hit.id);          // 自动展开新一场
+      } else {
+        toast("那场对话煮好了 ☕ 点「听对话」开吃");
+        $("sceneBtn").textContent = "☕ 听对话（有一场刚出锅）";
+      }
       return;
     }
+    if (view === "vListen") {
+      $("lsGenLine").textContent = line;
+      $("lsGenFill").style.width = pct + "%";
+    } else {
+      $("sceneBtn").textContent = "☕ 听对话（灶上煮着…）";
+    }
     if (Date.now() / 1000 - t0 > GEN_TIMEOUT) {
-      $("sceneStatus").innerHTML =
+      $("lsGenLine").innerHTML =
         `<span class="s1">✗ 超时了——灶可能熄了（Ollama 没开？）· 详见 generate.log</span>`;
-      $("sceneAgainBtn").classList.remove("hidden");
       stop(true);
+      $("lsAgainBtn").classList.remove("hidden");
+      $("lsNext5Btn").classList.toggle("hidden", !pool.length);
     }
   };
   tick();
   sceneWatch = setInterval(tick, 5000);
 }
 
-/* 刷新/回来后恢复正在煮的那一场 */
+/* 刷新/回来后恢复正在煮的那一场（留在 S2，按钮上提示） */
 function resumeScene() {
-  let p = null;
-  try { p = JSON.parse(localStorage.getItem("mc_home_gen") || "null"); } catch (_) {}
-  if (p && p.words && Date.now() / 1000 - p.t0 < GEN_TIMEOUT + 60) {
-    watchScene(p.words, p.t0);
+  const p = getPending();
+  if (p) genWatch(p.words, p.t0);
+}
+
+/* ---- 今日对话列表（往下追加，一场一条，展开/收起） ---- */
+let lsExpanded = null;
+let lsBodyEl = null;
+let lsCur = null;
+let lsTurnIdx = -1, lsPlaying = false, lsPlayed = new Set();
+
+async function loadTodayDialogues() {
+  let list;
+  try { list = await fetchJSON("/api/dialogues"); } catch (_) { return; }
+  const mid = new Date(); mid.setHours(0, 0, 0, 0);
+  const today = list.filter((d) => d.ts >= mid.getTime() / 1000 && d.status === "done");
+  today.sort((a, b) => a.ts - b.ts);
+  const box = $("lsDlgList");
+  box.innerHTML = today.length ? "" :
+    '<p class="empty">今天还没有对话——上面来一场 ☕</p>';
+  lsExpanded = null;
+  today.forEach((d) => {
+    const el = document.createElement("div");
+    el.className = "ditem";
+    el.dataset.id = d.id;
+    el.innerHTML =
+      `<div class="d-top"><span class="ls-arrow">▸</span> <b>#${d.id}</b> · ` +
+      `${d.n_turns} 轮 · ${d.characters.join("、")}</div>` +
+      `<div class="d-scene">${d.scene}</div>` +
+      `<div class="d-targets">${d.targets.map((x) =>
+        `<span class="chip">${x}</span>`).join("")}</div>` +
+      `<div class="ls-body hidden"></div>`;
+    el.addEventListener("click", (e) => {
+      if (e.target.closest(".ls-body") || e.target.closest("button")) return;
+      lsToggle(d.id);
+    });
+    box.appendChild(el);
+  });
+}
+
+async function lsToggle(id) {
+  const items = [...$("lsDlgList").children];
+  const el = items.find((x) => parseInt(x.dataset.id, 10) === id);
+  if (!el) return;
+  if (lsExpanded !== null) {   // 收起旧的（含自己：再点一次=收起）
+    const prev = items.find((x) => parseInt(x.dataset.id, 10) === lsExpanded);
+    if (prev) {
+      prev.querySelector(".ls-body").classList.add("hidden");
+      prev.querySelector(".ls-arrow").textContent = "▸";
+    }
+    lsPlaying = false;
+    if (audioEl) audioEl.pause();
+    if (lsExpanded === id) { lsExpanded = null; return; }
+  }
+  lsExpanded = id;
+  el.querySelector(".ls-arrow").textContent = "▾";
+  lsBodyEl = el.querySelector(".ls-body");
+  lsBodyEl.classList.remove("hidden");
+  lsBodyEl.innerHTML = '<p class="hint-line">端上来了…</p>';
+  lsCur = await fetchJSON("/api/dialogue/" + id);
+  lsTurnIdx = -1; lsPlaying = false; lsPlayed = new Set();
+  lsBodyEl.innerHTML =
+    `<div class="player-controls" style="border-bottom:none;padding-left:0;padding-right:0;">` +
+    `<button class="mk ls-play">▶ 播放</button>` +
+    `<button class="mk small ls-prev">◂ 上一轮</button>` +
+    `<button class="mk small ls-next">下一轮 ▸</button>` +
+    `<span class="hint-line ls-prog"></span></div>` +
+    `<div class="turn-list ls-turns" style="padding-left:0;"></div>`;
+  lsBodyEl.querySelector(".ls-play").addEventListener("click", lsTogglePlay);
+  lsBodyEl.querySelector(".ls-prev").addEventListener("click",
+    () => lsPlayTurn(Math.max(0, lsTurnIdx - 1)));
+  lsBodyEl.querySelector(".ls-next").addEventListener("click",
+    () => lsPlayTurn(Math.min(lsCur.turns.length - 1, lsTurnIdx + 1)));
+  lsRenderTurns();
+}
+
+function lsMatchTarget(tok) {
+  const lw = tok.toLowerCase();
+  const t = lsCur.targets.find((x) => {
+    const w = x.word.toLowerCase();
+    return lw === w || (lw.startsWith(w) && lw.length - w.length <= 3) ||
+           (w.startsWith(lw) && w.length - lw.length <= 1);
+  });
+  return t ? t.word : null;
+}
+
+function lsHl(text) {
+  return text.replace(/[A-Za-z][A-Za-z']*/g, (m) => {
+    if (m.length <= 2) return m;
+    const tg = lsMatchTarget(m);
+    return `<span class="${tg ? "wclick tword" : "wclick"}" ` +
+           `data-word="${(tg || m).toLowerCase()}">${m}</span>`;
+  });
+}
+
+function lsRenderTurns() {
+  if (!lsBodyEl || !lsCur) return;
+  const box = lsBodyEl.querySelector(".ls-turns");
+  box.innerHTML = "";
+  lsBodyEl.querySelector(".ls-prog").textContent =
+    `${lsPlayed.size}/${lsCur.turns.length} 轮`;
+  lsBodyEl.querySelector(".ls-play").textContent = lsPlaying ? "⏸ 暂停" : "▶ 播放";
+  lsCur.turns.forEach((t, i) => {
+    const div = document.createElement("div");
+    div.className = "turn" + (i === lsTurnIdx ? " current" : "");
+    const show = lsPlayed.has(i);
+    const color = SPK_COLORS[t.speaker.toLowerCase()] || "var(--muted-2)";
+    div.innerHTML =
+      `<span class="spk" style="color:${color}">${artAvatar(t.speaker)}${t.speaker}</span>` +
+      (show ? `<span class="txt">${lsHl(t.text)}</span>`
+            : `<span class="txt veiled">●●●</span>`);
+    div.addEventListener("click", (e) => {
+      if (e.target.closest(".wclick")) return;
+      lsPlayTurn(i);
+    });
+    box.appendChild(div);
+  });
+  box.querySelectorAll(".wclick").forEach((s) =>
+    s.addEventListener("click", (e) => {
+      e.stopPropagation();
+      showWordCard(s.dataset.word);
+    }));
+}
+
+function lsPlayTurn(i) {
+  if (!lsCur || i < 0 || i >= lsCur.turns.length) return;
+  lsTurnIdx = i;
+  lsPlayed.add(i);
+  lsPlaying = true;
+  if (audioEl) audioEl.pause();
+  const f = lsCur.files[i];
+  if (!f) { lsOnEnd(); return; }
+  audioEl = new Audio(`/dialogue_audio/${lsCur.id}/${f}`);
+  audioEl.onended = lsOnEnd;
+  audioEl.play().catch(() => {});
+  lsRenderTurns();
+}
+
+function lsOnEnd() {
+  if (!lsPlaying) return;
+  if (lsTurnIdx + 1 < lsCur.turns.length) lsPlayTurn(lsTurnIdx + 1);
+  else { lsPlaying = false; lsRenderTurns(); }
+}
+
+function lsTogglePlay() {
+  if (lsPlaying) {
+    lsPlaying = false;
+    if (audioEl) audioEl.pause();
+    lsRenderTurns();
+  } else {
+    lsPlayTurn(lsTurnIdx < 0 ? 0 : lsTurnIdx);
   }
 }
+
+/* ---- 释义卡（点词自动暂停，关闭续播） ---- */
+let wcPaused = false;
+
+async function showWordCard(word) {
+  wcPaused = lsPlaying;
+  if (lsPlaying) { lsPlaying = false; if (audioEl) audioEl.pause(); lsRenderTurns(); }
+  $("wcWord").textContent = word;
+  $("wcPhon").textContent = "";
+  $("wcDef").textContent = "…";
+  $("wcAdd").classList.add("hidden");
+  $("wordCard").classList.remove("hidden");
+  const r = await fetchJSON("/api/lookup?word=" + encodeURIComponent(word));
+  $("wcPhon").textContent = r.phonetic || "";
+  $("wcDef").textContent = r.definition || "词典里查不到这个词";
+  $("wcAdd").classList.toggle("hidden", !r.definition || r.in_wordbook);
+  $("wcAdd").textContent = "＋ 加入生词本";
+  $("wcAdd").dataset.word = word;
+}
+$("wcClose").addEventListener("click", () => {
+  $("wordCard").classList.add("hidden");
+  if (wcPaused && lsCur) lsPlayTurn(Math.max(0, lsTurnIdx));
+});
+$("wcPlay").addEventListener("click", () => {
+  const a = new Audio("/audio/" + encodeURIComponent($("wcWord").textContent));
+  a.play().catch(() => {});
+});
+$("wcAdd").addEventListener("click", async (e) => {
+  const w = e.currentTarget.dataset.word;
+  const r = await POST("/api/wordbook_add", { word: w });
+  e.currentTarget.textContent = r.ok ? "✓ 已加入" : (r.error || "加入失败");
+});
 
 /* ---------------- 考试（两键自评，主动权在用户） ---------------- */
 function enterExam() {
@@ -297,8 +517,11 @@ $("goProbeBtn").addEventListener("click", () => location.href = "/calibrate?prob
 $("lPlayBtn").addEventListener("click", (e) => { e.currentTarget.blur(); playWord(curLearn()); });
 $("lRevealBtn").addEventListener("click", (e) => { e.currentTarget.blur(); revealLearn(); });
 $("lNextBtn").addEventListener("click", (e) => { e.currentTarget.blur(); nextLearn(); });
-$("sceneBtn").addEventListener("click", () => requestScene(nextFive()));
-$("sceneAgainBtn").addEventListener("click", () => sceneGroup && requestScene(sceneGroup));
+$("sceneBtn").addEventListener("click", () => enterListen(true));
+$("lsBackBtn").addEventListener("click", enterLearn);
+$("lsExamBtn").addEventListener("click", enterExam);
+$("lsAgainBtn").addEventListener("click", () => sceneGroup && startGen(sceneGroup));
+$("lsNext5Btn").addEventListener("click", () => pool.length && startGen(nextFive()));
 $("examBtn").addEventListener("click", enterExam);
 $("examQuitBtn").addEventListener("click", enterLearn);
 $("backToLearnBtn").addEventListener("click", enterLearn);
@@ -330,6 +553,11 @@ document.addEventListener("keydown", (e) => {
       exPhase === "listen" ? examJudge(false) : examFinalize(false);
     }
     if (e.key === "k" || e.key === "K") playWord(curExam());
+  } else if (view === "vListen") {
+    if (e.key === " " && lsCur && lsExpanded !== null) {
+      e.preventDefault();
+      lsTogglePlay();
+    }
   }
 });
 
