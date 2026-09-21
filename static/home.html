@@ -38,6 +38,7 @@
       <h1>欢迎回来，客人 ☕</h1>
       <div id="menuLine" class="menu-line"></div>
       <button id="startPlanBtn" class="mknext big" style="border:none;cursor:pointer;border-radius:12px;">开始今天的学习</button>
+      <a id="goCalBtn" href="/calibrate" class="mknext big hidden" style="text-decoration:none;border-radius:12px;display:inline-block;">去校准工具攒生词 →</a>
       <div id="readyHint" class="hint-line" style="margin-top:12px;"></div>
     </div>
   </section>
@@ -127,7 +128,7 @@
       <img class="art-banner" src="/static/art/C4_celebrate.png" alt="" onerror="this.remove()">
       <h1 id="doneTitle2">今日全部拿下 🎉</h1>
       <div id="doneLine" class="menu-line"></div>
-      <p class="hint-line">没考过的词一个都不会丢——明天女仆们会重新端上来。</p>
+      <p id="doneHint" class="hint-line">没考过的词一个都不会丢——明天女仆们会重新端上来。</p>
       <button id="moreBtn" class="mk">再学一会</button>
     </div>
   </section>
@@ -136,14 +137,11 @@
   <div id="cfgModal" class="word-card hidden" style="width:380px;">
     <div class="wc-word" style="font-family:var(--font-display);font-size:20px;">设置</div>
     <div class="cfg-body">
-      <label>每日新词配额
+      <label>每日词量（复习优先装入，新词补满）
         <input id="quotaInput" type="number" min="1" max="100" style="width:70px;">
         <button id="quotaSave" class="mk small">保存</button>
       </label>
-      <label>给自己放个假：顺延
-        <input id="postponeInput" type="number" min="1" max="30" value="1" style="width:56px;"> 天
-        <button id="postponeBtn" class="mk small">顺延计划</button>
-      </label>
+      <div class="hint-line">断几天也没关系：任务不累计，每天打开都是同一份量。</div>
       <div id="cfgVocab" class="hint-line"></div>
       <div class="cfg-links hint-line">
         校准工具：<a href="/calibrate">全扫词库</a> ·

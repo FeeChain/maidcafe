@@ -67,16 +67,19 @@ async function boot() {
     enterLearn();
     return;
   }
-  // 今日未开始
-  $("menuLine").innerHTML =
-    `今天的菜单：到期复习 <b>${s.due}</b> · 新词 <b>${s.new_today}</b>` +
-    `<span class="hint-line">（配额 ${s.new_quota}，设置里可调）</span>`;
+  // 今日未开始（S1）：每天恒定一份量，复习优先、新词补满，不累计
+  const empty = s.due + s.new_today === 0;
+  $("menuLine").innerHTML = empty
+    ? "词池空了——先去攒一点生词 ☕"
+    : `今天的菜单：复习 <b>${s.due}</b> · 新词 <b>${s.new_today}</b>` +
+      `<span class="hint-line">每天就这一份量（${s.new_quota} 个，设置里可调）` +
+      (s.due_waiting ? ` · 还有 ${s.due_waiting} 个到期的排在明天` : "") + `</span>`;
+  $("startPlanBtn").classList.toggle("hidden", empty);
+  $("goCalBtn").classList.toggle("hidden", !empty);
   $("readyHint").innerHTML =
-    s.due + s.new_today === 0
-      ? `词池空了——去<a href="/calibrate">校准工具</a>过几块词攒生词 ☕`
-      : (s.backlog < s.new_quota
-          ? `生词池只剩 ${s.backlog} 个新词，想多学去<a href="/calibrate">校准工具</a>再过几块`
-          : "");
+    !empty && s.backlog < s.new_today
+      ? `生词池见底了，想多学去<a href="/calibrate">校准工具</a>再过几块`
+      : "";
   show("vReady");
 }
 
@@ -307,6 +310,7 @@ function renderDone() {
     ? `已拿下 <b>${total - remain}</b>/${total} · 剩 ${remain} 个明天继续`
     : `${total} 个词全部通过考试`;
   $("moreBtn").textContent = remain ? "再学一会" : "☕ 加餐：再来一天的量";
+  $("doneHint").classList.toggle("hidden", !remain);  // S5a 无欠账不显示
   show("vDone");
 }
 
@@ -329,7 +333,11 @@ const endDay = async () => { await POST("/api/plan_end", {}); renderDone(); };
 $("endDayBtn").addEventListener("click", endDay);
 $("endDayBtn2").addEventListener("click", endDay);
 $("moreBtn").addEventListener("click", async () => {
-  if (pool.length) { enterLearn(); return; }
+  if (pool.length) {           // S5b 再学一会：先清服务端收工标记（不变量5）
+    await POST("/api/plan_resume", {});
+    enterLearn();
+    return;
+  }
   const r = await POST("/api/plan_extend", {});
   if (!r.added) { toast("生词池空了——去校准工具过几块词攒一点 ☕"); return; }
   await loadPlan();
@@ -377,13 +385,6 @@ $("cfgClose").addEventListener("click", () => $("cfgModal").classList.add("hidde
 $("quotaSave").addEventListener("click", async () => {
   const q = parseInt($("quotaInput").value, 10);
   const r = await POST("/api/config", { new_quota: q });
-  toast(r.ok ? `新词配额已改为 ${q}/天` : (r.error || "保存失败"));
+  toast(r.ok ? `每日词量已改为 ${q}` : (r.error || "保存失败"));
 });
-$("postponeBtn").addEventListener("click", async () => {
-  const d = parseInt($("postponeInput").value, 10);
-  if (!confirm(`把整个学习计划顺延 ${d} 天？（到期日全部后移，今天的计划作废）`)) return;
-  const r = await POST("/api/postpone", { days: d });
-  if (r.ok) { toast(`已放假 ${d} 天，好好休息 ☕`); $("cfgModal").classList.add("hidden"); boot(); }
-});
-
 boot();

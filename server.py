@@ -275,12 +275,17 @@ def get_plan(create=False):
                               for w in words]}
         if not create:
             return {"day": day, "exists": False}
+        # 每日恒定一份量（默认20，设置可调），不累计：到期复习优先装入，
+        # 剩余名额用新词补满；到期超量的排明天（欠账永不滚雪球，也无需放假功能）
         now = time.time()
         srs = srs_map(con)
-        due = [w for w, s in srs.items()
-               if s["state"] == "learning" and s["due_ts"] <= now]
-        quota = int(kv_get("new_quota", 20))
-        fresh = get_backlog(con)[:quota]
+        cap = int(kv_get("new_quota", 20))
+        due_all = sorted(
+            ((w, s) for w, s in srs.items()
+             if s["state"] == "learning" and s["due_ts"] <= now),
+            key=lambda x: x[1]["due_ts"])
+        due = [w for w, _ in due_all[:cap]]
+        fresh = get_backlog(con)[:max(0, cap - len(due))]
         for w in fresh:  # 新词立刻挂梯（level 0，到期=现在）
             con.execute(
                 "insert or ignore into word_srs"
@@ -943,10 +948,12 @@ class Handler(BaseHTTPRequestHandler):
                 con.close()
             plan = get_plan(create=False)
             quota = int(kv_get("new_quota", 20))
+            due_today = min(due, quota)
             out = {"calibrated": n_scan >= 50 or n_sessions > 0,
-                   "due": due, "backlog": backlog,
+                   "due": due_today, "due_waiting": due - due_today,
+                   "backlog": backlog,
                    "new_quota": quota,
-                   "new_today": min(quota, backlog),
+                   "new_today": min(max(0, quota - due_today), backlog),
                    "plan": None}
             if plan["exists"]:
                 total = len(plan["words"])
@@ -1168,20 +1175,16 @@ class Handler(BaseHTTPRequestHandler):
                 con.close()
             return self._send(200, {"ok": True})
 
-        if parsed.path == "/api/postpone":
-            days = payload.get("days")
-            if not isinstance(days, int) or not (1 <= days <= 30):
-                return self._send(400, {"error": "days must be 1-30"})
+        if parsed.path == "/api/plan_resume":
+            # S5b「再学一会」：清收工标记，刷新后必须仍在学习态（FLOW 不变量5）
             con = db()
             try:
-                con.execute(
-                    "update word_srs set due_ts = due_ts + ? "
-                    "where state='learning'", (days * DAY,))
-                con.execute("delete from daily_plan where day=?", (today_str(),))
+                con.execute("update daily_plan set finished=0 where day=?",
+                            (today_str(),))
                 con.commit()
             finally:
                 con.close()
-            return self._send(200, {"ok": True, "days": days})
+            return self._send(200, {"ok": True})
 
         if parsed.path == "/api/config":
             q = payload.get("new_quota")
