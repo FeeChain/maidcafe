@@ -22,7 +22,7 @@ import urllib.request
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("MAIDCAFE_DB", os.path.join(ROOT, "progress.db"))
-ECDICT_DB = os.path.join(ROOT, "data", "stardict.db")
+ECDICT_DB = os.environ.get("MAIDCAFE_ECDICT", os.path.join(ROOT, "data", "stardict.db"))
 ROSTER = json.load(open(os.path.join(ROOT, "roster.json"), encoding="utf-8"))
 SCENES = json.load(open(os.path.join(ROOT, "scenes.json"), encoding="utf-8"))
 AUDIO_OUT = os.path.join(ROOT, "audio_out")
@@ -96,8 +96,20 @@ class Lemma:
 
 
 def get_known_set(con):
+    """已知集 = 边界块之内的全部单词（server 生成的快照）+ 显式标记认识的词。
+    快照缺席时退回纯标记（老档案/离线 CLI 也能跑，但新人会偏严）。"""
     rows = con.execute("select word from marks where status = 3").fetchall()
-    return {r[0] for r in rows}
+    known = {r[0] for r in rows}
+    snap = os.path.join(
+        os.environ.get("MAIDCAFE_CACHE", os.path.join(ROOT, "cache")),
+        "known_words.json")
+    if os.path.exists(snap):
+        try:
+            with open(snap, encoding="utf-8") as f:
+                known.update(json.load(f))
+        except Exception:
+            pass
+    return known
 
 
 def get_auto_targets(con, n):

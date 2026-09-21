@@ -26,9 +26,11 @@ let exHeard = false;
 let exPassed = 0; let exFailed = 0;
 
 function show(v) {
-  ["vNew", "vEmpty", "vLearn", "vListen", "vExam", "vExamDone", "vDone"].forEach((id) =>
-    $(id).classList.toggle("hidden", id !== v));
+  ["vNew", "vIntro", "vEmpty", "vLearn", "vListen", "vExam", "vExamDone",
+   "vDone"].forEach((id) => $(id).classList.toggle("hidden", id !== v));
   view = v;
+  window.__mcview = v;
+  mclog("view", v);
 }
 
 function toast(msg) {
@@ -66,6 +68,15 @@ async function boot() {
   if (!s.calibrated) { show("vNew"); return; }
   await loadSession();
   if (!pool.length) { show("vEmpty"); return; }  // 生词池和复习都空：去攒词
+  // 刚测完过来的那一次：先给个「开始这一轮」的确认卡，别太突兀
+  if (new URLSearchParams(location.search).get("fresh")) {
+    history.replaceState(null, "", "/");
+    $("introLine").innerHTML =
+      `这一轮为你备了 <b>${pool.length}</b> 个词` +
+      `<span class="hint-line">（你的生词 + 边界之后按难度推定的词）</span>`;
+    show("vIntro");
+    return;
+  }
   enterLearn();                                  // 其余一律直落 S2
 }
 
@@ -75,6 +86,7 @@ async function loadSession() {
   pool = shuffle(sessionWords.slice());
   li = 0;
   cycles = 0;
+  mclog("session", `${sessionWords.length} 词: ${sessionWords.map((w) => w.word).slice(0, 8).join(",")}`);
 }
 
 /* ---------------- 学习循环 ---------------- */
@@ -82,7 +94,45 @@ function enterLearn() {
   if (!pool.length) { renderDone(); return; }
   show("vLearn");
   renderLearnTop();
+  renderGroups();
   showLearnCard();
+}
+
+/* ---- 四组框：一份切成 5 词一组（顺序切），翻完一组的词才能开火 ---- */
+function groupsOf() {
+  const gs = [];
+  for (let i = 0; i < sessionWords.length; i += 5) {
+    gs.push(sessionWords.slice(i, i + 5));
+  }
+  return gs;
+}
+
+function renderGroups() {
+  const box = $("groupRow");
+  if (!box) return;
+  const pending = getPending();
+  box.innerHTML = "";
+  groupsOf().forEach((g, gi) => {
+    const words = g.map((w) => w.word);
+    const seen = words.filter((w) => viewed.has(w)).length;
+    const ready = seen === words.length;
+    const cooking = pending && pending.words.join() === words.join();
+    const el = document.createElement("div");
+    el.className = "grp" + (ready ? " ready" : "") + (cooking ? " cooking" : "");
+    el.innerHTML =
+      `<div class="grp-head">第 ${gi + 1} 组 · ` +
+      (cooking ? "☕ 灶上" : ready ? "☕ 可开火" : `翻过 ${seen}/${words.length}`) +
+      `</div>` +
+      `<div class="grp-words">${g.map((w) =>
+        `<span class="gw${viewed.has(w.word) ? " on" : ""}${w.is_new ? "" : " rev"}">${w.word}</span>`
+      ).join("")}</div>`;
+    if (ready || cooking) {
+      el.addEventListener("click", () => enterListen(cooking ? null : words));
+    }
+    box.appendChild(el);
+  });
+  $("shuffleBtn").classList.toggle(
+    "hidden", viewed.size < sessionWords.length || sessionWords.length === 0);
 }
 
 function renderLearnTop() {
@@ -108,9 +158,13 @@ function showLearnCard() {
   playWord(w);
 }
 
+let viewed = new Set();   // 本次会话翻开过的词（组解锁用，不落库）
+
 function revealLearn() {
   const w = curLearn();
   lRevealed = true;
+  viewed.add(w.word);
+  renderGroups();
   $("lWord").textContent = w.word;
   $("lWord").classList.remove("veiled-word");
   $("lPhon").textContent = w.phonetic || "";
@@ -133,16 +187,7 @@ function nextLearn() {
 }
 
 /* ---------------- S6 听对话（会话内子页，词源=当前 S2 词池） ---------------- */
-function nextFive() {
-  const out = [];
-  for (let k = 0; k < Math.min(5, pool.length); k++) {
-    out.push(pool[(li + k) % pool.length].word);
-  }
-  return out;
-}
-
 const GEN_TIMEOUT = 12 * 60;  // 秒；超过按报错处理
-const SCENE_BTN_IDLE = "☕ 给接下来 5 个词来一场对话";
 const SPK_COLORS = { haruka: "var(--spk-haruka)", momo: "var(--spk-momo)",
                      shizuku: "var(--spk-shizuku)", suzu: "var(--spk-suzu)",
                      aoi: "var(--spk-aoi)" };
@@ -155,24 +200,24 @@ function getPending() {
   return null;
 }
 
-function enterListen(gen) {
+function enterListen(genWords) {
   show("vListen");
   $("lsInfo").innerHTML = `词源：当前在学的 <b>${pool.length}</b> 个词`;
   loadTodayDialogues();
   const p = getPending();
   if (p) genWatch(p.words, p.t0);
-  else if (gen && pool.length) startGen(nextFive());
-  else genIdle("想来一场？");
+  else if (genWords && genWords.length) startGen(genWords);
+  else genIdle();
 }
 
 function genIdle(msg) {
-  $("lsGenLine").textContent = msg || "想再来一场？";
+  $("lsGenLine").textContent = msg || "想再来一场：同组换场景，或回学习页点别的组 ☕";
   $("lsGenFill").style.width = "0%";
   $("lsAgainBtn").classList.toggle("hidden", !sceneGroup);
-  $("lsNext5Btn").classList.toggle("hidden", !pool.length);
 }
 
 async function startGen(words) {
+  mclog("gen_start", words.join(","));
   sceneGroup = words;
   const t0 = Date.now() / 1000;
   try { localStorage.setItem("mc_home_gen", JSON.stringify({ words, t0 })); } catch (_) {}
@@ -181,16 +226,20 @@ async function startGen(words) {
 }
 
 /* 进度条：①写稿(第N/4稿) ②配音 ③上桌；超时/报错说人话 */
+/* 出品工序（咖啡流程）：挑豆 → ①磨豆 ②萃取 ③蒸奶 ④调味（=写稿四稿）
+   → ⑤拉花（=配音）→ 客人请用（女仆们开始闲聊，一边喝一边听） */
+const BREW_STEPS = ["① 磨咖啡豆", "② 萃取浓缩", "③ 蒸奶打泡", "④ 调整风味"];
+
 function genWatch(words, t0) {
   sceneGroup = words;
   $("lsAgainBtn").classList.add("hidden");
-  $("lsNext5Btn").classList.add("hidden");
   if (sceneWatch) clearInterval(sceneWatch);
   const stop = (clear) => {
     clearInterval(sceneWatch);
     sceneWatch = null;
-    $("sceneBtn").textContent = SCENE_BTN_IDLE;
+    $("sceneHint").textContent = "";
     if (clear) { try { localStorage.removeItem("mc_home_gen"); } catch (_) {} }
+    renderGroups();
   };
   const tick = async () => {
     const mins = Math.max(1, Math.round((Date.now() / 1000 - t0) / 60));
@@ -198,34 +247,33 @@ function genWatch(words, t0) {
     try { list = await fetchJSON("/api/dialogues"); } catch (_) { return; }
     const hit = list.find((d) =>
       d.ts > t0 - 10 && words.every((w) => d.targets.includes(w)));
-    let pct = 5, line = `☕ 灶已点火（${words.join(", ")}）…`;
+    let pct = 5, line = `☕ 女仆去挑豆了（${words.join(", ")}）…`;
     if (hit && hit.status === "writing") {
       const m = hit.progress && hit.progress.match(/attempt (\d)/);
       const n = m ? parseInt(m[1], 10) : 1;
       pct = 10 + n * 18;
-      line = `① 女仆们在写稿 第 ${n}/4 稿 · 已 ${mins} 分钟`;
+      line = `${BREW_STEPS[n - 1] || BREW_STEPS[3]} · 已 ${mins} 分钟`;
     } else if (hit && hit.status === "tts") {
-      pct = 90; line = "② 配音中 · 就快好了";
+      pct = 90; line = "⑤ 拉花中 · 就快好了";
     } else if (hit && hit.status === "error") {
+      mclog("gen_error", hit.error || "");
       $("lsGenLine").innerHTML =
-        `<span class="s1">✗ 这一场翻车了：${hit.error || "未知原因"} · 详见 generate.log</span>`;
+        `<span class="s1">✗ 这一杯翻了：${hit.error || "未知原因"} · 详见 generate.log</span>`;
       $("lsGenFill").style.width = "0%";
-      stop(true);
       $("lsAgainBtn").classList.remove("hidden");
-      $("lsNext5Btn").classList.toggle("hidden", !pool.length);
+      stop(true);
       return;
     } else if (hit) {  // done
+      mclog("gen_done", "#" + hit.id);
       stop(true);
       if (view === "vListen") {
-        $("lsGenLine").textContent = "③ 上桌！想再来：";
+        $("lsGenLine").textContent = "☕ 客人请用——女仆们开始闲聊了";
         $("lsGenFill").style.width = "100%";
         $("lsAgainBtn").classList.remove("hidden");
-        $("lsNext5Btn").classList.toggle("hidden", !pool.length);
         await loadTodayDialogues();
-        lsToggle(hit.id);          // 自动展开新一场
+        lsToggle(hit.id);          // 自动展开，一边喝一边听
       } else {
-        toast("那场对话煮好了 ☕ 点「听对话」开吃");
-        $("sceneBtn").textContent = "☕ 听对话（有一场刚出锅）";
+        toast("☕ 客人请用——那一杯煮好了，点组框去听");
       }
       return;
     }
@@ -233,14 +281,14 @@ function genWatch(words, t0) {
       $("lsGenLine").textContent = line;
       $("lsGenFill").style.width = pct + "%";
     } else {
-      $("sceneBtn").textContent = "☕ 听对话（灶上煮着…）";
+      $("sceneHint").textContent = `☕ 灶上：${line}`;
+      renderGroups();
     }
     if (Date.now() / 1000 - t0 > GEN_TIMEOUT) {
       $("lsGenLine").innerHTML =
         `<span class="s1">✗ 超时了——灶可能熄了（Ollama 没开？）· 详见 generate.log</span>`;
-      stop(true);
       $("lsAgainBtn").classList.remove("hidden");
-      $("lsNext5Btn").classList.toggle("hidden", !pool.length);
+      stop(true);
     }
   };
   tick();
@@ -486,6 +534,7 @@ async function examFinalize(canRead) {
   const w = curExam();
   const pass = exHeard && canRead;
   exIdx += 1;
+  mclog("exam", `${w.word} ${pass ? "过" : "挂"}`);
   if (pass) {
     exPassed += 1;
     pool = pool.filter((x) => x.word !== w.word);
@@ -517,11 +566,18 @@ $("goProbeBtn").addEventListener("click", () => location.href = "/calibrate?prob
 $("lPlayBtn").addEventListener("click", (e) => { e.currentTarget.blur(); playWord(curLearn()); });
 $("lRevealBtn").addEventListener("click", (e) => { e.currentTarget.blur(); revealLearn(); });
 $("lNextBtn").addEventListener("click", (e) => { e.currentTarget.blur(); nextLearn(); });
-$("sceneBtn").addEventListener("click", () => enterListen(true));
+$("introStartBtn").addEventListener("click", enterLearn);
+$("shuffleBtn").addEventListener("click", () => {
+  sessionWords = shuffle(sessionWords.slice());   // 重新排列，四组重分
+  pool = shuffle(pool.slice());
+  li = 0;
+  mclog("shuffle", "重新分组");
+  renderGroups();
+  showLearnCard();
+});
 $("lsBackBtn").addEventListener("click", enterLearn);
 $("lsExamBtn").addEventListener("click", enterExam);
 $("lsAgainBtn").addEventListener("click", () => sceneGroup && startGen(sceneGroup));
-$("lsNext5Btn").addEventListener("click", () => pool.length && startGen(nextFive()));
 $("examBtn").addEventListener("click", enterExam);
 $("examQuitBtn").addEventListener("click", enterLearn);
 $("backToLearnBtn").addEventListener("click", enterLearn);

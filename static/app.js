@@ -156,6 +156,7 @@ function showCurrent() {
     return;
   }
   probeMode ? renderProbeStats() : loadStats();
+  $("endBtn").classList.remove("hidden");
   $("probeCard").classList.add("hidden");
   $("doneCard").classList.add("hidden");
   $("card").classList.remove("hidden");
@@ -208,6 +209,7 @@ async function finalize(canRead) {
   const w = cur();
   if (!w || phase !== "revealed") return;
   const status = heard && canRead ? 3 : (!heard && canRead ? 2 : 1);
+  mclog("mark", `${w.word}=${status}`);
   idx += 1;
   showCurrent();
   await fetchJSON("/api/mark", {
@@ -230,6 +232,8 @@ async function startProbe(kind, fresh) {
   started = true;
   probeMode = true;
   probeKind = kind;
+  window.__mcview = fresh ? "blindProbe" : "probe";
+  mclog("view", window.__mcview);
   // 探针不需要全扫的工具排（难度/词库/模式），藏起来少分心
   ["tierSelect", "deckSelect", "modeSelect", "hintToggle"].forEach((id) =>
     $(id).classList.add("hidden"));
@@ -286,6 +290,10 @@ function renderProbeStats() {
 const fmtN = (x) => x.toLocaleString("zh-CN");
 
 async function showProbeResult(r) {
+  $("endBtn").classList.add("hidden");   // 结果页没有"本轮"可结束
+  window.__mcview = "probeResult";
+  mclog("view", "probeResult" +
+    (r && r.done ? ` 边界${r.boundary} 共${r.probe_words}词` : " (中止)"));
   $("card").classList.add("hidden");
   $("doneCard").classList.add("hidden");
   $("probeCard").classList.remove("hidden");
@@ -350,6 +358,8 @@ function endRound() {
 async function start() {
   if (started) return;
   started = true;
+  window.__mcview = "scan";
+  mclog("view", "scan");
   $("startOverlay").classList.add("hidden");
   await loadTiers(false);
   loadQueue();

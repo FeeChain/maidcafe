@@ -31,6 +31,18 @@
     </div>
   </section>
 
+  <!-- 校准完成 → 开学确认卡（只在测完那一次出现） -->
+  <section id="vIntro" class="overlay hidden">
+    <div class="overlay-card">
+      <img class="art-banner" src="/static/art/C1_welcome.png" alt="" onerror="this.remove()">
+      <h1>校准完成 ☕</h1>
+      <div id="introLine" class="menu-line"></div>
+      <p class="hint-line">先随便翻翻卡混个脸熟，每凑齐 5 个词可以让女仆们煮一场对话；
+      什么时候考试、考几次，都由你。</p>
+      <button id="introStartBtn" class="mknext big" style="border:none;cursor:pointer;border-radius:12px;">开始这一轮学习</button>
+    </div>
+  </section>
+
   <!-- 词池与复习都空：去攒生词 -->
   <section id="vEmpty" class="overlay hidden">
     <div class="overlay-card">
@@ -66,9 +78,12 @@
       </div>
     </div>
 
-    <div class="scene-row">
-      <button id="sceneBtn" class="mk">☕ 给接下来 5 个词来一场对话</button>
+    <div class="group-head">
+      <span class="hint-line">☕ 每凑齐一组（翻过组里全部词）就能煮一场对话：</span>
+      <button id="shuffleBtn" class="mk small hidden">🔀 打乱重新分组</button>
+      <span id="sceneHint" class="hint-line" style="margin-left:auto;"></span>
     </div>
+    <div id="groupRow" class="group-row"></div>
   </section>
 
   <!-- S6 听对话（会话内子页：词源=当前 S2 词池） -->
@@ -85,8 +100,7 @@
         <div id="lsGenFill" class="progress-fill"></div>
       </div>
       <div class="gen-row" style="margin-bottom:0;margin-top:12px;">
-        <button id="lsAgainBtn" class="mk hidden">☕ 同 5 词换个场景再来一场</button>
-        <button id="lsNext5Btn" class="mk hidden">换下 5 个词来一场</button>
+        <button id="lsAgainBtn" class="mk hidden">☕ 同组换个场景，再来一杯</button>
       </div>
     </div>
     <div id="lsDlgList" class="dlist" style="margin-top:14px;"></div>
@@ -183,6 +197,7 @@
   </div>
 </main>
 
+<script src="/static/log.js"></script>
 <script src="/static/art.js"></script>
 <script src="/static/home.js"></script>
 </body>

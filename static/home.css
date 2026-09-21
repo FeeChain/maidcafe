@@ -35,6 +35,34 @@
 }
 .cfg-links { border-top: 1px dashed var(--line); padding-top: 12px; }
 
+/* 四组框：一份切 5 词一组，翻完全组解锁开火 */
+.group-head { display: flex; align-items: center; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+.group-row {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px; margin-top: 10px;
+}
+.grp {
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  opacity: .65;
+}
+.grp.ready {
+  background: var(--card);
+  border-color: var(--accent-line);
+  opacity: 1; cursor: pointer;
+  box-shadow: var(--sh-1);
+}
+.grp.ready:hover { border-color: var(--accent); }
+.grp.cooking { border-color: var(--amber-line); background: var(--amber-soft); opacity: 1; cursor: pointer; }
+.grp-head { font-size: 12.5px; font-weight: 700; color: var(--muted-2); margin-bottom: 6px; }
+.grp.ready .grp-head { color: var(--accent-deep); }
+.grp-words { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.gw { font-family: var(--font-en); font-size: 13px; color: var(--veil); }
+.gw.on { color: var(--ink); }
+.gw.rev { text-decoration: underline dotted; }
+
 /* S6 听对话：一场一条，展开/收起 */
 .ls-arrow { color: var(--accent); display: inline-block; width: 14px; }
 .ls-body { border-top: 1px dashed var(--line); margin-top: 12px; cursor: default; }
