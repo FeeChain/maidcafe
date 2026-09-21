@@ -57,14 +57,12 @@ async function boot() {
   const s = await fetchJSON("/api/home_status");
   resumeScene();   // 煮着的对话在任何视图都继续盯（不在学习页就 toast 通知）
   if (!s.calibrated) { show("vNew"); return; }
-  if (s.plan && (s.plan.finished || s.plan.done >= s.plan.total) && s.plan.total > 0) {
+  if (s.plan) {
+    // 规则：boot 永不直接落 S2。今日计划存在就先到 S5 门厅
+    // （全过=S5a 庆祝；否则=S5b，一键「再学一会」进 S2）。
+    // 直接关机不点收工 => 重开自然就是走了 S5b 路线，无需任何标记。
     await loadPlan();
     renderDone();
-    return;
-  }
-  if (s.plan) {         // 进行中：直接回到学习
-    await loadPlan();
-    enterLearn();
     return;
   }
   // 今日未开始（S1）：每天恒定一份量，复习优先、新词补满，不累计
@@ -290,11 +288,7 @@ async function examFinalize(canRead) {
 
 function examDone() {
   renderLearnTop();
-  if (!pool.length) {
-    POST("/api/plan_end", {});
-    renderDone();
-    return;
-  }
+  if (!pool.length) { renderDone(); return; }   // 全过 -> S5a
   $("exDoneTitle").textContent = exFailed ? "差一点点 ☕" : "这一轮全过 🎉";
   $("exDoneStats").innerHTML =
     `通过 <b>${exPassed}</b> · 还剩 <b>${pool.length}</b> 个没拿下`;
@@ -329,15 +323,9 @@ $("sceneAgainBtn").addEventListener("click", () => sceneGroup && requestScene(sc
 $("examBtn").addEventListener("click", enterExam);
 $("examQuitBtn").addEventListener("click", enterLearn);
 $("backToLearnBtn").addEventListener("click", enterLearn);
-const endDay = async () => { await POST("/api/plan_end", {}); renderDone(); };
-$("endDayBtn").addEventListener("click", endDay);
-$("endDayBtn2").addEventListener("click", endDay);
+$("endDayBtn").addEventListener("click", () => renderDone());  // S2 -> S5b（纯视图，无需落库）
 $("moreBtn").addEventListener("click", async () => {
-  if (pool.length) {           // S5b 再学一会：先清服务端收工标记（不变量5）
-    await POST("/api/plan_resume", {});
-    enterLearn();
-    return;
-  }
+  if (pool.length) { enterLearn(); return; }   // S5b 再学一会 -> S2
   const r = await POST("/api/plan_extend", {});
   if (!r.added) { toast("生词池空了——去校准工具过几块词攒一点 ☕"); return; }
   await loadPlan();

@@ -956,10 +956,10 @@ class Handler(BaseHTTPRequestHandler):
                    "new_today": min(max(0, quota - due_today), backlog),
                    "plan": None}
             if plan["exists"]:
+                # finished 标记已废弃：出入 S2 都经 S5 门厅，纯视图无需落库
                 total = len(plan["words"])
                 done = sum(1 for w in plan["words"] if w["passed"])
-                out["plan"] = {"total": total, "done": done,
-                               "finished": plan["finished"]}
+                out["plan"] = {"total": total, "done": done}
             return self._send(200, out)
 
         if path == "/api/plan":
@@ -1165,26 +1165,7 @@ class Handler(BaseHTTPRequestHandler):
                 con.close()
             return self._send(200, {"ok": True, "added": len(fresh)})
 
-        if parsed.path == "/api/plan_end":
-            con = db()
-            try:
-                con.execute("update daily_plan set finished=1 where day=?",
-                            (today_str(),))
-                con.commit()
-            finally:
-                con.close()
-            return self._send(200, {"ok": True})
 
-        if parsed.path == "/api/plan_resume":
-            # S5b「再学一会」：清收工标记，刷新后必须仍在学习态（FLOW 不变量5）
-            con = db()
-            try:
-                con.execute("update daily_plan set finished=0 where day=?",
-                            (today_str(),))
-                con.commit()
-            finally:
-                con.close()
-            return self._send(200, {"ok": True})
 
         if parsed.path == "/api/config":
             q = payload.get("new_quota")
