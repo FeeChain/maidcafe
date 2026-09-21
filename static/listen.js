@@ -153,7 +153,7 @@ function renderTurns() {
   box.innerHTML = "";
   // D3: 进度 + 机制说明
   $("turnProgress").textContent =
-    `${played.size} / ${current.turns.length} 轮 · 听完全部轮次算一次复习`;
+    `${played.size} / ${current.turns.length} 轮`;
   current.turns.forEach((t, i) => {
     const el = document.createElement("div");
     el.className = "turn" + (i === turnIdx ? " current" : "");

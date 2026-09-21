@@ -156,12 +156,6 @@ def db():
         "create table if not exists probe_marks("
         "session integer, word text, status integer, ts real,"
         "primary key(session, word))")
-    # 今日学习计划（产品主流程）：词池锁定当天，考试通过才计入 done；
-    # 没考过的词照旧到期，明天自动回炉
-    con.execute(
-        "create table if not exists daily_plan("
-        "day text primary key, words text, done text, finished integer,"
-        "ts real)")
     con.execute(
         "create table if not exists kv(key text primary key, value text)")
     # 同一天内重复复习不重复爬梯（听完对话 + 考试通过只算一次）
@@ -246,63 +240,30 @@ def kv_set(key, value):
         con.close()
 
 
-def today_str():
-    return time.strftime("%Y-%m-%d")
-
-
-def plan_word_out(word, is_new, passed):
+def session_word_out(word, is_new):
     info = word_info(word)
     return {"word": word, "phonetic": info.get("phonetic", ""),
             "definition": (info.get("definition") or "")[:400],
-            "has_audio": word in AUDIO, "is_new": is_new, "passed": passed}
+            "has_audio": word in AUDIO, "is_new": is_new}
 
 
-def get_plan(create=False):
-    """今日学习计划：词池 = 到期复习 + 新词配额，当天锁定。
-    考试通过 -> done；没考过的词到期日未动，明天自然回炉。"""
-    day = today_str()
+def build_session():
+    """一份学习会话（无「每天/任务」概念，打开一次抓一份，零落库）：
+    到期复习全部上桌（最早到期在前）+ 新词取配额个（不预注册，考过才进梯）。
+    背完就是背完；没背完的什么都不记——复习词照旧到期、新词留在生词池，
+    下次打开（当天或十天后）自然回来。"""
     con = db()
     try:
-        row = con.execute(
-            "select words, done, finished from daily_plan where day=?",
-            (day,)).fetchone()
-        if row:
-            words = json.loads(row[0])
-            done = set(json.loads(row[1] or "[]"))
-            return {"day": day, "exists": True, "finished": bool(row[2]),
-                    "words": [plan_word_out(w["word"], w["is_new"],
-                                            w["word"] in done)
-                              for w in words]}
-        if not create:
-            return {"day": day, "exists": False}
-        # 每日恒定一份量（默认20，设置可调），不累计：到期复习优先装入，
-        # 剩余名额用新词补满；到期超量的排明天（欠账永不滚雪球，也无需放假功能）
         now = time.time()
         srs = srs_map(con)
-        cap = int(kv_get("new_quota", 20))
-        due_all = sorted(
-            ((w, s) for w, s in srs.items()
-             if s["state"] == "learning" and s["due_ts"] <= now),
-            key=lambda x: x[1]["due_ts"])
-        due = [w for w, _ in due_all[:cap]]
-        fresh = get_backlog(con)[:max(0, cap - len(due))]
-        for w in fresh:  # 新词立刻挂梯（level 0，到期=现在）
-            con.execute(
-                "insert or ignore into word_srs"
-                "(word, level, due_ts, state, added_ts) "
-                "values(?,0,?,'learning',?)", (w, now, now))
-        words = ([{"word": w, "is_new": False} for w in due] +
-                 [{"word": w, "is_new": True} for w in fresh])
-        con.execute(
-            "insert into daily_plan(day,words,done,finished,ts) "
-            "values(?,?,?,0,?)",
-            (day, json.dumps(words, ensure_ascii=False), "[]", now))
-        con.commit()
-        return {"day": day, "exists": True, "finished": False,
-                "words": [plan_word_out(w["word"], w["is_new"], False)
-                          for w in words]}
+        due = [w for w, s in sorted(srs.items(), key=lambda x: x[1]["due_ts"])
+               if s["state"] == "learning" and s["due_ts"] <= now]
+        quota = int(kv_get("new_quota", 20))
+        fresh = get_backlog(con)[:quota]
     finally:
         con.close()
+    return {"words": ([session_word_out(w, False) for w in due] +
+                      [session_word_out(w, True) for w in fresh])}
 
 
 def get_backlog(con):
@@ -939,31 +900,14 @@ class Handler(BaseHTTPRequestHandler):
                 n_sessions = con.execute(
                     "select count(*) from probe_sessions "
                     "where status in ('done','adopted')").fetchone()[0]
-                now = time.time()
-                srs = srs_map(con)
-                due = sum(1 for s in srs.values()
-                          if s["state"] == "learning" and s["due_ts"] <= now)
-                backlog = len(get_backlog(con))
             finally:
                 con.close()
-            plan = get_plan(create=False)
-            quota = int(kv_get("new_quota", 20))
-            due_today = min(due, quota)
-            out = {"calibrated": n_scan >= 50 or n_sessions > 0,
-                   "due": due_today, "due_waiting": due - due_today,
-                   "backlog": backlog,
-                   "new_quota": quota,
-                   "new_today": min(max(0, quota - due_today), backlog),
-                   "plan": None}
-            if plan["exists"]:
-                # finished 标记已废弃：出入 S2 都经 S5 门厅，纯视图无需落库
-                total = len(plan["words"])
-                done = sum(1 for w in plan["words"] if w["passed"])
-                out["plan"] = {"total": total, "done": done}
-            return self._send(200, out)
+            return self._send(200, {
+                "calibrated": n_scan >= 50 or n_sessions > 0,
+                "new_quota": int(kv_get("new_quota", 20))})
 
-        if path == "/api/plan":
-            return self._send(200, get_plan(create=False))
+        if path == "/api/session":
+            return self._send(200, build_session())
 
         if path == "/api/config":
             return self._send(200, {"new_quota": int(kv_get("new_quota", 20))})
@@ -1113,59 +1057,18 @@ class Handler(BaseHTTPRequestHandler):
                              start_new_session=True)
             return self._send(200, {"started": True})
 
-        if parsed.path == "/api/plan_start":
-            return self._send(200, get_plan(create=True))
-
-        if parsed.path == "/api/plan_pass":
+        if parsed.path == "/api/word_pass":
+            # 考试通过——整个产品唯一的学习落库动作（SRS 爬梯即实时记录）
             word = (payload.get("word") or "").lower()
             if not word:
                 return self._send(400, {"error": "bad word"})
-            day = today_str()
             con = db()
             try:
-                row = con.execute(
-                    "select done from daily_plan where day=?", (day,)).fetchone()
-                if not row:
-                    return self._send(404, {"error": "no plan today"})
-                done = json.loads(row[0] or "[]")
-                if word not in done:
-                    done.append(word)
-                    con.execute("update daily_plan set done=? where day=?",
-                                (json.dumps(done), day))
                 srs_review(con, word)
                 con.commit()
             finally:
                 con.close()
-            return self._send(200, {"ok": True, "done": len(done)})
-
-        if parsed.path == "/api/plan_extend":
-            # 加餐：全部拿下后「再来一天的量」——追加一份新词配额进今日计划
-            day = today_str()
-            con = db()
-            try:
-                row = con.execute(
-                    "select words from daily_plan where day=?", (day,)).fetchone()
-                if not row:
-                    return self._send(404, {"error": "no plan today"})
-                words = json.loads(row[0])
-                quota = payload.get("count") or int(kv_get("new_quota", 20))
-                now = time.time()
-                fresh = get_backlog(con)[:int(quota)]
-                for w in fresh:
-                    con.execute(
-                        "insert or ignore into word_srs"
-                        "(word, level, due_ts, state, added_ts) "
-                        "values(?,0,?,'learning',?)", (w, now, now))
-                words += [{"word": w, "is_new": True} for w in fresh]
-                con.execute(
-                    "update daily_plan set words=?, finished=0 where day=?",
-                    (json.dumps(words, ensure_ascii=False), day))
-                con.commit()
-            finally:
-                con.close()
-            return self._send(200, {"ok": True, "added": len(fresh)})
-
-
+            return self._send(200, {"ok": True})
 
         if parsed.path == "/api/config":
             q = payload.get("new_quota")
@@ -1184,13 +1087,7 @@ class Handler(BaseHTTPRequestHandler):
                        if s["state"] == "learning" and s["due_ts"] <= now]
                 backlog = get_backlog(con)
                 fresh = backlog[:quota]
-                # 新词立刻挂上梯子(level 0, 到期=现在)，从此纳入调度
-                for w in fresh:
-                    con.execute(
-                        "insert or ignore into word_srs"
-                        "(word, level, due_ts, state, added_ts)"
-                        " values(?,0,?, 'learning', ?)", (w, now, now))
-                con.commit()
+                # 不预注册：新词考过才进梯（FLOW 不变量——过词只有考试一条路）
             finally:
                 con.close()
             pool = due + fresh
@@ -1202,21 +1099,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"chunks": chunks, "started": True})
 
         if parsed.path == "/api/listened":
+            # 听完对话不再计分（用户裁决：学没学会考试说了算，对话只是学习辅助）
             did = payload.get("id")
             if not isinstance(did, int):
                 return self._send(400, {"error": "bad id"})
-            con = db()
-            try:
-                row = con.execute(
-                    "select target_words from dialogues where id=?",
-                    (did,)).fetchone()
-                if not row:
-                    return self._send(404, {"error": "not found"})
-                for w in json.loads(row[0] or "[]"):
-                    srs_review(con, w.lower())
-                con.commit()
-            finally:
-                con.close()
             return self._send(200, {"ok": True})
 
         if parsed.path == "/api/word/learned":

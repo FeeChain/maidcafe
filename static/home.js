@@ -11,9 +11,9 @@ const POST = (url, body) => fetchJSON(url, {
 });
 const fmtN = (x) => x.toLocaleString("zh-CN");
 
-let view = "";           // vNew | vReady | vLearn | vExam | vExamDone | vDone
-let plan = null;         // /api/plan 返回
-let pool = [];           // 未通过的词（学习循环用，乱序）
+let view = "";           // vNew | vEmpty | vLearn | vExam | vExamDone | vDone
+let sessionWords = [];   // 本次会话的一份词（/api/session 现抓，零落库）
+let pool = [];           // 还没考过的词（学习循环用，乱序）
 let li = 0;              // 学习卡游标
 let lRevealed = false;
 let audioEl = null;
@@ -26,7 +26,7 @@ let exHeard = false;
 let exPassed = 0; let exFailed = 0;
 
 function show(v) {
-  ["vNew", "vReady", "vLearn", "vExam", "vExamDone", "vDone"].forEach((id) =>
+  ["vNew", "vEmpty", "vLearn", "vExam", "vExamDone", "vDone"].forEach((id) =>
     $(id).classList.toggle("hidden", id !== v));
   view = v;
 }
@@ -49,42 +49,32 @@ function playWord(w) {
   if (!w || !w.has_audio) return;
   if (audioEl) audioEl.pause();
   audioEl = new Audio("/audio/" + encodeURIComponent(w.word));
-  audioEl.play().catch(() => {});
+  audioEl.play().catch(() => {
+    // 开门即学：首个音可能被浏览器拦自动播放，给一句提示，任意交互后恢复
+    const h = $("lHint");
+    if (h && view === "vLearn") h.textContent = "按 K 或点喇叭听发音（浏览器拦了自动播放）";
+  });
 }
 
 /* ---------------- 主状态机 ---------------- */
+/* 开门即学：打开=S2，关掉=结束。没有「每天/任务」概念——
+ * 每次打开现抓一份（到期复习全上 + 新词 20），背完就是背完；
+ * 唯一落库的是「考试通过」（SRS 爬梯即实时记录），其余什么都不记。 */
 async function boot() {
   const s = await fetchJSON("/api/home_status");
   resumeScene();   // 煮着的对话在任何视图都继续盯（不在学习页就 toast 通知）
   if (!s.calibrated) { show("vNew"); return; }
-  if (s.plan) {
-    // 规则：boot 永不直接落 S2。今日计划存在就先到 S5 门厅
-    // （全过=S5a 庆祝；否则=S5b，一键「再学一会」进 S2）。
-    // 直接关机不点收工 => 重开自然就是走了 S5b 路线，无需任何标记。
-    await loadPlan();
-    renderDone();
-    return;
-  }
-  // 今日未开始（S1）：每天恒定一份量，复习优先、新词补满，不累计
-  const empty = s.due + s.new_today === 0;
-  $("menuLine").innerHTML = empty
-    ? "词池空了——先去攒一点生词 ☕"
-    : `今天的菜单：复习 <b>${s.due}</b> · 新词 <b>${s.new_today}</b>` +
-      `<span class="hint-line">每天就这一份量（${s.new_quota} 个，设置里可调）` +
-      (s.due_waiting ? ` · 还有 ${s.due_waiting} 个到期的排在明天` : "") + `</span>`;
-  $("startPlanBtn").classList.toggle("hidden", empty);
-  $("goCalBtn").classList.toggle("hidden", !empty);
-  $("readyHint").innerHTML =
-    !empty && s.backlog < s.new_today
-      ? `生词池见底了，想多学去<a href="/calibrate">校准工具</a>再过几块`
-      : "";
-  show("vReady");
+  await loadSession();
+  if (!pool.length) { show("vEmpty"); return; }  // 生词池和复习都空：去攒词
+  enterLearn();                                  // 其余一律直落 S2
 }
 
-async function loadPlan() {
-  plan = await fetchJSON("/api/plan");
-  pool = shuffle(plan.words.filter((w) => !w.passed));
+async function loadSession() {
+  const r = await fetchJSON("/api/session");
+  sessionWords = r.words;
+  pool = shuffle(sessionWords.slice());
   li = 0;
+  cycles = 0;
 }
 
 /* ---------------- 学习循环 ---------------- */
@@ -96,9 +86,9 @@ function enterLearn() {
 }
 
 function renderLearnTop() {
-  const done = plan.words.length - pool.length;
+  const done = sessionWords.length - pool.length;
   $("learnProgress").innerHTML =
-    `今日 <b>${done}</b>/${plan.words.length} 已过 · 在学 ${pool.length} 个`;
+    `这一份 <b>${done}</b>/${sessionWords.length} 已拿下 · 在学 ${pool.length} 个`;
   $("examBtn").textContent = `✍ 我准备好了，考试（${pool.length} 词）`;
 }
 
@@ -279,7 +269,7 @@ async function examFinalize(canRead) {
   if (pass) {
     exPassed += 1;
     pool = pool.filter((x) => x.word !== w.word);
-    POST("/api/plan_pass", { word: w.word });
+    POST("/api/word_pass", { word: w.word });
   } else {
     exFailed += 1;
   }
@@ -295,26 +285,15 @@ function examDone() {
   show("vExamDone");
 }
 
-/* ---------------- 完成 ---------------- */
+/* ---------------- S5a 这一份全拿下 ---------------- */
 function renderDone() {
-  const total = plan ? plan.words.length : 0;
-  const remain = pool.length;
-  $("doneTitle2").textContent = remain ? "今天到这 ☕" : "今日全部拿下 🎉";
-  $("doneLine").innerHTML = remain
-    ? `已拿下 <b>${total - remain}</b>/${total} · 剩 ${remain} 个明天继续`
-    : `${total} 个词全部通过考试`;
-  $("moreBtn").textContent = remain ? "再学一会" : "☕ 加餐：再来一天的量";
-  $("doneHint").classList.toggle("hidden", !remain);  // S5a 无欠账不显示
+  $("doneLine").innerHTML =
+    `${sessionWords.length} 个词全部通过考试`;
   show("vDone");
 }
 
 /* ---------------- 事件 ---------------- */
 $("goProbeBtn").addEventListener("click", () => location.href = "/calibrate?probe=1");
-$("startPlanBtn").addEventListener("click", async () => {
-  await POST("/api/plan_start", {});
-  await loadPlan();
-  enterLearn();
-});
 $("lPlayBtn").addEventListener("click", (e) => { e.currentTarget.blur(); playWord(curLearn()); });
 $("lRevealBtn").addEventListener("click", (e) => { e.currentTarget.blur(); revealLearn(); });
 $("lNextBtn").addEventListener("click", (e) => { e.currentTarget.blur(); nextLearn(); });
@@ -323,14 +302,11 @@ $("sceneAgainBtn").addEventListener("click", () => sceneGroup && requestScene(sc
 $("examBtn").addEventListener("click", enterExam);
 $("examQuitBtn").addEventListener("click", enterLearn);
 $("backToLearnBtn").addEventListener("click", enterLearn);
-$("endDayBtn").addEventListener("click", () => renderDone());  // S2 -> S5b（纯视图，无需落库）
 $("moreBtn").addEventListener("click", async () => {
-  if (pool.length) { enterLearn(); return; }   // S5b 再学一会 -> S2
-  const r = await POST("/api/plan_extend", {});
-  if (!r.added) { toast("生词池空了——去校准工具过几块词攒一点 ☕"); return; }
-  await loadPlan();
-  cycles = 0;
-  toast(`加餐上桌：又端来 ${r.added} 个新词 ☕`);
+  // 再来一份：和重新打开软件完全等效（考过的自然不在了，新词接着上）
+  await loadSession();
+  if (!pool.length) { show("vEmpty"); return; }
+  toast(`新一份上桌：${pool.length} 个词 ☕`);
   enterLearn();
 });
 $("exPlayBtn").addEventListener("click", (e) => { e.currentTarget.blur(); playWord(curExam()); });
@@ -373,6 +349,6 @@ $("cfgClose").addEventListener("click", () => $("cfgModal").classList.add("hidde
 $("quotaSave").addEventListener("click", async () => {
   const q = parseInt($("quotaInput").value, 10);
   const r = await POST("/api/config", { new_quota: q });
-  toast(r.ok ? `每日词量已改为 ${q}` : (r.error || "保存失败"));
+  toast(r.ok ? `每份新词已改为 ${q}` : (r.error || "保存失败"));
 });
 boot();

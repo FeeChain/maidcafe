@@ -31,15 +31,13 @@
     </div>
   </section>
 
-  <!-- 已测，今日未开始 -->
-  <section id="vReady" class="overlay hidden">
+  <!-- 词池与复习都空：去攒生词 -->
+  <section id="vEmpty" class="overlay hidden">
     <div class="overlay-card">
-      <img class="art-banner" src="/static/art/C1_welcome.png" alt="" onerror="this.remove()">
-      <h1>欢迎回来，客人 ☕</h1>
-      <div id="menuLine" class="menu-line"></div>
-      <button id="startPlanBtn" class="mknext big" style="border:none;cursor:pointer;border-radius:12px;">开始今天的学习</button>
-      <a id="goCalBtn" href="/calibrate" class="mknext big hidden" style="text-decoration:none;border-radius:12px;display:inline-block;">去校准工具攒生词 →</a>
-      <div id="readyHint" class="hint-line" style="margin-top:12px;"></div>
+      <img class="art-banner" src="/static/art/C2_empty.png" alt="" onerror="this.remove()">
+      <h1>词池空了 ☕</h1>
+      <p class="hint-line">没有到期的复习，生词池也见底了——先去攒一点生词。</p>
+      <a href="/calibrate" class="mknext big" style="text-decoration:none;border-radius:12px;display:inline-block;border:none;">去校准工具攒生词 →</a>
     </div>
   </section>
 
@@ -49,13 +47,12 @@
       <span id="learnProgress" class="hint-line"></span>
       <span style="flex:1"></span>
       <button id="examBtn" class="mk">✍ 我准备好了，考试</button>
-      <button id="endDayBtn" class="mk small">今天到这</button>
     </div>
 
     <div class="card learn-card">
       <div class="card-body" id="learnBody">
         <div class="learn-state">
-          <span id="newTag" class="mark-tag hidden">今日新词</span>
+          <span id="newTag" class="mark-tag hidden">新词</span>
           <button id="lPlayBtn" class="play-btn" title="重听 (K)">🔊</button>
           <div id="lWord" class="word veiled-word">·&nbsp;·&nbsp;·</div>
           <div id="lPhon" class="phonetic"></div>
@@ -125,10 +122,10 @@
   <section id="vDone" class="overlay hidden">
     <div class="overlay-card">
       <img class="art-banner" src="/static/art/C4_celebrate.png" alt="" onerror="this.remove()">
-      <h1 id="doneTitle2">今日全部拿下 🎉</h1>
+      <h1>这一份全部拿下 🎉</h1>
       <div id="doneLine" class="menu-line"></div>
-      <p id="doneHint" class="hint-line">没考过的词一个都不会丢——明天女仆们会重新端上来。</p>
-      <button id="moreBtn" class="mk">再学一会</button>
+      <p class="hint-line">背完就是背完——关掉就行。想多学：</p>
+      <button id="moreBtn" class="mk">☕ 再来一份</button>
     </div>
   </section>
 
@@ -136,7 +133,7 @@
   <div id="cfgModal" class="word-card hidden" style="width:380px;">
     <div class="wc-word" style="font-family:var(--font-display);font-size:20px;">设置</div>
     <div class="cfg-body">
-      <label>每日词量（复习优先装入，新词补满）
+      <label>每份新词数量（到期复习另算，全上）
         <input id="quotaInput" type="number" min="1" max="100" style="width:70px;">
         <button id="quotaSave" class="mk small">保存</button>
       </label>
