@@ -37,7 +37,7 @@
       <img class="art-banner" src="/static/art/C1_welcome.png" alt="" onerror="this.remove()">
       <h1>校准完成 ☕</h1>
       <div id="introLine" class="menu-line"></div>
-      <p class="hint-line">先随便翻翻卡混个脸熟，每凑齐 5 个词可以让女仆们煮一场对话；
+      <p class="hint-line">先随便翻翻卡混个脸熟——翻开的词会攒进下一杯，随时能让女仆们煮一场对话（最多 5 个词一杯）；
       什么时候考试、考几次，都由你。</p>
       <button id="introStartBtn" class="mknext big" style="border:none;cursor:pointer;border-radius:12px;">开始这一轮学习</button>
     </div>
@@ -69,7 +69,7 @@
           <div id="lWord" class="word veiled-word">·&nbsp;·&nbsp;·</div>
           <div id="lPhon" class="phonetic"></div>
           <div id="lDef" class="definition hidden"></div>
-          <div class="hint" id="lHint">Space 显示 · 再按下一个 · K 重听 · 按组顺序转，翻完一组就能煮一杯</div>
+          <div class="hint" id="lHint">Space 显示 · 再按下一个 · K 重听 · 翻开的词会攒进下一杯对话</div>
         </div>
       </div>
       <div class="mark-btns" style="padding:0 0 26px;">
@@ -79,11 +79,9 @@
     </div>
 
     <div class="group-head">
-      <span class="hint-line">☕ 每凑齐一组（翻过组里全部词）就能煮一场对话：</span>
-      <button id="shuffleBtn" class="mk small hidden">🔀 打乱重新分组</button>
+      <button id="brewBtn" class="mk" disabled>☕ 翻开的词会攒进下一杯（最多 5 个）</button>
       <span id="sceneHint" class="hint-line" style="margin-left:auto;"></span>
     </div>
-    <div id="groupRow" class="group-row"></div>
   </section>
 
   <!-- S6 听对话（会话内子页：词源=当前 S2 词池） -->
