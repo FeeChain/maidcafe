@@ -12,13 +12,15 @@ const POST = (url, body) => fetchJSON(url, {
 const fmtN = (x) => x.toLocaleString("zh-CN");
 
 let view = "";           // vNew | vEmpty | vLearn | vExam | vExamDone | vDone
-let sessionWords = [];   // 本次会话的一份词（/api/session 现抓，零落库）
-let sessionTotal = 0;    // 整份词数（顶行/庆祝用；打乱会从 sessionWords 剔已过词）
+let sessionWords = [];   // 本次会话的一份词（/api/session 现抓后洗牌，零落库）
+let sessionTotal = 0;    // 整份词数（顶行/庆祝用）
+let viewedOrder = [];    // 翻开顺序（篮子按它攒）
+let inPot = new Set();   // 已进过锅（当过对话目标词）的词——不落库，关掉即清
 let pool = [];           // 还没考过的词（学习循环用，乱序）
 let li = 0;              // 学习卡游标
 let lRevealed = false;
 let audioEl = null;
-let sceneGroup = null;   // 最近一场对话的 5 词
+let sceneGroup = null;   // 最近一场对话的目标词（≤5 个）
 let sceneWatch = null;
 let exQueue = [];        // 本轮考试队列
 let exIdx = 0;
@@ -83,8 +85,7 @@ async function boot() {
 
 let passed = new Set();   // 本次会话已考过的词
 
-/* 学习顺序 = 组顺序（第1组5个→第2组5个→…循环），这样才能按组凑出对话；
- * 随机只在用户点「打乱重新分组」时发生（用户裁决） */
+/* 学习顺序 = 每份现抓后洗牌一次的乱序，循环保持同序（v4 用户裁决） */
 function rebuildPool() {
   pool = sessionWords.filter((w) => !passed.has(w.word));
   li = 0;
@@ -92,10 +93,12 @@ function rebuildPool() {
 
 async function loadSession() {
   const r = await fetchJSON("/api/session");
-  sessionWords = r.words;
-  sessionTotal = r.words.length;   // 整份词数（打乱重分组会从 sessionWords 剔掉已考过的）
+  sessionWords = shuffle(r.words.slice());   // 乱序过一遍（循环保持同序）
+  sessionTotal = r.words.length;
   passed = new Set();
   viewed = new Set();
+  viewedOrder = [];
+  inPot = new Set();
   rebuildPool();
   cycles = 0;
   mclog("session", `${sessionWords.length} 词: ${sessionWords.map((w) => w.word).slice(0, 8).join(",")}`);
@@ -106,54 +109,31 @@ function enterLearn() {
   if (!pool.length) { renderDone(); return; }
   show("vLearn");
   renderLearnTop();
-  renderGroups();
+  renderBrew();
   showLearnCard();
 }
 
-/* ---- 四组框：一份切成 5 词一组（顺序切），翻完一组的词才能开火 ---- */
-function groupsOf() {
-  const gs = [];
-  for (let i = 0; i < sessionWords.length; i += 5) {
-    gs.push(sessionWords.slice(i, i + 5));
-  }
-  return gs;
+/* ---- 篮子：翻开过、没考过、没进过锅的词按翻开顺序攒进下一杯，5 个封顶 ----
+   盲听产品不剧透：只报数，不显示具体是哪些词（2026-09-22 用户裁决 v4） */
+function brewQueue() {
+  return viewedOrder
+    .filter((w) => !passed.has(w) && !inPot.has(w))
+    .slice(0, 5);
 }
 
-function renderGroups() {
-  const box = $("groupRow");
-  if (!box) return;
-  const pending = getPending();
-  box.innerHTML = "";
-  groupsOf().forEach((g, gi) => {
-    // 组框只显示还没考过的词——考过的当场消失；剩几个是几个，不硬凑
-    const remain = g.filter((w) => !passed.has(w.word));
-    const words = remain.map((w) => w.word);
-    const seen = words.filter((w) => viewed.has(w)).length;
-    const cleared = remain.length === 0;
-    const ready = !cleared && seen === words.length;
-    // 灶单词永远是该组某一时刻的剩余词（子集）——按归属匹配，考掉词不丢灶上态
-    const cooking = pending &&
-      pending.words.every((w) => g.some((x) => x.word === w));
-    const el = document.createElement("div");
-    el.className = "grp" + (ready ? " ready" : "") +
-      (cooking ? " cooking" : "") + (cleared ? " cleared" : "");
-    el.innerHTML =
-      `<div class="grp-head">第 ${gi + 1} 组 · ` +
-      (cooking ? "☕ 灶上" : cleared ? "✓ 已拿下"
-        : ready ? "☕ 可开火" : `翻过 ${seen}/${words.length}`) +
-      `</div>` +
-      `<div class="grp-words">${remain.map((w) =>
-        `<span class="gw${viewed.has(w.word) ? " on" : ""}${w.is_new ? "" : " rev"}">${w.word}</span>`
-      ).join("")}</div>`;
-    if (ready || cooking) {
-      el.addEventListener("click", () => enterListen(cooking ? null : words));
-    }
-    box.appendChild(el);
-  });
-  const remainAll = sessionWords.filter((w) => !passed.has(w.word));
-  $("shuffleBtn").classList.toggle(
-    "hidden",
-    !remainAll.length || remainAll.some((w) => !viewed.has(w.word)));
+function renderBrew() {
+  const btn = $("brewBtn");
+  if (!btn) return;
+  if (getPending()) {
+    btn.disabled = false;
+    btn.textContent = "☕ 灶上煮着——点击看进度";
+    return;
+  }
+  const q = brewQueue();
+  btn.disabled = !q.length;
+  btn.textContent = q.length
+    ? `☕ 给这 ${q.length} 个词来一场对话`
+    : "☕ 翻开的词会攒进下一杯（最多 5 个）";
 }
 
 function renderLearnTop() {
@@ -168,9 +148,7 @@ function showLearnCard() {
   const w = curLearn();
   if (!w) return;
   lRevealed = false;
-  const gi = Math.floor(
-    sessionWords.findIndex((x) => x.word === w.word) / 5) + 1;
-  $("newTag").textContent = `第${gi}组${w.is_new ? " · 新词" : " · 复习"}`;
+  $("newTag").textContent = w.is_new ? "新词" : "复习";
   $("newTag").classList.remove("hidden");
   $("lWord").textContent = "· · ·";
   $("lWord").classList.add("veiled-word");
@@ -181,13 +159,14 @@ function showLearnCard() {
   playWord(w);
 }
 
-let viewed = new Set();   // 本次会话翻开过的词（组解锁用，不落库）
+let viewed = new Set();   // 本次会话翻开过的词（篮子攒词用，不落库）
 
 function revealLearn() {
   const w = curLearn();
   lRevealed = true;
+  if (!viewed.has(w.word)) viewedOrder.push(w.word);
   viewed.add(w.word);
-  renderGroups();
+  renderBrew();
   $("lWord").textContent = w.word;
   $("lWord").classList.remove("veiled-word");
   $("lPhon").textContent = w.phonetic || "";
@@ -201,7 +180,7 @@ let cycles = 0;         // 转满几圈了（只做中性展示，不催——�
 
 function nextLearn() {
   li += 1;
-  if (li % pool.length === 0) cycles += 1;   // 循环回到第1组，顺序不变
+  if (li % pool.length === 0) cycles += 1;   // 转满一圈，顺序不变
   renderLearnTop();
   showLearnCard();
 }
@@ -231,7 +210,7 @@ function enterListen(genWords) {
 }
 
 function genIdle(msg) {
-  $("lsGenLine").textContent = msg || "想再来一场：同组换场景，或回学习页点别的组 ☕";
+  $("lsGenLine").textContent = msg || "想再来一场：换个场景再来一杯，或回学习页再攒一篮 ☕";
   $("lsGenFill").style.width = "0%";
   $("lsFreeHint").classList.add("hidden");
   $("lsAgainBtn").classList.toggle("hidden", !sceneGroup);
@@ -285,7 +264,7 @@ function genWatch(words, t0) {
     $("sceneHint").textContent = "";
     $("lsFreeHint").classList.add("hidden");
     if (clear) { try { localStorage.removeItem("mc_home_gen"); } catch (_) {} }
-    renderGroups();
+    renderBrew();
   };
   const tick = async () => {
     const fetched = tickN++ % 5 === 0;   // 秒表每秒走字，锅 5 秒看一次
@@ -338,7 +317,7 @@ function genWatch(words, t0) {
       $("lsGenFill").style.width = pct + "%";
     } else {
       $("sceneHint").textContent = `☕ 灶上：${line}`;
-      if (fetched) renderGroups();   // 组框 5 秒一刷即可，别跟点击抢 DOM
+      renderBrew();   // 灶上态挂在按钮上，跟着秒表走
     }
     if (Date.now() / 1000 - t0 > GEN_TIMEOUT) {
       $("lsGenLine").innerHTML =
@@ -624,14 +603,13 @@ $("lPlayBtn").addEventListener("click", (e) => { e.currentTarget.blur(); playWor
 $("lRevealBtn").addEventListener("click", (e) => { e.currentTarget.blur(); revealLearn(); });
 $("lNextBtn").addEventListener("click", (e) => { e.currentTarget.blur(); nextLearn(); });
 $("introStartBtn").addEventListener("click", enterLearn);
-$("shuffleBtn").addEventListener("click", () => {
-  // 只对还没考过的词重排重分——考过的不回锅；末组可以不足 5 个
-  sessionWords = shuffle(sessionWords.filter((w) => !passed.has(w.word)));
-  rebuildPool();                                  // 学习顺序跟随新的组顺序
-  mclog("shuffle", "重新分组");
-  renderLearnTop();
-  renderGroups();
-  showLearnCard();
+$("brewBtn").addEventListener("click", () => {
+  if (getPending()) { enterListen(null); return; }   // 灶上：进 S6 看进度
+  const q = brewQueue();
+  if (!q.length) return;
+  q.forEach((w) => inPot.add(w));
+  mclog("brew", q.join(","));
+  enterListen(q);
 });
 $("lsBackBtn").addEventListener("click", enterLearn);
 $("lsExamBtn").addEventListener("click", enterExam);

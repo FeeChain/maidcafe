@@ -164,26 +164,26 @@ class TestMainJourney(UIBase):
         self.page.click("#introStartBtn")
         self.page.wait_for_selector("#vLearn", state="visible")
 
-    def test_u05_card_order_is_group_order(self):
-        session = [w["word"] for w in self.api("/api/session")["words"]]
-        flips = []
-        tags = []
-        for _ in range(6):
+    def test_u05_shuffled_cards_fill_the_basket(self):
+        session = {w["word"] for w in self.api("/api/session")["words"]}
+        # 没翻词：篮子按钮灰（v4：只报数，不剧透具体词）
+        self.assertTrue(self.page.locator("#brewBtn").is_disabled(),
+                        "empty basket must be disabled")
+        flips, tags = [], []
+        for i in range(6):
             self.page.click("#lRevealBtn")
             flips.append(self.page.text_content("#lWord").strip())
             tags.append(self.page.text_content("#newTag").strip())
+            if i == 0:
+                self.assertIn("1 个词", self.page.text_content("#brewBtn"))
+                self.assertFalse(self.page.locator("#brewBtn").is_disabled(),
+                                 "one word is enough to brew")
             self.page.click("#lNextBtn")
-        self.assertEqual(flips[:5], session[:5],
-                         "cards must follow group 1 in exact order")
-        self.assertEqual(flips[5], session[5], "then group 2 begins")
-        self.assertTrue(all(t.startswith("第1组") for t in tags[:5]), tags)
-        self.assertTrue(tags[5].startswith("第2组"), tags)
-        self.assertEqual(
-            self.page.locator(".grp.ready").count(), 1,
-            "group 1 unlocks after all five are flipped")
-        heads = self.page.locator(".grp .grp-head").all_text_contents()
-        self.assertIn("可开火", heads[0])
-        self.assertIn("1/5", heads[1])
+        self.assertEqual(len(set(flips)), 6, "six distinct cards, no repeats")
+        self.assertTrue(set(flips) <= session, "cards come from the session")
+        self.assertTrue(all(t in ("新词", "复习") for t in tags), tags)
+        # 翻了 6 个，篮子 5 封顶
+        self.assertIn("5 个词", self.page.text_content("#brewBtn"))
 
     def test_u06_brew_error_path(self):
         # 先塞一条已出锅的对话，供列表/播放器用（无音频文件=瞬时揭示链）
@@ -199,7 +199,7 @@ class TestMainJourney(UIBase):
              json.dumps({"known_ratio": 0.95})))
         con.commit()
         con.close()
-        self.page.click(".grp.ready")
+        self.page.click("#brewBtn")
         self.page.wait_for_selector("#vListen", state="visible")
         self.page.wait_for_function(
             "document.getElementById('lsGenLine').textContent.includes('翻')",
@@ -234,44 +234,36 @@ class TestMainJourney(UIBase):
         self.page.click("#examQuitBtn")
         self.page.wait_for_selector("#vLearn", state="visible")
         self.assertIn("2/20", self.page.text_content("#learnProgress"))
-        # 考过的词当场从组框消失，只剩 18 个未过词
-        shown = self.page.locator(".gw").all_text_contents()
-        self.assertEqual(len(shown), 18, "boxes show only unpassed words")
-        for w in passed_words:
-            self.assertNotIn(w, shown, "passed word must leave its group box")
+        # 考过的词绝不再进篮子（白盒读页面状态，操作全是真点击）
+        q = self.page.evaluate("brewQueue()")
+        ps = self.page.evaluate("Array.from(passed)")
+        self.assertEqual(sorted(ps), sorted(passed_words))
+        self.assertFalse(set(q) & set(ps),
+                         "passed words never enter the basket")
         session = [w["word"] for w in self.api("/api/session")["words"]]
         self.page.click("#lRevealBtn")
         first = self.page.text_content("#lWord").strip()
         self.page.click("#lNextBtn")
         self.assertIn(first, session, "cards keep serving unpassed words")
 
-    def test_u08b_shuffle_regroups_only_survivors(self):
-        # 把剩余词全部翻完 -> 打乱按钮出现（考过的词不挡路）
-        for _ in range(40):
-            if self.visible("#shuffleBtn"):
+    def test_u08b_basket_refills_after_a_brew(self):
+        # u06 已把第一篮 5 词送进锅——继续翻新卡，篮子续攒且仍 5 封顶
+        for _ in range(30):
+            if "5 个词" in self.page.text_content("#brewBtn"):
                 break
             if self.visible("#lRevealBtn"):
                 self.page.click("#lRevealBtn")
             self.page.click("#lNextBtn")
         else:
-            self.fail("shuffle button never appeared")
-        self.page.click("#shuffleBtn")
-        heads = self.page.locator(".grp .grp-head").all_text_contents()
-        self.assertEqual(len(heads), 4, "18 survivors -> 5+5+5+3 groups")
-        last = self.page.locator(".grp").nth(3).locator(".gw")
-        self.assertEqual(len(last.all_text_contents()), 3,
-                         "last group keeps 3, no padding")
-        self.assertEqual(len(self.page.locator(".gw").all_text_contents()), 18)
+            self.fail("basket never refilled to five")
+        q = self.page.evaluate("brewQueue()")
+        pot = self.page.evaluate("Array.from(inPot)")
+        self.assertEqual(len(q), 5)
+        self.assertEqual(len(pot), 5, "the first brew claimed five words")
+        self.assertFalse(set(q) & set(pot),
+                         "brewed words don't come back to the basket")
         self.assertIn("2/20", self.page.text_content("#learnProgress"),
-                      "portion counter keeps the full-portion denominator")
-        # 不足 5 个的组照样能开火（末组 3 词，全翻过=ready）
-        self.page.click(".grp >> nth=3")
-        self.page.wait_for_selector("#vListen", state="visible")
-        self.page.wait_for_function(
-            "document.getElementById('lsGenLine').textContent.includes('翻')",
-            timeout=20000)   # fake model -> 翻车红字，证明 3 词一样点得着火
-        self.page.click("#lsBackBtn")
-        self.page.wait_for_selector("#vLearn", state="visible")
+                      "portion counter keeps the full denominator")
 
     def test_u09_exam_all_pass_then_seconds(self):
         self.page.click("#examBtn")
@@ -284,9 +276,13 @@ class TestMainJourney(UIBase):
         self.page.click("#moreBtn")
         self.page.wait_for_selector("#vLearn", state="visible")
         self.assertIn("0/20", self.page.text_content("#learnProgress"))
-        heads = self.page.locator(".grp .grp-head").all_text_contents()
-        self.assertTrue(all("0/" in h for h in heads),
-                        "a fresh portion resets group counters")
+        # 新一份：篮子清零变灰；翻 1 张就能煮（不足 5 不硬凑）
+        self.assertTrue(self.page.locator("#brewBtn").is_disabled(),
+                        "a fresh portion starts with an empty basket")
+        self.page.click("#lRevealBtn")
+        self.assertIn("1 个词", self.page.text_content("#brewBtn"))
+        self.assertFalse(self.page.locator("#brewBtn").is_disabled())
+        self.page.click("#lNextBtn")   # 回到遮罩态，别影响后面的键盘用例
 
     def test_u10_refresh_lands_in_s2(self):
         self.page.reload()
@@ -423,17 +419,19 @@ class TestAudioAndTimeout(UIBase):
     def test_w01_word_audio_really_requested(self):
         self.page.goto(self.base + "/")
         self.page.wait_for_selector("#vLearn", state="visible")
-        first = self.api("/api/session")["words"][0]["word"]
+        words = {w["word"] for w in self.api("/api/session")["words"]}
         self.page.wait_for_function("window.__mcAudio.length > 0")
         log = self.page.evaluate("window.__mcAudio")
-        self.assertEqual(log[0]["src"], "/audio/" + first,
-                         "first learn card must request its own audio")
+        first = log[0]["src"].rsplit("/", 1)[-1]
+        self.assertIn(first, words,   # 卡序已洗牌——断词属会话即可
+                      "first learn card must request a session word's audio")
         self.assertTrue(log[0]["played"], "play() must actually be called")
         n = len(log)
         self.page.keyboard.press("k")           # A08 重听
         self.page.wait_for_function("window.__mcAudio.length > %d" % n)
         log = self.page.evaluate("window.__mcAudio")
-        self.assertEqual(log[-1]["src"], "/audio/" + first)
+        self.assertEqual(log[-1]["src"], "/audio/" + first,
+                         "K replays the same word")
         self.assertTrue(log[-1]["played"])
         # 服务端把真字节端上来（此前 /audio/ 只测过 404 分支）
         with open(os.path.join(self.tmp, "beep.wav"), "rb") as f:
@@ -450,9 +448,9 @@ class TestAudioAndTimeout(UIBase):
             "{ words: %s, t0: Date.now() / 1000 }))" % json.dumps(words))
         self.page.goto(self.base + "/")
         self.page.wait_for_selector("#vLearn", state="visible")
-        self.page.wait_for_selector(".grp.cooking", state="visible")
-        self.assertIn("灶上", self.page.text_content(".grp.cooking"))
-        self.page.click(".grp.cooking")
+        self.page.wait_for_function(
+            "document.getElementById('brewBtn').textContent.includes('灶上')")
+        self.page.click("#brewBtn")
         self.page.wait_for_selector("#vListen", state="visible")
         # 煮着可离开的安心提示必须在生成中亮着
         self.assertTrue(self.visible("#lsFreeHint"),
