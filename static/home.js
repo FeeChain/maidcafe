@@ -240,10 +240,33 @@ async function startGen(words) {
    → ⑤拉花（=配音）→ 客人请用（女仆们开始闲聊，一边喝一边听） */
 const BREW_STEPS = ["① 磨咖啡豆", "② 萃取浓缩", "③ 蒸奶打泡", "④ 调整风味"];
 
+/* 时间基准估计：本机最近 5 杯的完成时长（localStorage），无历史默认 130 秒。
+   工序阶段的百分比映射一档内一动不动、完全不线性——改成条随真实已用时间走，
+   工序只作底线；超过平常时长后渐近爬行，未出锅封顶 95%。 */
+function genHist() {
+  try { return JSON.parse(localStorage.getItem("mc_gen_hist") || "[]"); }
+  catch (_) { return []; }
+}
+function genExpect() {
+  const h = genHist();
+  return h.length ? h.reduce((a, b) => a + b, 0) / h.length : 130;
+}
+function genHistPush(sec) {
+  const h = genHist();
+  h.push(Math.round(sec));
+  while (h.length > 5) h.shift();
+  try { localStorage.setItem("mc_gen_hist", JSON.stringify(h)); } catch (_) {}
+}
+function fmtDur(sec) {
+  sec = Math.max(0, Math.round(sec));
+  return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+}
+
 function genWatch(words, t0) {
   sceneGroup = words;
   $("lsAgainBtn").classList.add("hidden");
   if (sceneWatch) clearInterval(sceneWatch);
+  let list = null, tickN = 0;
   const stop = (clear) => {
     clearInterval(sceneWatch);
     sceneWatch = null;
@@ -252,19 +275,27 @@ function genWatch(words, t0) {
     renderGroups();
   };
   const tick = async () => {
-    const mins = Math.max(1, Math.round((Date.now() / 1000 - t0) / 60));
-    let list;
-    try { list = await fetchJSON("/api/dialogues"); } catch (_) { return; }
+    const fetched = tickN++ % 5 === 0;   // 秒表每秒走字，锅 5 秒看一次
+    if (fetched) {
+      try { list = await fetchJSON("/api/dialogues"); } catch (_) {}
+    }
+    if (!list) return;
     const hit = list.find((d) =>
       d.ts > t0 - 10 && words.every((w) => d.targets.includes(w)));
-    let pct = 5, line = `☕ 女仆去挑豆了（${words.join(", ")}）…`;
+    const el = Date.now() / 1000 - t0;
+    const exp = genExpect();
+    const clock = `已 ${fmtDur(el)} · 平常约 ${fmtDur(exp)}`;
+    let pct = el < exp ? (el / exp) * 88
+                       : 88 + 7 * (1 - Math.exp(-(el - exp) / exp));
+    let line = `☕ 女仆去挑豆了（${words.join(", ")}）· ${clock}`;
     if (hit && hit.status === "writing") {
       const m = hit.progress && hit.progress.match(/attempt (\d)/);
       const n = m ? parseInt(m[1], 10) : 1;
-      pct = 10 + n * 18;
-      line = `${BREW_STEPS[n - 1] || BREW_STEPS[3]} · 已 ${mins} 分钟`;
+      pct = Math.max(pct, 8 + n * 4);
+      line = `${BREW_STEPS[n - 1] || BREW_STEPS[3]} · ${clock}`;
     } else if (hit && hit.status === "tts") {
-      pct = 90; line = "⑤ 拉花中 · 就快好了";
+      pct = Math.max(pct, 90);
+      line = `⑤ 拉花中 · 就快好了 · ${clock}`;
     } else if (hit && hit.status === "error") {
       mclog("gen_error", hit.error || "");
       $("lsGenLine").innerHTML =
@@ -275,6 +306,7 @@ function genWatch(words, t0) {
       return;
     } else if (hit) {  // done
       mclog("gen_done", "#" + hit.id);
+      genHistPush(el);                 // 喂给下一杯的时间估计
       stop(true);
       if (view === "vListen") {
         $("lsGenLine").textContent = "☕ 客人请用——女仆们开始闲聊了";
@@ -287,12 +319,13 @@ function genWatch(words, t0) {
       }
       return;
     }
+    pct = Math.min(95, pct);
     if (view === "vListen") {
       $("lsGenLine").textContent = line;
       $("lsGenFill").style.width = pct + "%";
     } else {
       $("sceneHint").textContent = `☕ 灶上：${line}`;
-      renderGroups();
+      if (fetched) renderGroups();   // 组框 5 秒一刷即可，别跟点击抢 DOM
     }
     if (Date.now() / 1000 - t0 > GEN_TIMEOUT) {
       $("lsGenLine").innerHTML =
@@ -302,7 +335,7 @@ function genWatch(words, t0) {
     }
   };
   tick();
-  sceneWatch = setInterval(tick, 5000);
+  sceneWatch = setInterval(tick, 1000);
 }
 
 /* 刷新/回来后恢复正在煮的那一场（留在 S2，按钮上提示） */
