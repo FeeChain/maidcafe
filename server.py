@@ -266,9 +266,13 @@ def build_session():
                if s["state"] == "learning" and s["due_ts"] <= now]
         quota = int(kv_get("new_quota", 20))
         candidates = get_backlog(con)
-        if len(candidates) < quota:
+        n_evidence = con.execute(
+            "select count(*) from marks where src in ('scan','probe') "
+            "or src is null").fetchone()[0]
+        if len(candidates) < quota and n_evidence:
             # 生词池不够一份：探针已定位边界，边界之外没标过的词
-            # 本来就推定为生词——按难度顺序补满（考过才进梯，其余零记录）
+            # 本来就推定为生词——按难度顺序补满（考过才进梯，其余零记录）。
+            # 零校准证据时不结算边界：没测过就一个词都不端（S0 会先拦住）
             nxt = probe_next("all", settle=True)
             if nxt.get("done"):
                 frontier = nxt["bracket"][1]  # 第一个生词侧的块
