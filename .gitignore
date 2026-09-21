@@ -17,6 +17,9 @@ __pycache__/
 # 本地字体（自托管可选项）
 static/fonts/
 
+# 内部手册（只给我们自己看，不入库）
+INTERNAL.md
+
 # 杂项
 .claude/
 .DS_Store
