@@ -47,6 +47,11 @@
         </table>
       </details>
       <button id="startBtn">开始（按任意键）</button>
+      <div class="probe-entry">
+        <button id="probeBtn" class="mk">🔍 探针测词汇量</button>
+        <div class="hint-line">每块抽 3 词快速摸底 · 全扫过的块自动用精确值</div>
+        <div id="vocabLine" class="hint-line hidden"></div>
+      </div>
     </div>
   </div>
 
@@ -95,6 +100,16 @@
     <p>进度已自动保存，随时回来继续。</p>
     <button id="nextTierBtn" class="mk mknext hidden">进入下一块 →</button>
     <button id="resumeBtn" class="mk">继续过词</button>
+  </div>
+
+  <div id="probeCard" class="card done hidden">
+    <h2>测定完成 ☕</h2>
+    <div id="probeNums" class="vocab-nums"></div>
+    <div id="probeBands" class="probe-bands"></div>
+    <p class="hint-line">精确块用真实计数，抽样块按比例推定；之后任何一块被全扫完成，
+    数字会自动替换为精确值。</p>
+    <button id="probeMoreBtn" class="mk">再抽一轮，收紧误差</button>
+    <button id="probeExitBtn" class="mk">回到常规校准</button>
   </div>
 </main>
 

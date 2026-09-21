@@ -14,6 +14,8 @@ let heard = true;       // stage-1 answer: recognized by ear?
 let started = false;
 let stats = null;
 let audioEl = null;
+let probeMode = false;  // 探针式词汇量测定（抽样，v1.5）
+let probePer = 3;       // 每块目标样本数，「再抽一轮」时 +3
 
 const $ = (id) => document.getElementById(id);
 
@@ -119,6 +121,7 @@ function playAudio() {
 }
 
 function showDone() {
+  if (probeMode) { showProbeResult(); return; }
   $("card").classList.add("hidden");
   $("doneCard").classList.remove("hidden");
   const t = currentTier();
@@ -142,10 +145,12 @@ function showDone() {
 
 function showCurrent() {
   if (!queue.length || idx >= queue.length) {
+    if (probeMode) { showDone(); return; }
     loadStats().then(showDone);
     return;
   }
-  loadStats();
+  probeMode ? renderProbeStats() : loadStats();
+  $("probeCard").classList.add("hidden");
   $("doneCard").classList.add("hidden");
   $("card").classList.remove("hidden");
   phase = "listen";
@@ -202,9 +207,76 @@ async function finalize(canRead) {
   await fetchJSON("/api/mark", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ word: w.word, status }),
+    body: JSON.stringify({ word: w.word, status,
+                           src: probeMode ? "probe" : "scan" }),
   });
-  loadStats();
+  if (!probeMode) loadStats();
+}
+
+/* ---------------- 探针式词汇量测定 ---------------- */
+
+let probePace = 4.5;  // 秒/词，开针时从 /api/stats 取实测值
+
+async function startProbe() {
+  started = true;
+  probeMode = true;
+  $("startOverlay").classList.add("hidden");
+  try {
+    const s = await fetchJSON(`/api/stats?deck=${encodeURIComponent(currentDeck())}&tier=all`);
+    stats = s;
+    if (s.pace) probePace = s.pace;
+  } catch (_) {}
+  queue = await fetchJSON(`/api/probe_queue?deck=${encodeURIComponent(currentDeck())}&per=${probePer}`);
+  idx = 0;
+  if (!queue.length) { showProbeResult(); return; }
+  showCurrent();
+}
+
+function renderProbeStats() {
+  const remain = queue.length - idx;
+  $("statsBar").innerHTML =
+    `🔍 探针 <b>${idx}</b>/${queue.length}` +
+    (remain > 0 ? ` · 剩≈${fmtDur(remain * probePace)}` : "");
+  $("progressFill").style.width =
+    (queue.length ? (idx / queue.length) * 100 : 0).toFixed(2) + "%";
+}
+
+const fmtN = (x) => x.toLocaleString("zh-CN");
+
+async function showProbeResult() {
+  $("card").classList.add("hidden");
+  $("doneCard").classList.add("hidden");
+  $("probeCard").classList.remove("hidden");
+  $("probeNums").innerHTML = "计算中…";
+  const v = await fetchJSON(`/api/vocab_estimate?deck=${encodeURIComponent(currentDeck())}`);
+  // 有未测块时数字是外推，标 ± 会假装精确——测满一轮才显示置信区间
+  const ci = v.unmeasured_blocks === 0;
+  $("probeNums").innerHTML =
+    `听得出 ≈ <b>${fmtN(v.listening)}</b>${ci ? `<small>±${v.ci95_listen}</small>` : ""} · ` +
+    `看得懂 ≈ <b>${fmtN(v.reading)}</b>${ci ? `<small>±${v.ci95_read}</small>` : ""} 词` +
+    `<div class="hint-line">样本 ${fmtN(v.sampled)}/${fmtN(v.total_words)} · ` +
+    `精确 ${v.exact_blocks} 块 · 推定 ${v.probe_blocks} 块` +
+    (v.unmeasured_blocks ? ` · 未测 ${v.unmeasured_blocks} 块（按邻块推定）` : "") +
+    `</div>`;
+  $("probeBands").innerHTML = v.bands.map((b) =>
+    `<div class="row"><span class="bname">${BAND_NAMES[b.band] || "其他"}</span>` +
+    `<span class="bbar"><i style="width:${(b.read / b.total * 100).toFixed(1)}%"></i>` +
+    `<i class="lst" style="width:${(b.listen / b.total * 100).toFixed(1)}%"></i></span>` +
+    `<span class="bnum">听 ${fmtN(b.listen)} · 读 ${fmtN(b.read)} / ${fmtN(b.total)}</span></div>`
+  ).join("");
+  loadVocabLine();
+}
+
+/* 欢迎卡上的「上次测定」一行（测过完整一轮才显示） */
+async function loadVocabLine() {
+  try {
+    const v = await fetchJSON(`/api/vocab_estimate?deck=${encodeURIComponent(currentDeck())}`);
+    if (v.unmeasured_blocks === 0 && v.sampled > 0) {
+      $("vocabLine").innerHTML =
+        `当前测定：听得出 ≈ <b>${fmtN(v.listening)}</b> · 看得懂 ≈ <b>${fmtN(v.reading)}</b> 词`;
+      $("vocabLine").classList.remove("hidden");
+    }
+  } catch (_) {}
 }
 
 function endRound() {
@@ -245,6 +317,20 @@ document.addEventListener("keydown", (e) => {
 });
 
 $("startBtn").addEventListener("click", start);
+$("probeBtn").addEventListener("click", (e) => { e.stopPropagation(); startProbe(); });
+$("probeMoreBtn").addEventListener("click", async () => {
+  probePer += 3;
+  queue = await fetchJSON(`/api/probe_queue?deck=${encodeURIComponent(currentDeck())}&per=${probePer}`);
+  idx = 0;
+  if (!queue.length) { $("probeMoreBtn").textContent = "没有可抽的词了"; return; }
+  showCurrent();
+});
+$("probeExitBtn").addEventListener("click", async () => {
+  probeMode = false;
+  $("probeCard").classList.add("hidden");
+  await loadTiers(false);
+  loadQueue();
+});
 $("playBtn").addEventListener("click", (e) => { e.currentTarget.blur(); playAudio(); });
 $("btnKnow").addEventListener("click", (e) => { e.currentTarget.blur(); judge(true); });
 $("btnShow").addEventListener("click", (e) => { e.currentTarget.blur(); judge(false); });
@@ -288,3 +374,4 @@ try {
 
 loadDecks();
 loadStats();
+loadVocabLine();

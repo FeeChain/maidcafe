@@ -10,7 +10,9 @@ Run:  python3 server.py   then open http://localhost:8770
 
 import hashlib
 import json
+import math
 import os
+import random
 import shutil
 import sqlite3
 import subprocess
@@ -130,6 +132,11 @@ def db():
     con.execute(
         "create table if not exists marks("
         "word text primary key, status integer, ts real)")
+    # mark provenance: scan(全扫)/probe(探针)=随机样本 · add(手动加词)=有偏
+    try:
+        con.execute("alter table marks add column src text")
+    except sqlite3.OperationalError:
+        pass  # column already exists
     con.execute(
         "create table if not exists dialogues("
         "id integer primary key autoincrement, ts real, scene text,"
@@ -226,19 +233,175 @@ def get_marks():
         con.close()
 
 
-def set_mark(word, status):
+def set_mark(word, status, src=None):
     con = db()
     try:
         if status is None:
             con.execute("delete from marks where word=?", (word,))
         else:
             con.execute(
-                "insert into marks(word,status,ts) values(?,?,?) "
-                "on conflict(word) do update set status=excluded.status, ts=excluded.ts",
-                (word, status, time.time()))
+                "insert into marks(word,status,ts,src) values(?,?,?,?) "
+                "on conflict(word) do update set status=excluded.status, "
+                "ts=excluded.ts, src=excluded.src",
+                (word, status, time.time(), src))
         con.commit()
     finally:
         con.close()
+
+
+# ---------------------------------------------------------------- probe mode
+# 探针式词汇量测定（v1.5 抽样估算）：每块凑满 per 个真实标记（已有标记直接
+# 算样本，所以全扫过的块自动跳过）。估算时精确块用精确计数、抽样块按比例
+# 推定——某块之后被全扫，估算自动切换成精确值，无需任何迁移。
+
+PROBE_PER_BLOCK = 3
+
+
+def words_of_deck(deck):
+    by_tier = {}
+    for w in WORDS:
+        if deck != "all" and deck not in w.get("sources", []):
+            continue
+        by_tier.setdefault(w.get("tier", 1), []).append(w)
+    return by_tier
+
+
+def get_marks_src():
+    con = db()
+    try:
+        return {w: (s, src) for w, s, src in
+                con.execute("select word, status, src from marks").fetchall()}
+    finally:
+        con.close()
+
+
+def block_samples(ws, marks_src):
+    """一个块里可当随机样本的标记。规则：
+    - src=scan/probe 一定是随机样本；
+    - src=add（手动加词，只有生词才会被加）是有偏样本，永远排除；
+    - 历史 NULL src：块覆盖率 >=30% 视为早期全扫的中途存档（块内 md5 乱序，
+      前缀即随机样本），零散的视为加词，排除。"""
+    hits = [(w, marks_src[w["word"].lower()]) for w in ws
+            if w["word"].lower() in marks_src]
+    coverage = len(hits) / len(ws) if ws else 0
+    out = []
+    for w, (status, src) in hits:
+        if src == "add":
+            continue
+        if src is None and coverage < 0.3:
+            continue
+        out.append(status)
+    return out, len(hits)
+
+
+def probe_queue(deck, per):
+    marks_src = get_marks_src()
+    out = []
+    for tier, ws in sorted(words_of_deck(deck).items()):
+        samples, n_all = block_samples(ws, marks_src)
+        unmarked = [w for w in ws if w["word"].lower() not in marks_src]
+        need = min(per - len(samples), len(unmarked))
+        if need <= 0:
+            continue
+        # deterministic per-block shuffle: refresh mid-probe keeps the sample
+        rng = random.Random("probe:%s:%d" % (deck, tier))
+        rng.shuffle(unmarked)
+        for w in unmarked[:need]:
+            out.append({
+                "word": w["word"],
+                "phonetic": w.get("phonetic", ""),
+                "definition": (w.get("definition") or "")[:400],
+                "example_en": w.get("example_en", ""),
+                "example_cn": w.get("example_cn", ""),
+                "sources": w.get("sources", []),
+                "tier": tier,
+                "has_audio": w["word"].lower() in AUDIO,
+                "status": None,
+            })
+    return out
+
+
+def vocab_estimate(deck):
+    marks_src = get_marks_src()
+    blocks = []
+    for tier, ws in sorted(words_of_deck(deck).items()):
+        total = len(ws)
+        bands = [w.get("band") for w in ws if w.get("band") is not None]
+        samples, n_all = block_samples(ws, marks_src)
+        n = len(samples)
+        k_listen = sum(1 for s in samples if s == 3)
+        k_read = sum(1 for s in samples if s in (2, 3))
+        b = {"tier": tier, "total": total, "n": n,
+             "band": min(bands) if bands else UNTAGGED_TIER,
+             "var_listen": 0.0, "var_read": 0.0}
+        if n_all == total:
+            # census: every word marked — use the true counts, any src
+            k_listen = sum(1 for w in ws if marks_src[w["word"].lower()][0] == 3)
+            k_read = sum(1 for w in ws if marks_src[w["word"].lower()][0] in (2, 3))
+            b["n"] = total
+            b.update(method="exact", est_listen=float(k_listen),
+                     est_read=float(k_read))
+        elif n > 0:
+            b.update(method="probe", est_listen=k_listen / n * total,
+                     est_read=k_read / n * total)
+            # variance of the block estimate (finite population corrected);
+            # +0.5 smoothing so a tiny all-yes/all-no sample doesn't claim
+            # zero uncertainty
+            fpc = (total - n) / max(total - 1, 1)
+            for key, k in (("var_listen", k_listen), ("var_read", k_read)):
+                p = (k + 0.5) / (n + 1)
+                b[key] = total * total * p * (1 - p) / n * fpc
+        else:
+            b.update(method="none", est_listen=None, est_read=None)
+        blocks.append(b)
+
+    # unmeasured blocks: interpolate the knowledge-rate curve from the
+    # nearest measured neighbours (difficulty is monotonic-ish across tiers)
+    measured = [i for i, b in enumerate(blocks) if b["method"] != "none"]
+    for i, b in enumerate(blocks):
+        if b["method"] != "none":
+            continue
+        lo = max((j for j in measured if j < i), default=None)
+        hi = min((j for j in measured if j > i), default=None)
+        def ratio(j, key):
+            return blocks[j]["est_" + key] / blocks[j]["total"]
+        for key in ("listen", "read"):
+            if lo is not None and hi is not None:
+                t = (i - lo) / (hi - lo)
+                r = ratio(lo, key) * (1 - t) + ratio(hi, key) * t
+            elif lo is not None:
+                r = ratio(lo, key)
+            elif hi is not None:
+                r = ratio(hi, key)
+            else:
+                r = 0.0
+            b["est_" + key] = r * b["total"]
+
+    band_agg = {}
+    for b in blocks:
+        d = band_agg.setdefault(b["band"], {"band": b["band"], "total": 0,
+                                            "listen": 0.0, "read": 0.0})
+        d["total"] += b["total"]
+        d["listen"] += b["est_listen"]
+        d["read"] += b["est_read"]
+    return {
+        "listening": round(sum(b["est_listen"] for b in blocks)),
+        "reading": round(sum(b["est_read"] for b in blocks)),
+        "ci95_listen": round(1.96 * math.sqrt(sum(b["var_listen"] for b in blocks))),
+        "ci95_read": round(1.96 * math.sqrt(sum(b["var_read"] for b in blocks))),
+        "total_words": sum(b["total"] for b in blocks),
+        "sampled": sum(b["n"] for b in blocks),
+        "exact_blocks": sum(1 for b in blocks if b["method"] == "exact"),
+        "probe_blocks": sum(1 for b in blocks if b["method"] == "probe"),
+        "unmeasured_blocks": sum(1 for b in blocks if b["method"] == "none"),
+        "bands": [{"band": d["band"], "total": d["total"],
+                   "listen": round(d["listen"]), "read": round(d["read"])}
+                  for d in (band_agg[k] for k in sorted(band_agg))],
+        "per_block": [{"tier": b["tier"], "method": b["method"], "n": b["n"],
+                       "ratio_listen": round(b["est_listen"] / b["total"], 3),
+                       "ratio_read": round(b["est_read"] / b["total"], 3)}
+                      for b in blocks if b["total"]],
+    }
 
 
 def word_match(w, deck, tier):
@@ -380,6 +543,15 @@ class Handler(BaseHTTPRequestHandler):
                 "overall_total": len(WORDS),
                 "overall_marked": overall_marked,
             })
+
+        if path == "/api/probe_queue":
+            deck = qs.get("deck", ["all"])[0]
+            per = int(qs.get("per", [PROBE_PER_BLOCK])[0])
+            return self._send(200, probe_queue(deck, per))
+
+        if path == "/api/vocab_estimate":
+            deck = qs.get("deck", ["all"])[0]
+            return self._send(200, vocab_estimate(deck))
 
         if path == "/api/tiers":
             marks = get_marks()
@@ -557,7 +729,8 @@ class Handler(BaseHTTPRequestHandler):
             status = payload.get("status")  # 1 / 2 / 3 / None(=undo)
             if not word or status not in (1, 2, 3, None):
                 return self._send(400, {"error": "bad params"})
-            set_mark(word, status)
+            src = payload.get("src")
+            set_mark(word, status, src if src in ("scan", "probe", "add") else None)
             return self._send(200, {"ok": True})
 
         if parsed.path == "/api/generate":
@@ -682,7 +855,7 @@ class Handler(BaseHTTPRequestHandler):
             info = word_info(word)
             if not info["definition"] and not ecdict_lookup(word):
                 return self._send(404, {"error": "词典里查不到这个词"})
-            set_mark(word, 1)
+            set_mark(word, 1, "add")
             return self._send(200, {"ok": True})
 
         if parsed.path == "/api/dialogue_delete":
