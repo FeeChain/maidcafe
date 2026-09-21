@@ -18,6 +18,7 @@ __pycache__/
 static/fonts/
 
 # 杂项
+.claude/
 .DS_Store
 static/_css_backup/
 *.zip

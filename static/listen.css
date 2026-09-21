@@ -3,27 +3,7 @@
    听力室列表 / 播放器 / 生词本 / 释义卡。依赖 style.css 的变量，须在其后加载。
    =========================================================================== */
 
-/* --- 导航与标签 ------------------------------------------------------------ */
-.navlink { color: var(--muted-2); font-size: 13.5px; }
-.navlink:hover { color: var(--accent); }
-
-.tab {
-  font-size: 13.5px;
-  padding: 8px 15px;
-  border-radius: var(--r-md);
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--muted-2);
-  cursor: pointer;
-  min-height: 36px;
-}
-.tab:hover { color: var(--accent); }
-.tab.active {
-  background: var(--accent-soft);
-  border-color: var(--accent-line);
-  color: var(--accent-deep);
-  font-weight: 700;
-}
+/* --- 导航与标签（.tab 样式已上移至 style.css，两页共用） -------------------- */
 
 /* 听力室三视图共用更宽的容器 */
 #listView, #playerView, #wordbookView { max-width: 100%; }
@@ -59,6 +39,10 @@ body:has(#listView) main, body:has(#playerView) main { max-width: 1000px; }
   font-family: var(--font-ui);
   font-weight: 700;
 }
+
+/* 自选生成折叠区 */
+.custom-gen { margin-bottom: 18px; }
+.custom-gen[open] > summary { margin-bottom: 10px; }
 
 /* --- 对话列表 -------------------------------------------------------------- */
 .dlist { display: flex; flex-direction: column; gap: 12px; }

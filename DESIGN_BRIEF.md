@@ -113,6 +113,9 @@
 
 ## 6. 美术资产清单（外包绘画用 · design 只做占位与排版）
 
+> ⚠️ 本节已扩充并独立成 **ART_ASSETS.md**（含官网 hero、图标衍生、隐藏面全员、
+> 客人头像与优先级表）——发画师以那份为准，本节仅留存设计排版参考。
+
 > 所有 prompt 已写好可直接投喂画师或生图模型。
 > **通用风格块**（每条 prompt 前置）：
 > `clean modern Japanese anime style, 2020s TV anime key-visual quality,

@@ -530,7 +530,7 @@ $("nextBtn").addEventListener("click", () =>
   playTurn(Math.min(current.turns.length - 1, turnIdx + 1)));
 $("loopBtn").addEventListener("click", () => {
   loop = !loop;
-  $("loopBtn").textContent = "循环: " + (loop ? "开" : "关");
+  $("loopBtn").textContent = "循环：" + (loop ? "开" : "关");
 });
 $("subMode").addEventListener("change", renderTurns);
 $("delBtn").addEventListener("click", async () => {
@@ -568,4 +568,9 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-loadList();
+/* 顶栏「生词本」跨页直达：/listen#wordbook */
+if (location.hash === "#wordbook") {
+  $("tabWordbook").click();
+} else {
+  loadList();
+}

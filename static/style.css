@@ -128,6 +128,26 @@ header {
 }
 .controls select:hover { border-color: var(--accent-line); }
 
+/* 顶栏页签（校准 / 听力室 / 生词本 —— 两页共用） */
+.tab {
+  font-size: 13.5px;
+  padding: 8px 15px;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted-2);
+  cursor: pointer;
+  min-height: 36px;
+  display: inline-flex; align-items: center;
+}
+.tab:hover { color: var(--accent); }
+.tab.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-deep);
+  font-weight: 700;
+}
+
 .stats {
   margin-left: auto;
   font-family: var(--font-mono);
@@ -392,6 +412,28 @@ input:focus { outline: none; border-color: var(--accent); background: var(--card
   border: none; background: none; cursor: pointer;
   color: var(--accent); font-size: 13px; text-decoration: underline;
 }
+
+/* 5.65 折叠区（details/summary）：统一小箭头，替换浏览器默认黑三角 */
+details > summary {
+  cursor: pointer;
+  list-style: none;
+  -webkit-user-select: none; user-select: none;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 7px;
+  color: var(--accent);
+  font-size: .85em;
+  transition: transform .15s;
+}
+details[open] > summary::before { transform: rotate(90deg); }
+details > summary:hover { color: var(--accent-deep); }
+
+.keys-fold { margin-bottom: 22px; }
+.keys-fold summary { font-size: 13.5px; color: var(--muted-2); }
+.keys-fold[open] summary { margin-bottom: 10px; }
 
 /* 5.7 常驻提示行 / 两段式步骤点（可选） */
 .hint-line { font-size: 12.5px; color: var(--muted); line-height: 1.8; }
