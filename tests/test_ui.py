@@ -289,6 +289,14 @@ class TestMainJourney(UIBase):
         self.page.wait_for_selector("#vLearn", state="visible")
         self.assertEqual(self.view(), "vLearn")
 
+    def test_u10b_brand_escapes_any_state(self):
+        # 品牌逃生口：考试半途点 maidcafe ☕ = 关掉重开，直落 S2
+        self.page.click("#examBtn")
+        self.page.wait_for_selector("#vExam", state="visible")
+        self.page.click(".brand")
+        self.page.wait_for_selector("#vLearn", state="visible")
+        self.assertEqual(self.view(), "vLearn")
+
     def test_u11_keyboard_flow(self):
         before = self.page.text_content("#lWord").strip()
         self.page.keyboard.press("Space")
@@ -356,6 +364,9 @@ class TestSecondaryFlows(UIBase):
             self.assertTrue(before["calibrated"])
 
     def test_v03_listen_page_tabs_and_wordbook(self):
+        # 品牌逃生口：校准页（v02 收尾处）点 maidcafe ☕ → 主页
+        self.page.click(".brand")
+        self.page.wait_for_selector("#vEmpty", state="visible")
         self.page.goto(self.base + "/listen")
         self.page.wait_for_selector("#listView", state="visible")
         self.page.click("#tabWordbook")
@@ -371,6 +382,9 @@ class TestSecondaryFlows(UIBase):
         self.page.goto(self.base + "/")
         self.page.goto(self.base + "/listen#wordbook")
         self.page.wait_for_selector("#wordbookView", state="visible")
+        # 品牌逃生口：对话史/生词本页 → 主页
+        self.page.click(".brand")
+        self.page.wait_for_selector("#vEmpty", state="visible")
 
 
 class TestAudioAndTimeout(UIBase):
