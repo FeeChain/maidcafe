@@ -294,6 +294,96 @@ def block_samples(ws, marks_src):
     return out, len(hits)
 
 
+def probe_word_out(w, tier):
+    return {
+        "word": w["word"],
+        "phonetic": w.get("phonetic", ""),
+        "definition": (w.get("definition") or "")[:400],
+        "example_en": w.get("example_en", ""),
+        "example_cn": w.get("example_cn", ""),
+        "sources": w.get("sources", []),
+        "tier": tier,
+        "has_audio": w["word"].lower() in AUDIO,
+        "status": None,
+    }
+
+
+def block_class(ws, marks_src):
+    """块判定（用户定的动态规则，known = 听得出 status 3）：
+    3 全会 -> high；3 中 >=2 不会 -> low；3 中 1 不会 -> need_more（再抽 3）；
+    6 词里 <=1 不会 -> high、>=4 不会 -> low、否则 mid（这块就是边界带）。
+    全扫过的块按真实认识率归类。"""
+    samples, n_all = block_samples(ws, marks_src)
+    total = len(ws)
+    if total and n_all == total:
+        r = sum(1 for w in ws if marks_src[w["word"].lower()][0] == 3) / total
+        return "high" if r >= 0.85 else ("low" if r <= 0.5 else "mid")
+    n = len(samples)
+    if n < 3:
+        return "unsampled"
+    u = sum(1 for s in samples if s != 3)
+    if n < 6:
+        if u == 0:
+            return "high"
+        if u >= 2:
+            return "low"
+        return "need_more"
+    return "high" if u <= 1 else ("low" if u >= 4 else "mid")
+
+
+def pick_block_words(ws, marks_src, deck, tier, k):
+    unmarked = [w for w in ws if w["word"].lower() not in marks_src]
+    rng = random.Random("probe:%s:%d" % (deck, tier))
+    rng.shuffle(unmarked)
+    return [probe_word_out(w, tier) for w in unmarked[:k]]
+
+
+def probe_next(deck):
+    """动态探针：对按难度排好的块做折半查找，把「已知侧/生词侧」的边界
+    夹到相邻两块，区间中点即真实边界。无状态——每次调用从现有标记重放
+    整个搜索，中断随时可续。"""
+    marks_src = get_marks_src()
+    by = words_of_deck(deck)
+    tiers = sorted(by)
+    n_words = lambda: sum(1 for w, (s, src) in marks_src.items()
+                          if src == "probe")
+    lo, hi = 0, len(tiers) + 1          # 1-based bracket over tiers[]
+    while hi - lo > 1:
+        mid = (lo + hi) // 2
+        t = tiers[mid - 1]
+        c = block_class(by[t], marks_src)
+        if c in ("unsampled", "need_more"):
+            words = pick_block_words(by[t], marks_src, deck, t, 3)
+            if not words:               # 块抽干了，按现有样本硬归类
+                samples, _ = block_samples(by[t], marks_src)
+                u = sum(1 for s in samples if s != 3)
+                c = "low" if samples and u * 2 >= len(samples) else "high"
+            else:
+                return {"done": False, "tier": t, "phase": c,
+                        "bracket": [tiers[lo - 1] if lo else 0,
+                                    tiers[hi - 1] if hi <= len(tiers) else tiers[-1] + 1],
+                        "words": words}
+        if c == "high":
+            lo = mid
+        elif c == "low":
+            hi = mid
+        else:                            # mid：这块本身就是边界带
+            lo, hi = mid, mid + 1
+            break
+    b_lo = tiers[lo - 1] if lo else 0
+    b_hi = tiers[hi - 1] if hi <= len(tiers) else (tiers[-1] + 1 if tiers else 1)
+    boundary = (b_lo + b_hi) / 2.0
+    bands = [w.get("band") for w in by.get(int(round(boundary)) or (tiers[0] if tiers else 1), [])
+             if w.get("band") is not None]
+    if not bands and tiers:
+        near = min(tiers, key=lambda t: abs(t - boundary))
+        bands = [w.get("band") for w in by[near] if w.get("band") is not None]
+    return {"done": True, "boundary": boundary,
+            "bracket": [b_lo, b_hi],
+            "boundary_band": min(bands) if bands else None,
+            "probe_words": n_words()}
+
+
 def probe_queue(deck, per):
     marks_src = get_marks_src()
     out = []
@@ -543,6 +633,10 @@ class Handler(BaseHTTPRequestHandler):
                 "overall_total": len(WORDS),
                 "overall_marked": overall_marked,
             })
+
+        if path == "/api/probe_next":
+            deck = qs.get("deck", ["all"])[0]
+            return self._send(200, probe_next(deck))
 
         if path == "/api/probe_queue":
             deck = qs.get("deck", ["all"])[0]
