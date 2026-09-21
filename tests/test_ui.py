@@ -312,7 +312,9 @@ class TestSecondaryFlows(UIBase):
             self.assertTrue(self.visible("#adoptBtn"))
             self.page.click(action)
             self.page.wait_for_selector("#probeCard", state="hidden")
-            self.assertTrue(self.visible("#topNav"), "nav restored")
+            # nav 的恢复在 loadTiers/loadQueue 两个异步请求之后（showCurrent
+            # 里），慢机器上晚于 probeCard 隐藏——必须等待而非立即断言
+            self.page.wait_for_selector("#topNav", state="visible")
             sessions = self.api("/api/probe_sessions")
             if status is None:
                 self.assertEqual(sessions, [])
