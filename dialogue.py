@@ -339,38 +339,56 @@ def generate(targets, seed=None):
     scene = rng.choice(SCENES["scenes"])
     messages = build_messages(cast, guest, hidden, scene, targets)
 
-    best = None
-    for attempt in range(1 + MAX_REPAIR):
-        t0 = time.time()
-        turns = call_ollama(messages)
-        report = verify(turns, targets, known, lem, char_names)
-        report["attempt"] = attempt + 1
-        report["gen_seconds"] = round(time.time() - t0, 1)
-        print("attempt %d: ratio=%.3f missing=%s unknown=%s (%.1fs)" % (
-            attempt + 1, report["known_ratio"], report["missing_targets"],
-            report["unknown_words"][:8], report["gen_seconds"]))
-        if best is None or score(report) > score(best[1]):
-            best = (turns, report)
-        if not report["missing_targets"] and report["known_ratio"] >= KNOWN_RATIO_TARGET:
-            break
-        messages.append({"role": "assistant",
-                         "content": json.dumps({"turns": turns})})
-        messages.append(repair_message(report))
-
-    turns, report = best
+    # 开工先插占位行：前端靠 status 展示分步进度
+    # writing(第N稿) -> tts(配音中) -> done；异常 -> error(带原因)
     cur = con.execute(
         "insert into dialogues(ts, scene, characters, target_words, turns, report, status)"
         " values(?,?,?,?,?,?,?)",
         (time.time(), scene,
          json.dumps([c["name"] for c in cast] + ([guest["name"]] if guest else [])),
-         json.dumps(targets), json.dumps(turns, ensure_ascii=False),
-         json.dumps(report), "tts"))
+         json.dumps(targets), "[]", json.dumps({"progress": "warming up"}),
+         "writing"))
     did = cur.lastrowid
     con.commit()
 
-    files = synthesize(turns, guest_vmap, os.path.join(AUDIO_OUT, str(did)))
-    con.execute("update dialogues set status='done' where id=?", (did,))
-    con.commit()
+    try:
+        best = None
+        for attempt in range(1 + MAX_REPAIR):
+            con.execute("update dialogues set report=? where id=?",
+                        (json.dumps({"progress": "attempt %d/%d" %
+                                     (attempt + 1, 1 + MAX_REPAIR)}), did))
+            con.commit()
+            t0 = time.time()
+            turns = call_ollama(messages)
+            report = verify(turns, targets, known, lem, char_names)
+            report["attempt"] = attempt + 1
+            report["gen_seconds"] = round(time.time() - t0, 1)
+            print("attempt %d: ratio=%.3f missing=%s unknown=%s (%.1fs)" % (
+                attempt + 1, report["known_ratio"], report["missing_targets"],
+                report["unknown_words"][:8], report["gen_seconds"]))
+            if best is None or score(report) > score(best[1]):
+                best = (turns, report)
+            if not report["missing_targets"] and report["known_ratio"] >= KNOWN_RATIO_TARGET:
+                break
+            messages.append({"role": "assistant",
+                             "content": json.dumps({"turns": turns})})
+            messages.append(repair_message(report))
+
+        turns, report = best
+        con.execute(
+            "update dialogues set turns=?, report=?, status='tts' where id=?",
+            (json.dumps(turns, ensure_ascii=False), json.dumps(report), did))
+        con.commit()
+
+        files = synthesize(turns, guest_vmap, os.path.join(AUDIO_OUT, str(did)))
+        con.execute("update dialogues set status='done' where id=?", (did,))
+        con.commit()
+    except Exception as e:
+        con.execute("update dialogues set status='error', report=? where id=?",
+                    (json.dumps({"error": str(e)[:300]}), did))
+        con.commit()
+        con.close()
+        raise
     con.close()
 
     print("\n=== dialogue #%d · %s ===" % (did, scene))

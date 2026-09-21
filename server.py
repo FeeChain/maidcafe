@@ -823,18 +823,21 @@ class Handler(BaseHTTPRequestHandler):
             con = db()
             try:
                 rows = con.execute(
-                    "select id, ts, scene, characters, target_words, status, turns"
-                    " from dialogues order by id desc").fetchall()
+                    "select id, ts, scene, characters, target_words, status,"
+                    " turns, report from dialogues order by id desc").fetchall()
             finally:
                 con.close()
             out = []
             for r in rows:
+                rep = json.loads(r[7] or "{}")
                 out.append({
                     "id": r[0], "ts": r[1], "scene": r[2],
                     "characters": json.loads(r[3] or "[]"),
                     "targets": json.loads(r[4] or "[]"),
                     "status": r[5],
                     "n_turns": len(json.loads(r[6] or "[]")),
+                    "progress": rep.get("progress"),
+                    "error": rep.get("error"),
                 })
             return self._send(200, out)
 
@@ -1127,6 +1130,33 @@ class Handler(BaseHTTPRequestHandler):
             finally:
                 con.close()
             return self._send(200, {"ok": True, "done": len(done)})
+
+        if parsed.path == "/api/plan_extend":
+            # 加餐：全部拿下后「再来一天的量」——追加一份新词配额进今日计划
+            day = today_str()
+            con = db()
+            try:
+                row = con.execute(
+                    "select words from daily_plan where day=?", (day,)).fetchone()
+                if not row:
+                    return self._send(404, {"error": "no plan today"})
+                words = json.loads(row[0])
+                quota = payload.get("count") or int(kv_get("new_quota", 20))
+                now = time.time()
+                fresh = get_backlog(con)[:int(quota)]
+                for w in fresh:
+                    con.execute(
+                        "insert or ignore into word_srs"
+                        "(word, level, due_ts, state, added_ts) "
+                        "values(?,0,?,'learning',?)", (w, now, now))
+                words += [{"word": w, "is_new": True} for w in fresh]
+                con.execute(
+                    "update daily_plan set words=?, finished=0 where day=?",
+                    (json.dumps(words, ensure_ascii=False), day))
+                con.commit()
+            finally:
+                con.close()
+            return self._send(200, {"ok": True, "added": len(fresh)})
 
         if parsed.path == "/api/plan_end":
             con = db()

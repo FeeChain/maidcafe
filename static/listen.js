@@ -60,13 +60,35 @@ async function loadList() {
     const date = new Date(d.ts * 1000).toLocaleDateString("zh-CN",
       { month: "numeric", day: "numeric" });
     const heard = listenedRec[d.id] ? ` · <span class="s3">已听完 ${listenedRec[d.id]}</span>` : "";
+    let state = "";
+    if (d.status === "writing") {
+      state = ` · <span class="s2">☕ 写稿中${d.progress && d.progress.startsWith("attempt")
+        ? "（第" + d.progress.slice(8) + "稿）" : ""}</span>`;
+    } else if (d.status === "tts") {
+      state = ` · <span class="s2">🔊 配音中</span>`;
+    } else if (d.status === "error") {
+      state = ` · <span class="s1">✗ 翻车了：${d.error || ""}（点击删除）</span>`;
+    }
     el.innerHTML =
       `<div class="d-top"><b>#${d.id}</b> · ${date} · ${d.n_turns} 轮 · ` +
-      `${d.characters.join("、")}${heard}</div>` +
+      `${d.characters.join("、")}${heard}${state}</div>` +
       `<div class="d-scene">${d.scene}</div>` +
       `<div class="d-targets">${d.targets.map(t =>
         `<span class="chip">${t}</span>`).join("")}</div>`;
-    el.addEventListener("click", () => openDialogue(d.id));
+    if (d.status === "error") {
+      el.addEventListener("click", async () => {
+        if (!confirm(`删除翻车的对话 #${d.id}？`)) return;
+        await fetchJSON("/api/dialogue_delete", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: d.id }),
+        });
+        loadList();
+      });
+    } else if (d.status === "writing" || d.status === "tts") {
+      el.style.cursor = "default";
+    } else {
+      el.addEventListener("click", () => openDialogue(d.id));
+    }
     box.appendChild(el);
   });
 }

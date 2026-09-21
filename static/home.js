@@ -55,6 +55,7 @@ function playWord(w) {
 /* ---------------- 主状态机 ---------------- */
 async function boot() {
   const s = await fetchJSON("/api/home_status");
+  resumeScene();   // 煮着的对话在任何视图都继续盯（不在学习页就 toast 通知）
   if (!s.calibrated) { show("vNew"); return; }
   if (s.plan && (s.plan.finished || s.plan.done >= s.plan.total) && s.plan.total > 0) {
     await loadPlan();
@@ -96,8 +97,7 @@ function enterLearn() {
 function renderLearnTop() {
   const done = plan.words.length - pool.length;
   $("learnProgress").innerHTML =
-    `今日 <b>${done}</b>/${plan.words.length} 已过 · 在学 ${pool.length} 个` +
-    (cycles ? ` · 已转 ${cycles} 圈` : ` · 本圈 ${(li % pool.length) + 1}/${pool.length}`);
+    `今日 <b>${done}</b>/${plan.words.length} 已过 · 在学 ${pool.length} 个`;
   $("examBtn").textContent = `✍ 我准备好了，考试（${pool.length} 词）`;
 }
 
@@ -150,31 +150,77 @@ function nextFive() {
   return out;
 }
 
+const GEN_TIMEOUT = 12 * 60;  // 秒；超过按报错处理
+
 async function requestScene(words) {
+  sceneGroup = words;
+  const t0 = Date.now() / 1000;
+  try { localStorage.setItem("mc_home_gen", JSON.stringify({ words, t0 })); } catch (_) {}
+  await POST("/api/generate", { words });
+  watchScene(words, t0);
+}
+
+/* 分步进度：①写稿(可能修 4 稿) ②配音 ③上桌；超时/报错都说人话 */
+function watchScene(words, t0) {
   sceneGroup = words;
   $("sceneBtn").disabled = true;
   $("sceneAgainBtn").classList.add("hidden");
   $("sceneGoBtn").classList.add("hidden");
-  $("sceneStatus").textContent =
-    `灶上煮着（${words.join(", ")}）… 约 1-3 分钟，这边可以继续转卡片 ☕`;
-  const t0 = Date.now() / 1000;
-  await POST("/api/generate", { words });
   if (sceneWatch) clearInterval(sceneWatch);
-  sceneWatch = setInterval(async () => {
-    const list = await fetchJSON("/api/dialogues");
+  const stop = (clearPending) => {
+    clearInterval(sceneWatch);
+    sceneWatch = null;
+    $("sceneBtn").disabled = false;
+    if (clearPending) { try { localStorage.removeItem("mc_home_gen"); } catch (_) {} }
+  };
+  const tick = async () => {
+    const mins = Math.max(1, Math.round((Date.now() / 1000 - t0) / 60));
+    let list;
+    try { list = await fetchJSON("/api/dialogues"); } catch (_) { return; }
     const hit = list.find((d) =>
-      d.ts > t0 - 5 && d.status !== "generating" &&
-      words.every((w) => d.targets.includes(w)));
-    if (hit) {
-      clearInterval(sceneWatch);
-      sceneWatch = null;
-      $("sceneBtn").disabled = false;
+      d.ts > t0 - 10 && words.every((w) => d.targets.includes(w)));
+    if (!hit) {
+      $("sceneStatus").textContent = `☕ 灶已点火（${words.join(", ")}）…`;
+    } else if (hit.status === "writing") {
+      const att = hit.progress && hit.progress.startsWith("attempt")
+        ? `第 ${hit.progress.slice(8)} 稿` : "";
+      $("sceneStatus").textContent =
+        `① 女仆们在写稿 ${att} · 已 ${mins} 分钟（写完还要配音）`;
+    } else if (hit.status === "tts") {
+      $("sceneStatus").textContent = `② 配音中 · 已 ${mins} 分钟，就快好了`;
+    } else if (hit.status === "error") {
+      $("sceneStatus").innerHTML =
+        `<span class="s1">✗ 这一场翻车了：${hit.error || "未知原因"} · 详见 generate.log</span>`;
       $("sceneAgainBtn").classList.remove("hidden");
-      $("sceneStatus").textContent = "这一场煮好了：";
+      stop(true);
+      return;
+    } else {  // done
+      $("sceneStatus").textContent = "③ 上桌！";
       $("sceneGoBtn").href = `/listen#dialogue=${hit.id}`;
       $("sceneGoBtn").classList.remove("hidden");
+      $("sceneAgainBtn").classList.remove("hidden");
+      if (view !== "vLearn") toast("那场对话煮好了 ☕ 去对话史就能听");
+      stop(true);
+      return;
     }
-  }, 5000);
+    if (Date.now() / 1000 - t0 > GEN_TIMEOUT) {
+      $("sceneStatus").innerHTML =
+        `<span class="s1">✗ 超时了——灶可能熄了（Ollama 没开？）· 详见 generate.log</span>`;
+      $("sceneAgainBtn").classList.remove("hidden");
+      stop(true);
+    }
+  };
+  tick();
+  sceneWatch = setInterval(tick, 5000);
+}
+
+/* 刷新/回来后恢复正在煮的那一场 */
+function resumeScene() {
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem("mc_home_gen") || "null"); } catch (_) {}
+  if (p && p.words && Date.now() / 1000 - p.t0 < GEN_TIMEOUT + 60) {
+    watchScene(p.words, p.t0);
+  }
 }
 
 /* ---------------- 考试（两键自评，主动权在用户） ---------------- */
@@ -260,7 +306,7 @@ function renderDone() {
   $("doneLine").innerHTML = remain
     ? `已拿下 <b>${total - remain}</b>/${total} · 剩 ${remain} 个明天继续`
     : `${total} 个词全部通过考试`;
-  $("moreBtn").textContent = remain ? "再学一会" : "回味一下（继续转卡片）";
+  $("moreBtn").textContent = remain ? "再学一会" : "☕ 加餐：再来一天的量";
   show("vDone");
 }
 
@@ -282,9 +328,14 @@ $("backToLearnBtn").addEventListener("click", enterLearn);
 const endDay = async () => { await POST("/api/plan_end", {}); renderDone(); };
 $("endDayBtn").addEventListener("click", endDay);
 $("endDayBtn2").addEventListener("click", endDay);
-$("moreBtn").addEventListener("click", () => {
-  if (pool.length) { enterLearn(); }
-  else { pool = shuffle(plan.words.slice()); li = 0; enterLearn(); }
+$("moreBtn").addEventListener("click", async () => {
+  if (pool.length) { enterLearn(); return; }
+  const r = await POST("/api/plan_extend", {});
+  if (!r.added) { toast("生词池空了——去校准工具过几块词攒一点 ☕"); return; }
+  await loadPlan();
+  cycles = 0;
+  toast(`加餐上桌：又端来 ${r.added} 个新词 ☕`);
+  enterLearn();
 });
 $("exPlayBtn").addEventListener("click", (e) => { e.currentTarget.blur(); playWord(curExam()); });
 $("exYes").addEventListener("click", (e) => { e.currentTarget.blur(); examJudge(true); });
