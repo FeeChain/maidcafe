@@ -20,6 +20,7 @@ import tempfile
 import time
 import unittest
 import urllib.request
+import wave
 
 from playwright.sync_api import sync_playwright
 
@@ -27,12 +28,22 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KNOWN_BELOW = 100
 
 
-def make_env(tmp, port):
+def make_env(tmp, port, with_audio=False):
     cache = os.path.join(tmp, "cache")
     os.makedirs(cache)
     words = [{"word": "w%03d" % i, "phonetic": "/w%d/" % i,
               "definition": "释义%d" % i, "example_en": "", "example_cn": "",
               "sources": ["test"]} for i in range(300)]
+    if with_audio:
+        # 每个词共用一个真 wav：/audio/<word> 必须端出真字节
+        wav_path = os.path.join(tmp, "beep.wav")
+        with wave.open(wav_path, "wb") as wv:
+            wv.setnchannels(1)
+            wv.setsampwidth(2)
+            wv.setframerate(8000)
+            wv.writeframes(b"\x00\x00" * 800)   # 0.1s 静音
+        for w in words:
+            w["audio_path"] = wav_path
     with open(os.path.join(cache, "words_cache.json"), "w") as f:
         json.dump(words, f)
     return dict(os.environ,
@@ -40,11 +51,13 @@ def make_env(tmp, port):
                 MAIDCAFE_CACHE=cache,
                 MAIDCAFE_PORT=str(port),
                 MAIDCAFE_MODEL="no-such-model",
-                MAIDCAFE_ECDICT=os.path.join(tmp, "none.db"))
+                MAIDCAFE_ECDICT=os.path.join(tmp, "none.db"),
+                MAIDCAFE_AUDIO_OUT=os.path.join(tmp, "audio_out"))
 
 
 class UIBase(unittest.TestCase):
     PORT = 8797
+    WITH_AUDIO = False
 
     @classmethod
     def setUpClass(cls):
@@ -52,7 +65,7 @@ class UIBase(unittest.TestCase):
         cls.base = "http://127.0.0.1:%d" % cls.PORT
         cls.proc = subprocess.Popen(
             [sys.executable, os.path.join(ROOT, "server.py")],
-            env=make_env(cls.tmp, cls.PORT),
+            env=make_env(cls.tmp, cls.PORT, with_audio=cls.WITH_AUDIO),
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         for _ in range(60):
             try:
@@ -323,6 +336,94 @@ class TestSecondaryFlows(UIBase):
         self.page.goto(self.base + "/")
         self.page.goto(self.base + "/listen#wordbook")
         self.page.wait_for_selector("#wordbookView", state="visible")
+
+
+class TestAudioAndTimeout(UIBase):
+    """有声词库上的两个此前缺口：
+    w01 音频通路（前端请求了正确的 /audio/词 并调用 play，服务端端出真字节）
+    w02 B04 生成超时红字路径（用 window.MC_GEN_TIMEOUT 测试钩子缩短 12 分钟）。
+    """
+    PORT = 8799
+    WITH_AUDIO = True
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # 探针在 API 层重放（与 e2e t03 同一逻辑），把浏览器留给音频/超时本身
+        def call(path, data=None):
+            req = urllib.request.Request(
+                cls.base + path,
+                data=json.dumps(data).encode() if data is not None else None,
+                headers={"Content-Type": "application/json"})
+            return json.load(urllib.request.urlopen(req, timeout=10))
+        for _ in range(40):
+            r = call("/api/probe_next")
+            if r.get("done"):
+                break
+            for w in r["words"]:
+                status = 3 if int(w["word"][1:]) < KNOWN_BELOW else 1
+                call("/api/mark", {"word": w["word"].lower(),
+                                   "status": status, "src": "probe"})
+        else:
+            raise RuntimeError("probe seeding did not converge")
+        cls.page.add_init_script("window.MC_GEN_TIMEOUT = 4;")
+        cls.page.add_init_script("""
+            window.__mcAudio = [];
+            const RealAudio = window.Audio;
+            window.Audio = function (src) {
+                const a = new RealAudio(src);
+                const rec = { src: src, played: false };
+                window.__mcAudio.push(rec);
+                const play = a.play.bind(a);
+                a.play = () => { rec.played = true; return play(); };
+                return a;
+            };
+        """)
+
+    def test_w01_word_audio_really_requested(self):
+        self.page.goto(self.base + "/")
+        self.page.wait_for_selector("#vLearn", state="visible")
+        first = self.api("/api/session")["words"][0]["word"]
+        self.page.wait_for_function("window.__mcAudio.length > 0")
+        log = self.page.evaluate("window.__mcAudio")
+        self.assertEqual(log[0]["src"], "/audio/" + first,
+                         "first learn card must request its own audio")
+        self.assertTrue(log[0]["played"], "play() must actually be called")
+        n = len(log)
+        self.page.keyboard.press("k")           # A08 重听
+        self.page.wait_for_function("window.__mcAudio.length > %d" % n)
+        log = self.page.evaluate("window.__mcAudio")
+        self.assertEqual(log[-1]["src"], "/audio/" + first)
+        self.assertTrue(log[-1]["played"])
+        # 服务端把真字节端上来（此前 /audio/ 只测过 404 分支）
+        with open(os.path.join(self.tmp, "beep.wav"), "rb") as f:
+            wav = f.read()
+        with urllib.request.urlopen(self.base + "/audio/" + first,
+                                    timeout=10) as r:
+            self.assertEqual(r.status, 200)
+            self.assertEqual(r.read(), wav)
+
+    def test_w02_b04_generation_timeout_red_path(self):
+        words = [w["word"] for w in self.api("/api/session")["words"][:5]]
+        self.page.evaluate(
+            "localStorage.setItem('mc_home_gen', JSON.stringify("
+            "{ words: %s, t0: Date.now() / 1000 }))" % json.dumps(words))
+        self.page.goto(self.base + "/")
+        self.page.wait_for_selector("#vLearn", state="visible")
+        self.page.wait_for_selector(".grp.cooking", state="visible")
+        self.assertIn("灶上", self.page.text_content(".grp.cooking"))
+        self.page.click(".grp.cooking")
+        self.page.wait_for_selector("#vListen", state="visible")
+        # tick 每 5 秒一次：第二拍越过 4 秒钩子阈值 -> 超时红字
+        self.page.wait_for_function(
+            "document.getElementById('lsGenLine').textContent"
+            ".includes('超时')", timeout=20000)
+        self.assertIn("Ollama", self.page.text_content("#lsGenLine"))
+        self.assertTrue(self.visible("#lsAgainBtn"),
+                        "timeout must re-offer the retry button")
+        self.assertIsNone(
+            self.page.evaluate("localStorage.getItem('mc_home_gen')"),
+            "timed-out brew must be cleared, not resumed forever")
 
 
 if __name__ == "__main__":

@@ -197,7 +197,7 @@ function nextLearn() {
 }
 
 /* ---------------- S6 听对话（会话内子页，词源=当前 S2 词池） ---------------- */
-const GEN_TIMEOUT = 12 * 60;  // 秒；超过按报错处理
+const GEN_TIMEOUT = window.MC_GEN_TIMEOUT || 12 * 60;  // 秒；超过按报错处理（测试可缩短）
 const SPK_COLORS = { haruka: "var(--spk-haruka)", momo: "var(--spk-momo)",
                      shizuku: "var(--spk-shizuku)", suzu: "var(--spk-suzu)",
                      aoi: "var(--spk-aoi)" };

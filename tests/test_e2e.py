@@ -69,7 +69,9 @@ class TestMaidcafe(unittest.TestCase):
                    MAIDCAFE_PORT=str(PORT),
                    MAIDCAFE_MODEL="no-such-model-for-error-path",
                    # 开发机上真 ECDICT 会命中合成词、扰动排序——指向空路径隔离
-                   MAIDCAFE_ECDICT=os.path.join(cls.tmp, "no-ecdict.db"))
+                   MAIDCAFE_ECDICT=os.path.join(cls.tmp, "no-ecdict.db"),
+                   # dialogue_delete 会删 AUDIO_OUT/<id>——必须与真 audio_out 隔离
+                   MAIDCAFE_AUDIO_OUT=os.path.join(cls.tmp, "audio_out"))
         cls.proc = subprocess.Popen(
             [sys.executable, os.path.join(ROOT, "server.py")], env=env,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
