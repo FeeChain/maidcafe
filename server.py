@@ -894,7 +894,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/home_status":
             con = db()
             try:
-                n_scan = con.execute(
+                n_probe = con.execute(
+                    "select count(*) from marks where src='probe'").fetchone()[0]
+                n_all = con.execute(
                     "select count(*) from marks where src in ('scan','probe') "
                     "or src is null").fetchone()[0]
                 n_sessions = con.execute(
@@ -902,8 +904,10 @@ class Handler(BaseHTTPRequestHandler):
                     "where status in ('done','adopted')").fetchone()[0]
             finally:
                 con.close()
+            # 已校准 = 探针跑完过（折半收敛最少 21 样本，阈值放 15）
+            #         或 全扫过 50+ 词 或 有盲测档案
             return self._send(200, {
-                "calibrated": n_scan >= 50 or n_sessions > 0,
+                "calibrated": n_probe >= 15 or n_all >= 50 or n_sessions > 0,
                 "new_quota": int(kv_get("new_quota", 20))})
 
         if path == "/api/session":
