@@ -171,6 +171,16 @@ Same style as before: bust portrait avatar of a tired young office worker cafe c
 
 ---
 
+## 换模型备注（GPT 配额用尽 → Gemini）
+
+- 每个新对话**先上传已定稿的图**（至少 Momo 立绘 + 一张插画），首句：
+  `Match the art style of these reference images exactly.` 再发正式 prompt
+- Gemini 常给不了真透明底：把 prompt 里的 "fully transparent background"
+  换成 `plain flat solid light-grey background (#EEEEEE), no gradient,
+  no shadow`，事后本地抠图
+- 配额优先级：先出 B1/B3/B4/B5 立绘 → H 隐藏面 → 群像/插画 → 场景 →
+  客人；**V 系列头像不花配额**——直接从定稿立绘本地裁切
+
 ## 验收备忘
 
 - 每个角色第一张（B 系列）多抽几次挑定稿，后续图全靠它锚定
