@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>maidcafe ☕</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/listen.css">
+<link rel="stylesheet" href="/static/home.css">
+</head>
+<body>
+<header>
+  <div class="brand">maidcafe <span class="cup">☕</span></div>
+  <div class="controls corner-nav">
+    <a href="/listen#wordbook" class="tab">生词本</a>
+    <a href="/listen" class="tab">对话史</a>
+    <button id="cfgBtn" class="tab" title="设置">⚙</button>
+  </div>
+</header>
+
+<main>
+  <!-- 新客人：先测词汇量 -->
+  <section id="vNew" class="overlay hidden">
+    <div class="overlay-card">
+      <img class="art-banner" src="/static/art/C1_welcome.png" alt="" onerror="this.remove()">
+      <h1>欢迎光临，客人 ☕</h1>
+      <p>这家店会记住你认识哪些词，然后把你该学的词，<br>现做成女仆们的日常对话给你听。</p>
+      <p class="hint-line">先花 2-3 分钟，让女仆们认识你的耳朵。</p>
+      <button id="goProbeBtn" class="mknext big" style="border:none;cursor:pointer;border-radius:12px;">测词汇量（2-3 分钟）</button>
+    </div>
+  </section>
+
+  <!-- 已测，今日未开始 -->
+  <section id="vReady" class="overlay hidden">
+    <div class="overlay-card">
+      <img class="art-banner" src="/static/art/C1_welcome.png" alt="" onerror="this.remove()">
+      <h1>欢迎回来，客人 ☕</h1>
+      <div id="menuLine" class="menu-line"></div>
+      <button id="startPlanBtn" class="mknext big" style="border:none;cursor:pointer;border-radius:12px;">开始今天的学习</button>
+      <div id="readyHint" class="hint-line" style="margin-top:12px;"></div>
+    </div>
+  </section>
+
+  <!-- 学习会话 -->
+  <section id="vLearn" class="hidden">
+    <div class="learn-top">
+      <span id="learnProgress" class="hint-line"></span>
+      <span style="flex:1"></span>
+      <button id="examBtn" class="mk">✍ 我准备好了，考试</button>
+      <button id="endDayBtn" class="mk small">今天到这</button>
+    </div>
+
+    <div class="card learn-card">
+      <div class="card-body" id="learnBody">
+        <div class="learn-state">
+          <span id="newTag" class="mark-tag hidden">今日新词</span>
+          <button id="lPlayBtn" class="play-btn" title="重听 (K)">🔊</button>
+          <div id="lWord" class="word veiled-word">·&nbsp;·&nbsp;·</div>
+          <div id="lPhon" class="phonetic"></div>
+          <div id="lDef" class="definition hidden"></div>
+          <div class="hint" id="lHint">Space 显示 · 再按下一个 · K 重听 · 随机循环，转到你记住为止</div>
+        </div>
+      </div>
+      <div class="mark-btns" style="padding:0 0 26px;">
+        <button id="lRevealBtn" class="mk mk3">显示 <kbd>Space</kbd></button>
+        <button id="lNextBtn" class="mk hidden">下一个 <kbd>Space</kbd></button>
+      </div>
+    </div>
+
+    <div class="scene-row">
+      <button id="sceneBtn" class="mk">☕ 给接下来 5 个词来一场对话</button>
+      <button id="sceneAgainBtn" class="mk hidden">换个场景，同 5 词再来一场</button>
+      <span id="sceneStatus" class="hint-line"></span>
+      <a id="sceneGoBtn" class="mk mknext hidden" style="text-decoration:none;">去听这一场 →</a>
+      <a href="/listen" class="hint-line" style="margin-left:auto;">今天听过的对话 →</a>
+    </div>
+  </section>
+
+  <!-- 考试 -->
+  <section id="vExam" class="hidden">
+    <div class="learn-top">
+      <span id="examProgress" class="hint-line"></span>
+      <span style="flex:1"></span>
+      <button id="examQuitBtn" class="mk small">先不考了，回去学</button>
+    </div>
+    <div class="card learn-card">
+      <div class="card-body">
+        <div id="exListen" class="listen-state">
+          <div class="step-dots"><i class="on"></i><i></i></div>
+          <button id="exPlayBtn" class="play-btn" title="播放发音">🔊</button>
+          <div class="hint">刚才这个音，你听出来了吗？</div>
+          <div id="exWordPreview" class="word-preview hidden"></div>
+        </div>
+        <div id="exAnswer" class="answer-state hidden">
+          <div class="step-dots"><i></i><i class="on"></i></div>
+          <div class="word" id="exWord"></div>
+          <div class="phonetic" id="exPhon"></div>
+          <div class="definition" id="exDef"></div>
+        </div>
+        <div id="exJudge" class="mark-btns">
+          <button id="exYes" class="mk mk3">听出来了 <kbd>Space</kbd></button>
+          <button id="exNo" class="mk mk1">没听出来 <kbd>J</kbd></button>
+        </div>
+        <div id="exFinal" class="mark-btns hidden">
+          <div class="ask-line hint-line" style="width:100%;text-align:center;">那么这个词，你会读吗？</div>
+          <button id="exYes2" class="mk mk3">我会读 <kbd>Space</kbd></button>
+          <button id="exNo2" class="mk mk1">我不会读 <kbd>J</kbd></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 考试小结 -->
+  <section id="vExamDone" class="overlay hidden">
+    <div class="overlay-card">
+      <h1 id="exDoneTitle"></h1>
+      <div id="exDoneStats" class="menu-line"></div>
+      <button id="backToLearnBtn" class="mk">继续学剩下的</button>
+      <button id="endDayBtn2" class="mk">今天到这</button>
+    </div>
+  </section>
+
+  <!-- 今日完成 -->
+  <section id="vDone" class="overlay hidden">
+    <div class="overlay-card">
+      <img class="art-banner" src="/static/art/C4_celebrate.png" alt="" onerror="this.remove()">
+      <h1 id="doneTitle2">今日全部拿下 🎉</h1>
+      <div id="doneLine" class="menu-line"></div>
+      <p class="hint-line">没考过的词一个都不会丢——明天女仆们会重新端上来。</p>
+      <button id="moreBtn" class="mk">再学一会</button>
+    </div>
+  </section>
+
+  <!-- 设置 -->
+  <div id="cfgModal" class="word-card hidden" style="width:380px;">
+    <div class="wc-word" style="font-family:var(--font-display);font-size:20px;">设置</div>
+    <div class="cfg-body">
+      <label>每日新词配额
+        <input id="quotaInput" type="number" min="1" max="100" style="width:70px;">
+        <button id="quotaSave" class="mk small">保存</button>
+      </label>
+      <label>给自己放个假：顺延
+        <input id="postponeInput" type="number" min="1" max="30" value="1" style="width:56px;"> 天
+        <button id="postponeBtn" class="mk small">顺延计划</button>
+      </label>
+      <div id="cfgVocab" class="hint-line"></div>
+      <div class="cfg-links hint-line">
+        校准工具：<a href="/calibrate">全扫词库</a> ·
+        <a href="/calibrate?probe=1">探针测词汇量</a> ·
+        <a href="/calibrate?blind=1">重新盲测</a>
+      </div>
+    </div>
+    <div class="wc-actions"><button id="cfgClose" class="mk small" style="margin-left:auto;">关闭</button></div>
+  </div>
+
+  <div id="toast" class="toast hidden"
+       style="position:fixed;right:24px;bottom:24px;z-index:60;box-shadow:0 6px 24px rgba(90,60,30,.15);">
+    <span id="toastMsg"></span>
+  </div>
+</main>
+
+<script src="/static/art.js"></script>
+<script src="/static/home.js"></script>
+</body>
+</html>

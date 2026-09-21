@@ -503,3 +503,10 @@ loadDecks();
 loadStats();
 loadVocabLine();
 loadProbeHist();
+
+/* 主页新客人引导直达：/calibrate?probe=1 自动进探针，?blind=1 进盲测 */
+{
+  const q = new URLSearchParams(location.search);
+  if (q.get("probe")) startProbe("dyn");
+  else if (q.get("blind")) startProbe("dyn", true);
+}

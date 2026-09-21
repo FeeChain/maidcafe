@@ -1,0 +1,47 @@
+/* maidcafe home — 主流程专属样式（依赖 style.css / listen.css 变量） */
+
+.corner-nav { margin-left: auto; }
+
+.menu-line { font-size: 16px; line-height: 2; margin-bottom: 16px; }
+.menu-line b { font-family: var(--font-mono); font-size: 22px; }
+.menu-line .hint-line { display: block; }
+
+.learn-top {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.learn-card .card-body { min-height: 300px; }
+.learn-state { text-align: center; }
+.veiled-word { color: var(--veil); letter-spacing: .2em; }
+#lDef { max-width: 46ch; margin-left: auto; margin-right: auto; }
+#lHint { margin-top: 22px; }
+
+.scene-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.cfg-body {
+  padding: 14px 22px 18px;
+  display: flex; flex-direction: column; gap: 14px;
+  font-size: 14px;
+}
+.cfg-body label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cfg-body input {
+  padding: 6px 8px; min-height: 32px;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--sunken);
+}
+.cfg-links { border-top: 1px dashed var(--line); padding-top: 12px; }
+
+/* 考试按钮轻推（转满一圈后呼吸提示，不强制） */
+@keyframes pulse-mk {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(164, 99, 46, .35); }
+  50% { box-shadow: 0 0 0 7px rgba(164, 99, 46, 0); }
+}
+.mk.pulse { border-color: var(--accent); color: var(--accent); animation: pulse-mk 1.6s infinite; }
+
+@media (max-width: 959px) {
+  .learn-top { position: sticky; top: 0; z-index: 10; background: var(--bg); padding: 8px 0; }
+}

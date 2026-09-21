@@ -574,9 +574,13 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-/* 顶栏「生词本」跨页直达：/listen#wordbook */
+/* 跨页直达：/listen#wordbook 开生词本；/listen#dialogue=N 直接进播放器 */
+const dlgHash = location.hash.match(/^#dialogue=(\d+)$/);
 if (location.hash === "#wordbook") {
   $("tabWordbook").click();
+} else if (dlgHash) {
+  loadList();
+  openDialogue(parseInt(dlgHash[1], 10));
 } else {
   loadList();
 }

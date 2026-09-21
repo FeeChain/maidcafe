@@ -156,6 +156,19 @@ def db():
         "create table if not exists probe_marks("
         "session integer, word text, status integer, ts real,"
         "primary key(session, word))")
+    # 今日学习计划（产品主流程）：词池锁定当天，考试通过才计入 done；
+    # 没考过的词照旧到期，明天自动回炉
+    con.execute(
+        "create table if not exists daily_plan("
+        "day text primary key, words text, done text, finished integer,"
+        "ts real)")
+    con.execute(
+        "create table if not exists kv(key text primary key, value text)")
+    # 同一天内重复复习不重复爬梯（听完对话 + 考试通过只算一次）
+    try:
+        con.execute("alter table word_srs add column reviewed_ts real")
+    except sqlite3.OperationalError:
+        pass
     return con
 
 
@@ -181,13 +194,22 @@ def srs_map(con):
                 "select word, level, due_ts, state from word_srs")}
 
 
+def same_day(a, b):
+    return a and b and time.localtime(a)[:3] == time.localtime(b)[:3]
+
+
 def srs_review(con, word):
-    """One completed listen for a learning word: climb the ladder."""
+    """One completed review for a learning word: climb the ladder.
+    Idempotent per calendar day — 听完对话与考试通过同天只爬一级。"""
     now = time.time()
     row = con.execute(
-        "select level, state from word_srs where word=?", (word,)).fetchone()
+        "select level, state, reviewed_ts from word_srs where word=?",
+        (word,)).fetchone()
     if row and row[1] == "graduated":
         return
+    if row and same_day(row[2], now):
+        return
+    con.execute("update word_srs set reviewed_ts=? where word=?", (now, word))
     level = (row[0] if row else 0) + 1
     if level > len(INTERVALS):
         con.execute(
@@ -198,10 +220,84 @@ def srs_review(con, word):
     else:
         due = now + INTERVALS[level - 1] * DAY
         con.execute(
-            "insert into word_srs(word, level, due_ts, state, added_ts)"
-            " values(?,?,?,'learning',?)"
-            " on conflict(word) do update set level=?, due_ts=?",
-            (word, level, due, now, level, due))
+            "insert into word_srs(word, level, due_ts, state, added_ts, reviewed_ts)"
+            " values(?,?,?,'learning',?,?)"
+            " on conflict(word) do update set level=?, due_ts=?, reviewed_ts=?",
+            (word, level, due, now, now, level, due, now))
+
+
+def kv_get(key, default=None):
+    con = db()
+    try:
+        row = con.execute("select value from kv where key=?", (key,)).fetchone()
+        return row[0] if row else default
+    finally:
+        con.close()
+
+
+def kv_set(key, value):
+    con = db()
+    try:
+        con.execute("insert into kv(key,value) values(?,?) "
+                    "on conflict(key) do update set value=excluded.value",
+                    (key, str(value)))
+        con.commit()
+    finally:
+        con.close()
+
+
+def today_str():
+    return time.strftime("%Y-%m-%d")
+
+
+def plan_word_out(word, is_new, passed):
+    info = word_info(word)
+    return {"word": word, "phonetic": info.get("phonetic", ""),
+            "definition": (info.get("definition") or "")[:400],
+            "has_audio": word in AUDIO, "is_new": is_new, "passed": passed}
+
+
+def get_plan(create=False):
+    """今日学习计划：词池 = 到期复习 + 新词配额，当天锁定。
+    考试通过 -> done；没考过的词到期日未动，明天自然回炉。"""
+    day = today_str()
+    con = db()
+    try:
+        row = con.execute(
+            "select words, done, finished from daily_plan where day=?",
+            (day,)).fetchone()
+        if row:
+            words = json.loads(row[0])
+            done = set(json.loads(row[1] or "[]"))
+            return {"day": day, "exists": True, "finished": bool(row[2]),
+                    "words": [plan_word_out(w["word"], w["is_new"],
+                                            w["word"] in done)
+                              for w in words]}
+        if not create:
+            return {"day": day, "exists": False}
+        now = time.time()
+        srs = srs_map(con)
+        due = [w for w, s in srs.items()
+               if s["state"] == "learning" and s["due_ts"] <= now]
+        quota = int(kv_get("new_quota", 20))
+        fresh = get_backlog(con)[:quota]
+        for w in fresh:  # 新词立刻挂梯（level 0，到期=现在）
+            con.execute(
+                "insert or ignore into word_srs"
+                "(word, level, due_ts, state, added_ts) "
+                "values(?,0,?,'learning',?)", (w, now, now))
+        words = ([{"word": w, "is_new": False} for w in due] +
+                 [{"word": w, "is_new": True} for w in fresh])
+        con.execute(
+            "insert into daily_plan(day,words,done,finished,ts) "
+            "values(?,?,?,0,?)",
+            (day, json.dumps(words, ensure_ascii=False), "[]", now))
+        con.commit()
+        return {"day": day, "exists": True, "finished": False,
+                "words": [plan_word_out(w["word"], w["is_new"], False)
+                          for w in words]}
+    finally:
+        con.close()
 
 
 def get_backlog(con):
@@ -581,7 +677,10 @@ class Handler(BaseHTTPRequestHandler):
         qs = parse_qs(parsed.query)
 
         if path == "/":
-            return self._send_file(os.path.join(STATIC_DIR, "index.html"))
+            return self._send_file(os.path.join(STATIC_DIR, "home.html"))
+
+        if path == "/calibrate":
+            return self._send_file(os.path.join(STATIC_DIR, "calibrate.html"))
 
         if path.startswith("/static/"):
             # allow subdirectories (static/art/...) but never path traversal
@@ -823,6 +922,42 @@ class Handler(BaseHTTPRequestHandler):
             info["known"] = bool(m and m[0] == 3)
             return self._send(200, info)
 
+        if path == "/api/home_status":
+            con = db()
+            try:
+                n_scan = con.execute(
+                    "select count(*) from marks where src in ('scan','probe') "
+                    "or src is null").fetchone()[0]
+                n_sessions = con.execute(
+                    "select count(*) from probe_sessions "
+                    "where status in ('done','adopted')").fetchone()[0]
+                now = time.time()
+                srs = srs_map(con)
+                due = sum(1 for s in srs.values()
+                          if s["state"] == "learning" and s["due_ts"] <= now)
+                backlog = len(get_backlog(con))
+            finally:
+                con.close()
+            plan = get_plan(create=False)
+            quota = int(kv_get("new_quota", 20))
+            out = {"calibrated": n_scan >= 50 or n_sessions > 0,
+                   "due": due, "backlog": backlog,
+                   "new_quota": quota,
+                   "new_today": min(quota, backlog),
+                   "plan": None}
+            if plan["exists"]:
+                total = len(plan["words"])
+                done = sum(1 for w in plan["words"] if w["passed"])
+                out["plan"] = {"total": total, "done": done,
+                               "finished": plan["finished"]}
+            return self._send(200, out)
+
+        if path == "/api/plan":
+            return self._send(200, get_plan(create=False))
+
+        if path == "/api/config":
+            return self._send(200, {"new_quota": int(kv_get("new_quota", 20))})
+
         if path == "/api/daily_status":
             con = db()
             try:
@@ -967,6 +1102,63 @@ class Handler(BaseHTTPRequestHandler):
             subprocess.Popen(cmd, env=env, stdout=log, stderr=log,
                              start_new_session=True)
             return self._send(200, {"started": True})
+
+        if parsed.path == "/api/plan_start":
+            return self._send(200, get_plan(create=True))
+
+        if parsed.path == "/api/plan_pass":
+            word = (payload.get("word") or "").lower()
+            if not word:
+                return self._send(400, {"error": "bad word"})
+            day = today_str()
+            con = db()
+            try:
+                row = con.execute(
+                    "select done from daily_plan where day=?", (day,)).fetchone()
+                if not row:
+                    return self._send(404, {"error": "no plan today"})
+                done = json.loads(row[0] or "[]")
+                if word not in done:
+                    done.append(word)
+                    con.execute("update daily_plan set done=? where day=?",
+                                (json.dumps(done), day))
+                srs_review(con, word)
+                con.commit()
+            finally:
+                con.close()
+            return self._send(200, {"ok": True, "done": len(done)})
+
+        if parsed.path == "/api/plan_end":
+            con = db()
+            try:
+                con.execute("update daily_plan set finished=1 where day=?",
+                            (today_str(),))
+                con.commit()
+            finally:
+                con.close()
+            return self._send(200, {"ok": True})
+
+        if parsed.path == "/api/postpone":
+            days = payload.get("days")
+            if not isinstance(days, int) or not (1 <= days <= 30):
+                return self._send(400, {"error": "days must be 1-30"})
+            con = db()
+            try:
+                con.execute(
+                    "update word_srs set due_ts = due_ts + ? "
+                    "where state='learning'", (days * DAY,))
+                con.execute("delete from daily_plan where day=?", (today_str(),))
+                con.commit()
+            finally:
+                con.close()
+            return self._send(200, {"ok": True, "days": days})
+
+        if parsed.path == "/api/config":
+            q = payload.get("new_quota")
+            if not isinstance(q, int) or not (1 <= q <= 100):
+                return self._send(400, {"error": "new_quota must be 1-100"})
+            kv_set("new_quota", q)
+            return self._send(200, {"ok": True, "new_quota": q})
 
         if parsed.path == "/api/daily_task":
             quota = payload.get("new_quota", NEW_QUOTA_DEFAULT)
