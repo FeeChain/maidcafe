@@ -11,6 +11,7 @@ Run:  python3 tests/test_dialogue.py -v
 import json
 import os
 import random
+import re
 import sqlite3
 import sys
 import tempfile
@@ -91,14 +92,59 @@ class TestVerifier(unittest.TestCase):
         self.assertEqual(r["missing_targets"], ["seldom"])
 
     def test_function_words_and_names_skipped(self):
-        r = self._v(turns("Momo said thanks master okay the"), [], set())
+        r = self._v(turns("Momo said thanks guest okay the"), [], set())
         self.assertEqual(r["checkable_tokens"], 0)
         self.assertEqual(r["known_ratio"], 1.0)
+
+    def test_contractions_not_unknown(self):
+        # 10-13 真模型日志：don't/isn't 曾被当生词，白白触发修复轮
+        r = self._v(turns("I don't know, isn't it fine? We're sure you'll "
+                          "like it. I'd say they've won't couldn't"),
+                    [], {"know", "fine", "sure", "like", "say"})
+        self.assertEqual(r["unknown_words"], [])
+        self.assertEqual(r["known_ratio"], 1.0)
+
+    def test_honorifics_setting_words_interjections_not_unknown(self):
+        r = self._v(turns("Ooh, Momo-san and Suzu-chan run the maid cafe!"),
+                    [], {"run"})
+        self.assertEqual(r["unknown_words"], [])
+        self.assertEqual(r["known_ratio"], 1.0)
+
+    def test_banned_address_flagged_not_counted(self):
+        # 女仆称客人：master/mistress 单独报出，不混进生词与已知率
+        r = self._v(turns("Welcome back, Master! Masters love tea. Yes sir, ma'am, madam."),
+                    [], {"welcome", "love", "tea", "yes"})
+        self.assertEqual(r["banned_address"],
+                         ["ma'am", "madam", "master", "masters", "sir"])
+        self.assertNotIn("master", r["unknown_words"])
+        self.assertEqual(r["known_ratio"], 1.0)
+
+    def test_banned_address_allowed_as_target(self):
+        r = self._v(turns("you will master this song"), ["master"],
+                    {"song"})
+        self.assertEqual(r["banned_address"], [])
+        self.assertEqual(r["missing_targets"], [])
+
+    def test_name_or_no_title_is_clean(self):
+        # 英语口语里称客人 = 叫名字或不加称呼（2026-10-13 用户裁决）
+        r = self._v(turns("Welcome back, Mr. Sato! Your usual tea?",
+                          "Here you go! We have a new guest today."),
+                    [], {"welcome", "sato", "your", "usual", "tea", "here",
+                         "have", "today"})
+        self.assertEqual(r["banned_address"], [])
+        self.assertEqual(r["known_ratio"], 1.0)
+
+    def test_dear_guest_phrase_flagged(self):
+        # "dear guest" 是告示腔，不是口语称呼；单说 guest（叙述用）不违规
+        r = self._v(turns("Welcome back, dear guest!"), [], {"welcome", "dear"})
+        self.assertEqual(r["banned_address"], ["dear guest"])
 
     def test_score_prefers_coverage_then_ratio(self):
         good = {"missing_targets": [], "known_ratio": 0.9}
         miss = {"missing_targets": ["x"], "known_ratio": 1.0}
         self.assertGreater(dialogue.score(good), dialogue.score(miss))
+        banned = dict(good, banned_address=["master"])
+        self.assertGreater(dialogue.score(good), dialogue.score(banned))
 
     def test_repair_message_contents(self):
         m = dialogue.repair_message(
@@ -107,6 +153,85 @@ class TestVerifier(unittest.TestCase):
         self.assertIn("seldom", m["content"])
         self.assertIn("zymurgy", m["content"])
         self.assertIn("JSON", m["content"])
+        self.assertNotIn("by name", m["content"], "no address note when clean")
+
+    def test_repair_message_banned_address(self):
+        m = dialogue.repair_message(
+            {"missing_targets": [], "unknown_words": [],
+             "banned_address": ["master"]})
+        self.assertIn("by name", m["content"])
+        self.assertIn("master", m["content"])
+
+
+class TestGuestAddress(unittest.TestCase):
+    """女仆称客人（2026-10-13 裁决）：角色卡、prompt、生成循环三处一致。"""
+
+    def test_no_card_teaches_a_banned_address(self):
+        bad = re.compile(r"\b(master|mistress|sir|madam|ma'am|dear guest)\b", re.I)
+        for c in dialogue.ROSTER["characters"]:
+            for field in ("card", "hidden_side"):
+                self.assertIsNone(bad.search(c.get(field, "")), c["name"])
+
+    def test_system_prompt_sets_guest_rule(self):
+        rng = random.Random(1)
+        cast, guest, hid = dialogue.build_cast(rng)
+        msgs = dialogue.build_messages(cast, guest, hid, "a quiet morning",
+                                       ["seldom"])
+        system = msgs[0]["content"]
+        self.assertIn("by name", system)
+        for word in ("'master'", "'sir'", "'ma'am'", "'dear guest'"):
+            self.assertIn(word, system)
+
+    def test_guest_card_fixes_how_maids_call_them(self):
+        # 10-13 真模型：叫名字规则下，没姓的 Old Tom 被叫成编造的 "Mr. Smith"
+        seen = {}
+        for seed in range(400):
+            _, guest, _ = dialogue.build_cast(random.Random(seed))
+            if guest:
+                seen[guest["name"]] = guest["card"]
+        self.assertEqual(set(seen), {n for n, _ in dialogue.GUESTS})
+        for name, call in dialogue.GUESTS:
+            self.assertIn("call this customer '%s'" % call, seen[name])
+            self.assertIn("never invent a surname", seen[name])
+        self.assertIn("'Tom'", seen["Old Tom"])
+
+    def test_generate_repairs_master_until_name(self):
+        calls = []
+        replies = [
+            [{"speaker": "Momo", "text": "Welcome back, Master! Tea?"}],
+            [{"speaker": "Momo", "text": "Welcome back, Mr. Sato! Tea?"}],
+        ]
+
+        def fake_ollama(messages):
+            calls.append([dict(m) for m in messages])
+            return replies[len(calls) - 1]
+
+        db_path = os.path.join(TMP, "gen.db")   # 独立库，不污染已知集用例
+        con = sqlite3.connect(db_path)
+        con.execute("create table marks(word text primary key,"
+                    " status integer, ts real)")
+        con.executemany("insert into marks values(?,3,0)",
+                        [("welcome",), ("dear",)])
+        con.commit()
+        con.close()
+        orig = (dialogue.call_ollama, dialogue.synthesize, dialogue.DB_PATH)
+        dialogue.call_ollama = fake_ollama
+        dialogue.synthesize = lambda turns, vmap, out_dir: []
+        dialogue.DB_PATH = db_path
+        try:
+            did = dialogue.generate(["tea"], seed=7)
+        finally:
+            (dialogue.call_ollama, dialogue.synthesize,
+             dialogue.DB_PATH) = orig
+        self.assertEqual(len(calls), 2, "master must trigger exactly one repair")
+        self.assertIn("by name", calls[1][-1]["content"])
+        con = sqlite3.connect(db_path)
+        row = con.execute("select turns, report, status from dialogues"
+                          " where id=?", (did,)).fetchone()
+        con.close()
+        self.assertEqual(row[2], "done")
+        self.assertIn("Mr. Sato", row[0])
+        self.assertEqual(json.loads(row[1])["banned_address"], [])
 
 
 class TestCastDiscipline(unittest.TestCase):

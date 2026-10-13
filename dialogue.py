@@ -32,6 +32,13 @@ OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL = os.environ.get("MAIDCAFE_MODEL", "qwen3.5:9b-mlx")
 KNOWN_RATIO_TARGET = 0.92
 MAX_REPAIR = 3
+# 女仆称客人（2026-10-13 用户裁决）：中日文的「客人/お客様」在英语口语里不是
+# 称呼语——英语服务业要么叫名字（Mr. Sato），要么不加称呼。所以：不喊 master/
+# mistress，也不用 sir/madam/ma'am 和书面腔的 "dear guest"。maid-cafe 题材模型
+# 天然爱喊 Master，prompt 明令之外再由校验兜底，出现即进修复轮。作目标词时不算违规。
+BANNED_ADDRESS = {"master", "masters", "mistress", "mistresses",
+                  "sir", "sirs", "madam", "ma'am"}
+BANNED_PHRASE = re.compile(r"\bdear guests?\b", re.I)
 
 FUNCTION_WORDS = set("""
 a an the and or but if so of to in on at by for with from as is are was were be
@@ -48,8 +55,13 @@ coming came say says said see sees seeing saw look looks looking looked make
 makes making made take takes taking took one two three right now today really
 little good new like want wants wanted know knows knew think thinks thought
 time day way things thing something anything nothing everyone someone maybe
-back still even also always never again master miss madam sir mr mrs
+back still even also always never again guest guests miss mr mrs ms
 """.split())
+# 设定强加的词不算生词：场景词、日式称谓（Suzu-chan 拆出 chan）、口头感叹
+FUNCTION_WORDS |= {"maid", "maids", "cafe", "san", "chan", "kun", "sama",
+                   "senpai", "ooh", "aww", "huh", "oops", "whoa", "yay"}
+# 缩写一律是代词/助动词的变体（don't/isn't/we're/you'll/I'd）；'s 已由 norm 去掉
+CLITIC = re.compile(r"(?:n't|'m|'re|'ve|'ll|'d)$")
 
 
 def db():
@@ -148,6 +160,7 @@ def verify(turns, targets, known, lemmatizer, char_names):
 
     found_targets = set()
     unknown = {}
+    banned = set()
     checkable = 0
     known_count = 0
     for tok in text_tokens:
@@ -155,7 +168,11 @@ def verify(turns, targets, known, lemmatizer, char_names):
         if tok in target_set or lem in target_lemmas:
             found_targets.add(lem if lem in target_lemmas else tok)
             continue
-        if tok in char_names or tok in FUNCTION_WORDS or len(tok) <= 2:
+        if tok in BANNED_ADDRESS:
+            banned.add(tok)
+            continue
+        if (tok in char_names or tok in FUNCTION_WORDS or len(tok) <= 2
+                or CLITIC.search(tok)):
             continue
         checkable += 1
         if tok in known or lem in known:
@@ -163,22 +180,33 @@ def verify(turns, targets, known, lemmatizer, char_names):
         else:
             unknown[tok] = unknown.get(tok, 0) + 1
 
+    for t in turns:
+        if BANNED_PHRASE.search(t.get("text", "")):
+            banned.add("dear guest")
     missing = [t for t in target_set
                if t not in found_targets and lemmatizer.lemma(t) not in found_targets]
     ratio = (known_count / checkable) if checkable else 1.0
     return {
         "missing_targets": missing,
         "unknown_words": sorted(unknown, key=unknown.get, reverse=True),
+        "banned_address": sorted(banned),
         "known_ratio": round(ratio, 4),
         "checkable_tokens": checkable,
     }
 
 
 def score(report):
-    return report["known_ratio"] - 0.2 * len(report["missing_targets"])
+    return (report["known_ratio"] - 0.2 * len(report["missing_targets"])
+            - 0.1 * len(report.get("banned_address", [])))
 
 
 # ---------------------------------------------------------------- prompts
+# 散客：名字 + 女仆怎么叫他。叫名字是称客人的英语说法（见 BANNED_ADDRESS），
+# 所以必须给定叫法——否则模型会给没姓的 Old Tom 编一个 "Mr. Smith"。
+GUESTS = [("Mr. Sato", "Mr. Sato"), ("Ms. Lin", "Ms. Lin"), ("Old Tom", "Tom"),
+          ("Anna", "Anna"), ("Ken", "Ken")]
+
+
 def build_cast(rng):
     chars = ROSTER["characters"]
     # mostly 2 speakers; 3 is the normal ceiling; 4-5 are rare set pieces
@@ -186,13 +214,16 @@ def build_cast(rng):
     cast = rng.sample(chars, k)
     guest = None
     if k <= 2 and rng.random() < SCENES.get("guest_probability", 0.3):
+        name, call = rng.choice(GUESTS)
         guest = {
-            "name": rng.choice(["Mr. Sato", "Ms. Lin", "Old Tom", "Anna", "Ken"]),
+            "name": name,
             "voice": rng.choice(ROSTER["guest_voices"]),
-            "card": "A walk-in customer: %s, %s. Keep their lines short and natural."
+            "card": "A walk-in customer: %s, %s. The maids call this customer "
+                    "'%s' — never invent a surname or any other title. "
+                    "Keep their lines short and natural."
                     % (rng.choice(["young", "middle-aged", "elderly"]),
                        rng.choice(["cheerful", "shy", "grumpy but soft-hearted",
-                                   "curious", "very talkative"])),
+                                   "curious", "very talkative"]), call),
         }
     hidden = None
     if rng.random() < SCENES.get("hidden_side_probability", 0.1):
@@ -240,7 +271,11 @@ def build_messages(cast, guest, hidden, scene, targets):
         "Use ONLY simple everyday English (CEFR A2-B1). Short sentences. "
         "Stay strictly in character. Characters are normal adults with common "
         "sense: they NEVER ask what an everyday object is. Surprise must come "
-        "from the situation ('why is this here?'), never from fake ignorance.")
+        "from the situation ('why is this here?'), never from fake ignorance. "
+        "The maids treat customers as valued customers: they address them "
+        "by name (e.g. 'Welcome back, Mr. Sato!') or with no title at all, "
+        "NEVER as 'master', 'mistress', 'sir', 'madam', 'ma'am' or "
+        "'dear guest'.")
     user = (
         "Characters on shift right now:\n\n%s\n%s\n"
         "Scene: %s.\n\n"
@@ -264,6 +299,10 @@ def repair_message(report):
         parts.append("These words are too difficult, replace them with very "
                      "simple everyday words or rephrase: %s."
                      % ", ".join(report["unknown_words"][:15]))
+    if report.get("banned_address"):
+        parts.append("The maids address customers by name (e.g. 'Mr. Sato') "
+                     "or with no title, never: %s. Replace every such address."
+                     % ", ".join(report["banned_address"]))
     parts.append("Rewrite the FULL dialogue, same characters and scene, "
                  "same JSON format only.")
     return {"role": "user", "content": " ".join(parts)}
@@ -376,12 +415,14 @@ def generate(targets, seed=None):
             report = verify(turns, targets, known, lem, char_names)
             report["attempt"] = attempt + 1
             report["gen_seconds"] = round(time.time() - t0, 1)
-            print("attempt %d: ratio=%.3f missing=%s unknown=%s (%.1fs)" % (
+            print("attempt %d: ratio=%.3f missing=%s unknown=%s banned=%s (%.1fs)" % (
                 attempt + 1, report["known_ratio"], report["missing_targets"],
-                report["unknown_words"][:8], report["gen_seconds"]))
+                report["unknown_words"][:8], report["banned_address"],
+                report["gen_seconds"]))
             if best is None or score(report) > score(best[1]):
                 best = (turns, report)
-            if not report["missing_targets"] and report["known_ratio"] >= KNOWN_RATIO_TARGET:
+            if (not report["missing_targets"] and not report["banned_address"]
+                    and report["known_ratio"] >= KNOWN_RATIO_TARGET):
                 break
             messages.append({"role": "assistant",
                              "content": json.dumps({"turns": turns})})
