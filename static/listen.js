@@ -71,9 +71,7 @@ async function loadList() {
     el.innerHTML =
       `<div class="d-top"><b>#${d.id}</b> · ${date} · ${d.n_turns} 轮 · ` +
       `${d.characters.join("、")}${heard}${state}</div>` +
-      `<div class="d-scene">${d.scene}</div>` +
-      `<div class="d-targets">${d.targets.map(t =>
-        `<span class="chip">${t}</span>`).join("")}</div>`;
+      `<div class="d-scene">${d.scene}</div>`;   // 不挂目标词：盲听不剧透（FLOW 全局）
     if (d.status === "error") {
       el.addEventListener("click", async () => {
         if (!confirm(`删除翻车的对话 #${d.id}？`)) return;
@@ -113,11 +111,6 @@ async function openDialogue(id) {
   $("wordbookView").classList.add("hidden");
   $("playerView").classList.remove("hidden");
   $("sceneLine").textContent = `#${current.id} · ${current.scene}`;
-  $("targetChips").innerHTML = current.targets.map((t) =>
-    `<span class="chip target-chip" data-word="${t.word}">${t.word}` +
-    `<small> ${t.definition.split("\n")[0].slice(0, 24)}</small></span>`).join("");
-  document.querySelectorAll(".target-chip").forEach((el) =>
-    el.addEventListener("click", () => showWordCard(el.dataset.word)));
   const ratio = current.report.known_ratio;
   $("ratioBadge").textContent = ratio != null
     ? `周边词汇 ${(ratio * 100).toFixed(0)}% 在你的已知范围内` : "";

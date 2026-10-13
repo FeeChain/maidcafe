@@ -223,6 +223,16 @@ class TestMainJourney(UIBase):
                         "retry button appears after a failed brew")
 
     def test_u07_embedded_player_and_word_card(self):
+        # 盲听不剧透（FLOW 全局）：条目不挂目标词速览条，听之前看不到目标词
+        targets = self.api("/api/dialogues")[0]["targets"]
+        targets = [t["word"] if isinstance(t, dict) else t for t in targets]
+        self.assertEqual(self.page.locator("#lsDlgList .d-targets, #lsDlgList .chip").count(), 0)
+        before = self.page.text_content("#lsDlgList")
+        self.assertFalse([t for t in targets if t in before], before)
+        # 缺失头像只请求一次（10-13 冒烟：每轮重绘都重新 404 一次）
+        missing = []
+        on_req = lambda r: missing.append(r.url) if "V4_suzu" in r.url else None
+        self.page.on("request", on_req)
         row = self.page.locator("#lsDlgList .ditem").first
         row.locator(".d-top").click()
         self.page.wait_for_selector(".ls-play", state="visible")
@@ -231,6 +241,8 @@ class TestMainJourney(UIBase):
             "document.querySelector('.ls-prog').textContent.startsWith('2/2')")
         self.assertEqual(row.locator(".txt.veiled").count(), 0,
                          "all turns revealed after playing through")
+        self.page.remove_listener("request", on_req)
+        self.assertLessEqual(len(missing), 1, "missing avatar re-requested: %s" % missing)
         row.locator(".wclick").first.click()
         self.page.wait_for_selector("#wordCard", state="visible")
         self.assertTrue(self.page.text_content("#wcWord").strip())
@@ -340,6 +352,22 @@ class TestMainJourney(UIBase):
         self.assertEqual(links, 3)
         self.page.click("#cfgClose")
         self.assertFalse(self.visible("#cfgModal"))
+
+    def test_u13b_history_page_has_no_target_speedbar(self):
+        targets = self.api("/api/dialogues")[0]["targets"]
+        targets = [t["word"] if isinstance(t, dict) else t for t in targets]
+        self.page.goto(self.base + "/listen")
+        self.page.wait_for_selector("#dialogueList .ditem", state="attached")
+        listing = self.page.text_content("#dialogueList")
+        self.assertFalse([t for t in targets if t in listing], listing)
+        self.assertEqual(self.page.locator("#dialogueList .chip").count(), 0)
+        did = self.api("/api/dialogues")[0]["id"]
+        self.page.goto(self.base + "/")                       # 深链 = 全新加载
+        self.page.goto(self.base + "/listen#dialogue=%d" % did)
+        self.page.wait_for_selector("#playerView", state="visible")
+        self.assertEqual(self.page.locator("#targetChips, .target-chip").count(), 0)
+        info = self.page.text_content(".player-info")
+        self.assertFalse([t for t in targets if t in info], info)
 
     def test_u13_event_log_captured_clicks(self):
         rows = self.api("/api/log?limit=400")

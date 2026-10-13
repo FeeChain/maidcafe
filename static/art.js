@@ -1,6 +1,14 @@
 /* maidcafe art loader — 画稿按固定路径挂载。
  * 换图 = 同名覆盖 static/art/ 下的文件，代码零改动；
- * 文件不存在时 <img onerror> 自删，图位无痕消失（画稿可以来一张亮一张）。 */
+ * 文件不存在时 <img onerror> 自删，图位无痕消失（画稿可以来一张亮一张）；
+ * 并记进 ART_MISSING，之后的重绘不再插这张图——否则播放器每换一轮重绘一次就
+ * 重新请求一次不存在的头像（10-13 冒烟：一场对话里 V4/V5 各 404 了 8 次）。 */
+
+const ART_MISSING = new Set();
+function artGone(img) {
+  ART_MISSING.add(img.getAttribute("src"));
+  img.remove();
+}
 
 const ART = {
   logo:      "/static/art/A1_logo.png",
@@ -21,15 +29,16 @@ const ART = {
 /* 横幅图位 HTML（插进 innerHTML 用） */
 function artBanner(key, cls) {
   const src = ART[key];
-  return src
-    ? `<img class="art-banner${cls ? " " + cls : ""}" src="${src}" alt="" onerror="this.remove()">`
+  return src && !ART_MISSING.has(src)
+    ? `<img class="art-banner${cls ? " " + cls : ""}" src="${src}" alt="" onerror="artGone(this)">`
     : "";
 }
 
 /* 说话人头像（女仆有，客人返回空串不占位） */
 function artAvatar(speaker) {
   const src = ART.avatars[(speaker || "").toLowerCase()];
-  return src ? `<img class="spk-avatar" src="${src}" alt="" onerror="this.remove()">` : "";
+  return src && !ART_MISSING.has(src)
+    ? `<img class="spk-avatar" src="${src}" alt="" onerror="artGone(this)">` : "";
 }
 
 /* 品牌位：A1 logo 就位后替换 ☕，并顺带升级 favicon */

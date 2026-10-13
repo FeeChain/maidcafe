@@ -75,7 +75,6 @@ body:has(#listView) main, body:has(#playerView) main { max-width: 1000px; }
   font-weight: 700; font-size: 17px;
   color: var(--ink);
 }
-.d-targets { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* --- 播放器 ---------------------------------------------------------------- */
 .player-card { padding: 0; }
@@ -91,8 +90,6 @@ body:has(#listView) main, body:has(#playerView) main { max-width: 1000px; }
   color: var(--ink);
 }
 .scene-line::first-line { line-height: 1.4; }
-.target-chips { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
-.target-chip small { color: var(--muted-2); margin-left: 2px; }
 .ratio-badge {
   margin-top: 12px;
   display: inline-flex; align-items: center; gap: 7px;

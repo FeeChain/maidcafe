@@ -373,9 +373,7 @@ async function loadTodayDialogues() {
     el.innerHTML =
       `<div class="d-top"><span class="ls-arrow">▸</span> <b>#${d.id}</b> · ` +
       `${d.n_turns} 轮 · ${d.characters.join("、")}</div>` +
-      `<div class="d-scene">${d.scene}</div>` +
-      `<div class="d-targets">${d.targets.map((x) =>
-        `<span class="chip">${x}</span>`).join("")}</div>` +
+      `<div class="d-scene">${d.scene}</div>` +   // 不挂目标词：盲听不剧透（FLOW 全局）
       `<div class="ls-body hidden"></div>`;
     el.addEventListener("click", (e) => {
       if (e.target.closest(".ls-body") || e.target.closest("button")) return;

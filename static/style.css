@@ -373,8 +373,6 @@ kbd:active, .kbd-pressed { transform: translateY(2px); border-bottom-width: 1px;
 .chip small { font-family: var(--font-ui); font-size: 12px; font-weight: 400; color: var(--muted-2); }
 .chip.review { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-deep); }
 .chip.known  { background: var(--sunken); border-color: var(--line); color: var(--muted-2); }
-.target-chip { cursor: pointer; transition: border-color .15s; }
-.target-chip:hover { border-color: var(--red); }
 
 /* 5.4 徽章 */
 .pill {
