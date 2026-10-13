@@ -123,6 +123,15 @@ class TestMaidcafe(unittest.TestCase):
             self.assertEqual(code, 200, path)
             self.assertIn(marker, body, path)
         self.assertEqual(get_raw("/static/../server.py")[0], 404)
+        # D07：今日任务入口连同接口已删（10-13 用户裁决）
+        _, page = get_raw("/listen")
+        self.assertNotIn("今日任务", page)
+        self.assertNotIn("dailyBtn", page)
+        try:
+            call("/api/daily_task", {})
+            self.fail("/api/daily_task must be gone")
+        except urllib.error.HTTPError as e:
+            self.assertEqual(e.code, 404)
         self.assertEqual(get_raw("/static/nope.css")[0], 404)
         self.assertEqual(get_raw("/audio/nothing")[0], 404)
         self.assertEqual(get_raw("/api/dialogue/999")[0], 404)

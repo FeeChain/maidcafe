@@ -19,36 +19,14 @@ let genPolling = null;
 let listenedReported = false;
 
 /* ---------------- list view ---------------- */
-let dailyEmpty = false;
-
-async function loadDailyStatus() {
-  const s = await fetchJSON("/api/daily_status");
-  dailyEmpty = s.due === 0 && s.backlog === 0;
-  if (dailyEmpty) {
-    // A1: 空池引导态——主按钮变成去校准
-    $("dailyBtn").textContent = "去校准 →";
-    $("dailyLine").innerHTML =
-      "<b>先认识你，再给你听。</b>随便过 1 组词（约 3 分钟），女仆们就知道该用什么词跟客人说话了。";
-  } else if (!localStorage.getItem("mc_gen_pending")) {
-    $("dailyBtn").textContent = "☕ 今日任务";
-    $("dailyBtn").disabled = false;
-    $("dailyLine").textContent = "";   // 不报"到期/欠多少"（FLOW §4 不预告）
-  }
-}
-
 async function loadList() {
-  loadDailyStatus();
   dialogues = await fetchJSON("/api/dialogues");
   const box = $("dialogueList");
   box.innerHTML = "";
-  const cooking = !!localStorage.getItem("mc_gen_pending");
-  if (cooking) {
-    box.insertAdjacentHTML("beforeend", artBanner("cooking", "cooking"));
-  }
   if (!dialogues.length) {
-    box.insertAdjacentHTML("beforeend",
-      (cooking ? "" : artBanner("empty")) +
-      '<p class="empty">还没有对话——先在校准页积累生词，然后点上面的按钮生成。</p>');
+    // 对话只从主页学习里的篮子煮（今日任务入口 10-13 已删）
+    box.insertAdjacentHTML("beforeend", artBanner("empty") +
+      '<p class="empty">还没有对话——在<a href="/">主页</a>翻卡攒词，点「☕ 给这几个词来一场对话」，煮好的都会出现在这里。</p>');
     return;
   }
   let listenedRec = {};
@@ -208,7 +186,6 @@ function reportListened() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id: current.id }),
   }).then(() => {
-    loadDailyStatus();
     // D3: 本地记听完日期，列表卡显示回执
     try {
       const rec = JSON.parse(localStorage.getItem("mc_listened") || "{}");
@@ -298,7 +275,6 @@ async function showWordCard(word, opts) {
         body: JSON.stringify({ word }),
       });
       addBtn.textContent = "✓ 已加入 · 下次会出现在新的对话里";
-      loadDailyStatus();
     }
     setTimeout(() => { addBtn.classList.add("hidden"); }, 2500);
   };
@@ -324,7 +300,6 @@ async function wordAction(url, word) {
     body: JSON.stringify({ word }),
   });
   loadWordbook();
-  loadDailyStatus();
 }
 
 /* B1: 动作后 6 秒撤销回执条 */
@@ -433,70 +408,6 @@ async function generate(words) {
 }
 
 /* ---------------- wiring ---------------- */
-/* A2: 生成中状态可见 + localStorage 记 pending，离开再回来能续上 */
-function startGenWatch(expect, label) {
-  localStorage.setItem("mc_gen_pending", JSON.stringify({ expect, label }));
-  $("dailyBtn").disabled = true;
-  $("dailyBtn").textContent = "正在备料…";
-  $("genStatus").textContent =
-    label + "（约 1-2 分钟一段，可以先去校准，好了会出现在列表顶部）";
-  $("genStatus").classList.add("working");
-  if (genPolling) clearInterval(genPolling);
-  genPolling = setInterval(async () => {
-    const list = await fetchJSON("/api/dialogues");
-    const done = list.filter((d) => d.status === "done").length;
-    if (done > dialogues.filter((d) => d.status === "done").length) loadList();
-    if (done >= expect) {
-      clearInterval(genPolling);
-      genPolling = null;
-      localStorage.removeItem("mc_gen_pending");
-      $("dailyBtn").disabled = false;
-      $("genStatus").textContent = "对话全部就绪，请慢用 ☕";
-      setTimeout(() => {
-        $("genStatus").textContent = "";
-        $("genStatus").classList.remove("working");
-      }, 5000);
-      loadDailyStatus();
-    }
-  }, 5000);
-}
-
-$("dailyBtn").addEventListener("click", async () => {
-  if (dailyEmpty) { location.href = "/"; return; }
-  if ($("dailyBtn").disabled) return;
-  const r = await fetchJSON("/api/daily_task", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ new_quota: 5 }),
-  });
-  if (!r.chunks || !r.chunks.length) {
-    $("genStatus").textContent = r.message || "今天没有到期词";
-    setTimeout(() => { $("genStatus").textContent = ""; }, 4000);
-    return;
-  }
-  const n = r.chunks.flat().length;
-  const doneBefore = dialogues.filter((d) => d.status === "done").length;
-  startGenWatch(doneBefore + r.chunks.length,
-    `今天先取 ${n} 个词 · ${r.chunks.length} 段对话正在备料`);
-});
-
-/* 页面加载时恢复未完成的生成状态 */
-(function resumeGenWatch() {
-  try {
-    const p = JSON.parse(localStorage.getItem("mc_gen_pending") || "null");
-    if (p && p.expect) {
-      fetchJSON("/api/dialogues").then((list) => {
-        dialogues = list;
-        const done = list.filter((d) => d.status === "done").length;
-        if (done >= p.expect) {
-          localStorage.removeItem("mc_gen_pending");
-        } else {
-          startGenWatch(p.expect, p.label || "对话正在备料");
-        }
-      });
-    }
-  } catch (_) {}
-})();
 /* 词表导入（FLOW 工具页）：只进生词池；推定已认识的默认不加，给「这些也加上」 */
 $("importFile").addEventListener("change", async (e) => {
   const f = e.target.files[0];
@@ -559,7 +470,6 @@ async function tryAddWord() {
     msg.textContent = `✓ 「${w}」已加入 · 下次会出现在新的对话里`;
     $("addWordInput").value = "";
     loadWordbook();
-    loadDailyStatus();
   }
   setTimeout(() => { msg.textContent = ""; }, 4000);
 }

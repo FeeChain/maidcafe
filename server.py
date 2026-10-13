@@ -160,8 +160,6 @@ GRAD_STAB = 30      # 耐久 ≥ 30 天 → 毕业
 GAIN = 3            # 考过：耐久 × (1 + GAIN × 这次间隔造成的衰减比例)
 OLD_LADDER = [1, 3, 7, 15, 30]   # 旧固定梯子，仅用于迁移老数据
 DAY = 86400
-NEW_QUOTA_DEFAULT = 5
-CHUNK = 7  # 每段对话目标词数
 
 
 def db():
@@ -529,16 +527,6 @@ def import_wordlist(text, include_known=False):
         if ec is not None:
             ec.close()
     return out
-
-
-def spawn_generation(words):
-    write_known_snapshot()
-    cmd = [sys.executable, os.path.join(ROOT, "dialogue.py"),
-           "--words", ",".join(words)]
-    env = dict(os.environ, MAIDCAFE_MODEL=GEN_MODEL)
-    log = open(os.path.join(ROOT, "generate.log"), "a")
-    subprocess.Popen(cmd, env=env, stdout=log, stderr=log,
-                     start_new_session=True)
 
 
 def word_info(word):
@@ -1435,27 +1423,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(400, {"error": "new_quota must be 1-100"})
             kv_set("new_quota", q)
             return self._send(200, {"ok": True, "new_quota": q})
-
-        if parsed.path == "/api/daily_task":
-            quota = payload.get("new_quota", NEW_QUOTA_DEFAULT)
-            con = db()
-            try:
-                srs = srs_map(con)
-                due = [w for w, s in srs.items()
-                       if s["state"] == "learning"
-                       and s["weight"] <= REVIEW_LINE]
-                backlog = get_backlog(con)
-                fresh = backlog[:quota]
-                # 不预注册：新词考过才进梯（FLOW 不变量——过词只有考试一条路）
-            finally:
-                con.close()
-            pool = due + fresh
-            if not pool:
-                return self._send(200, {"chunks": [], "message": "今天没有到期词"})
-            chunks = [pool[i:i + CHUNK] for i in range(0, len(pool), CHUNK)]
-            for chunk in chunks:
-                spawn_generation(chunk)
-            return self._send(200, {"chunks": chunks, "started": True})
 
         if parsed.path == "/api/listened":
             # 听完对话不再计分（用户裁决：学没学会考试说了算，对话只是学习辅助）

@@ -41,7 +41,6 @@ body:has(#listView) main, body:has(#playerView) main { max-width: 1000px; }
 }
 
 /* 生成等待画稿（C3，仅生成中显示） */
-.art-banner.cooking { max-width: 420px; margin: 4px auto 16px; }
 
 /* 自选生成折叠区 */
 .custom-gen { margin-bottom: 18px; }

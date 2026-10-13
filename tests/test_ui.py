@@ -358,6 +358,7 @@ class TestMainJourney(UIBase):
         targets = [t["word"] if isinstance(t, dict) else t for t in targets]
         self.page.goto(self.base + "/listen")
         self.page.wait_for_selector("#dialogueList .ditem", state="attached")
+        self.assertNotIn("今日任务", self.page.text_content("#listView"), "D07")
         listing = self.page.text_content("#dialogueList")
         self.assertFalse([t for t in targets if t in listing], listing)
         self.assertEqual(self.page.locator("#dialogueList .chip").count(), 0)
@@ -417,6 +418,12 @@ class TestSecondaryFlows(UIBase):
         self.page.wait_for_selector("#vEmpty", state="visible")
         self.page.goto(self.base + "/listen")
         self.page.wait_for_selector("#listView", state="visible")
+        # D07：空列表指向主页篮子，不再说"点上面的按钮"
+        self.page.wait_for_selector("#dialogueList .empty")
+        empty = self.page.text_content("#dialogueList .empty")
+        self.assertIn("主页", empty)
+        self.assertNotIn("上面的按钮", empty)
+        self.assertNotIn("今日任务", self.page.text_content("#listView"))
         self.page.click("#tabWordbook")
         self.page.wait_for_selector("#wordbookView", state="visible")
         self.page.fill("#addWordInput", "zzzqq")
@@ -544,9 +551,8 @@ class TestWeightModelUI(UIBase):
         listing = self.page.text_content("#wordbookList")
         self.assertNotIn("到期", listing)
         self.assertNotIn("天后", listing)
-        self.page.evaluate("loadDailyStatus()")   # 等异步状态真正写完（按钮静态文案不可作信号）
-        self.assertNotIn("到期", self.page.text_content("#dailyLine"),
-                         "the history page must not count reviews owed")
+        self.assertEqual(self.page.locator("#dailyBtn, #dailyLine").count(), 0,
+                         "D07: no daily-task button / owed-reviews line")
         pool_item = self.page.locator(".wb-item").filter(has_text="生词池").first
         self.assertEqual(pool_item.locator(".wb-unfam").count(), 0)
         # G16：点「打回重听」= 按考挂（明示操作不受同日限制）：32.6 → 16.3 < 30 → 回生词池
