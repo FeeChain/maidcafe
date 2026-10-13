@@ -25,6 +25,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import deckparse  # noqa: E402
+import morph  # noqa: E402
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DECKS_DIR = os.path.join(ROOT, "decks")
@@ -133,6 +134,20 @@ def attach_tiers():
 
 AUDIO_OUT = os.environ.get("MAIDCAFE_AUDIO_OUT",
                            os.path.join(ROOT, "audio_out"))
+# 词根词缀表（ECDICT 仓库 wordroot.txt，MIT）：同 stardict.db，用户下载，不入库
+WORDROOT_PATH = os.environ.get("MAIDCAFE_WORDROOT",
+                               os.path.join(ROOT, "data", "wordroot.txt"))
+_MORPH = None
+
+
+def get_morph():
+    """词根词缀拆分器（FLOW 工具页）；首次查词时建，缺数据则 analyze 恒为 None。"""
+    global _MORPH
+    if _MORPH is None:
+        _MORPH = morph.Morph(WORDROOT_PATH, ECDICT_PATH, WORD_INDEX)
+    return _MORPH
+
+
 GEN_MODEL = os.environ.get("MAIDCAFE_MODEL", "qwen3.6:27b-mlx")
 ECDICT_PATH = ECDICT_DB
 
@@ -1172,6 +1187,7 @@ class Handler(BaseHTTPRequestHandler):
                 bool(s and s[0] == "learning")
             info["known"] = bool(m and m[0] == 3) or \
                 bool(s and s[0] == "graduated")
+            info["morph"] = get_morph().analyze(word)   # 词根词缀，英文释义
             return self._send(200, info)
 
         if path == "/api/home_status":

@@ -34,6 +34,7 @@ os.environ["MAIDCAFE_DB"] = os.path.join(TMP, "unit.db")
 os.environ["MAIDCAFE_CACHE"] = CACHE
 os.environ["MAIDCAFE_ECDICT"] = os.path.join(TMP, "no-ecdict.db")
 os.environ["MAIDCAFE_AUDIO_OUT"] = os.path.join(TMP, "audio_out")
+os.environ["MAIDCAFE_WORDROOT"] = os.path.join(TMP, "no-wordroot.json")
 
 sys.path.insert(0, ROOT)
 import server  # noqa: E402

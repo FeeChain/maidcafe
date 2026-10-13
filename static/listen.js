@@ -290,6 +290,7 @@ async function showWordCard(word, opts) {
   $("wcWord").textContent = word;
   $("wcPhon").textContent = (info && info.phonetic) || "";
   $("wcDef").textContent = (info && info.definition) || "（词典里没查到）";
+  $("wcMorph").innerHTML = morphHTML(flags.morph);
   const addBtn = $("wcAdd");
   addBtn.classList.toggle("hidden", !showAdd && !graduated);
   addBtn.textContent = graduated ? "↺ 再学一遍" : "＋ 加入生词本";

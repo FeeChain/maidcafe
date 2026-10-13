@@ -46,7 +46,13 @@ def make_env(tmp, port, with_audio=False):
             w["audio_path"] = wav_path
     with open(os.path.join(cache, "words_cache.json"), "w") as f:
         json.dump(words, f)
+    # 词根表夹具：所有合成词 + "try"（u06 对话首词）都有一个词根
+    wordroot = os.path.join(tmp, "wordroot.json")
+    with open(wordroot, "w") as f:
+        json.dump({"wroot": {"class": "root", "root": "w1, w2", "meaning": "test root meaning",
+                       "example": ["try"] + ["w%03d" % i for i in range(300)]}}, f)
     return dict(os.environ,
+                MAIDCAFE_WORDROOT=wordroot,
                 MAIDCAFE_DB=os.path.join(tmp, "ui.db"),
                 MAIDCAFE_CACHE=cache,
                 MAIDCAFE_PORT=str(port),
@@ -170,8 +176,14 @@ class TestMainJourney(UIBase):
         self.assertTrue(self.page.locator("#brewBtn").is_disabled(),
                         "empty basket must be disabled")
         flips, tags = [], []
+        # J09：遮着时没有词根行（盲听不剧透），翻开后出现
+        self.assertEqual(self.page.inner_html("#lMorph"), "")
         for i in range(6):
             self.page.click("#lRevealBtn")
+            if i == 0:
+                self.page.wait_for_function(
+                    "document.getElementById('lMorph').textContent"
+                    ".includes('test root meaning')")
             flips.append(self.page.text_content("#lWord").strip())
             tags.append(self.page.text_content("#newTag").strip())
             if i == 0:
@@ -219,6 +231,9 @@ class TestMainJourney(UIBase):
         row.locator(".wclick").first.click()
         self.page.wait_for_selector("#wordCard", state="visible")
         self.assertTrue(self.page.text_content("#wcWord").strip())
+        self.page.wait_for_function(               # J09：释义卡带词根行
+            "document.getElementById('wcMorph').textContent"
+            ".includes('test root meaning')")
         self.page.click("#wcClose")
 
     def test_u08_exam_partial_then_quit(self):

@@ -20,6 +20,8 @@ jobs:
         run: python3 tests/test_server.py -v
       - name: Unit tests (dialogue pipeline)
         run: python3 tests/test_dialogue.py -v
+      - name: Unit tests (roots and affixes)
+        run: python3 tests/test_morph.py -v
       - name: Integration tests (HTTP, isolated server)
         run: python3 tests/test_e2e.py -v
 

@@ -92,6 +92,7 @@
 | E10 | t10 generation | 快照内容(边界内已知/显式生词剔除/漏词优先)+翻车可见 |
 | E11 | t11 event_log | 写读回 |
 | E12 | t12 word actions | learned/unfamiliar/readd/dialogue_delete/listened空转 |
+| E17 | t08 lookup.morph | 有词根→parts+family；拆不出→null |
 | E16 | t14 wordbook_import | 五类判定/也加上/只进生词池不建在学行/不进估算/空·超项·超大 400 |
 | E15 | t13 word_fail | 新词零记录/同日不认/昨天考过→静默减半/次日排最前/生词本只给记忆程度/空词 400 |
 | E13 | test_dialogue TestGuestAddress + TestVerifier banned_* | 女仆称客人（10-13 裁决）：叫名字或不加称呼；角色卡不教禁用称呼、prompt 明令、master/sir/ma'am/dear guest 触发修复轮至干净、作目标词不误伤 |
@@ -133,6 +134,20 @@
 | H08 | 界面 | 折叠区粘贴→导入→汇总行→[这些也加上]→生词本刷新出现新词 | ui v04 | ✅ 10-13 |
 | H09 | 生词本机制说明 | 不再出现"1 / 3 / 7 / 15 / 30 天""听完对话=复习" | ui v04 | ✅ 10-13 |
 
+## J. 词根词缀（FLOW 工具页 · 2026-10-13）
+
+| ID | 规则 | 期望 | 方式 | 状态 |
+|---|---|---|---|---|
+| J01 | 例词表拆分 | 前缀/词根/后缀按位置排、显示命中的变体（scen, scend → scend）、去掉同形编号（a-3 → a-） | unit | ✅ 10-13 |
+| J02 | 同根 | 词根（非词缀）的其他例词 ≤5，去编号，牌组词优先，不含本词 | unit | ✅ 10-13 |
+| J03 | 词干+后缀 | 常用真词 + 词性对类别 + 共享汉字三道全过才拆；e 还原/y→i/双写；标 auto | unit | ✅ 10-13 |
+| J04 | 同形后缀 | 按词性选变体（-ful1 形容词 vs -ful2 名词）；对不上不拆 | unit | ✅ 10-13 |
+| J05 | 拒绝 | 冷僻词干、无共享汉字、前缀规则 → 不拆（abroad / flourish） | unit | ✅ 10-13 |
+| J06 | 派生 | 本词+后缀、前缀+本词，三道过滤，≤6 | unit | ✅ 10-13 |
+| J07 | 缺数据 | 无 wordroot.txt → morph=null，页面不报错 | unit + e2e | ✅ 10-13 |
+| J08 | 接口 | /api/lookup 带 morph | e2e | ✅ 10-13 |
+| J09 | 界面 | S2 翻开后出现词根行、遮着时没有；释义卡出现词根行 | ui | ✅ 10-13 |
+
 ## F. 不变量追踪（FLOW §2 → 断言）
 
 | 不变量 | 覆盖 |
@@ -157,7 +172,7 @@
 | E 服务端契约 | e2e t01-t12（12 用例） |
 | F 不变量 1-8 | unit+e2e+ui 交叉（见各区） |
 
-合计 **97 个自动化用例**：test_server 37 · test_dialogue 24 · test_e2e 14 ·
+合计 **106 个自动化用例**：test_server 37 · test_dialogue 24 · test_morph 9 · test_e2e 14 ·
 test_ui 22（u01-u14+u08b+u10b / v01-v04 / w01-w02 有声套件）。本地约 25 秒
 全跑完；CI 两个 job（core 双OS×双Py + ui@ubuntu）。
 

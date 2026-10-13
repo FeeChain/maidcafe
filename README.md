@@ -100,6 +100,9 @@ ollama pull qwen3.6:27b   # 或任意你机器带得动的模型，环境变量 
 #   下载 ECDICT sqlite 版，解压出 stardict.db 放到 data/
 #   https://github.com/skywind3000/ECDICT/releases
 
+# 词根词缀表（可选；同为 ECDICT 项目，MIT。不装则释义卡不显示词根）
+curl -L -o data/wordroot.txt https://raw.githubusercontent.com/skywind3000/ECDICT/master/wordroot.txt
+
 # Kokoro TTS（可选但强烈建议；不装则回落 macOS say）
 uv venv --python 3.12 .venv-tts
 uv pip install --python .venv-tts/bin/python kokoro-onnx soundfile
@@ -126,7 +129,7 @@ uv pip install --python .venv-tts/bin/python kokoro-onnx soundfile
   周边词汇已知占比、人数纪律），不合格把违规项喂回去重写，最多四稿取最优。
 - **复习听的是全新对话**：不是把例句再放一遍，而是让这个词在新语境里
   再遇见你一次（编码变异优于机械重复——这是本地 LLM 才给得起的独门武器）。
-- **测试**：97 个自动化用例四层覆盖（单元 / 对话管线 / HTTP 契约 / Playwright
+- **测试**：106 个自动化用例四层覆盖（单元 / 对话管线 / HTTP 契约 / Playwright
   真浏览器全点击），双系统双 Python 版本 CI。
 
 ## 项目结构

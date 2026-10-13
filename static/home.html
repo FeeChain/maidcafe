@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>maidcafe ☕</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
-<link rel="stylesheet" href="/static/style.css?v=3">
-<link rel="stylesheet" href="/static/listen.css?v=3">
-<link rel="stylesheet" href="/static/home.css?v=3">
+<link rel="stylesheet" href="/static/style.css?v=4">
+<link rel="stylesheet" href="/static/listen.css?v=4">
+<link rel="stylesheet" href="/static/home.css?v=4">
 </head>
 <body>
 <header>
@@ -71,6 +71,7 @@
           <div id="lWord" class="word veiled-word">·&nbsp;·&nbsp;·</div>
           <div id="lPhon" class="phonetic"></div>
           <div id="lDef" class="definition hidden"></div>
+          <div id="lMorph" class="morph"></div>
           <div class="hint" id="lHint">Space 显示 · 再按下一个 · K 重听 · 翻开的词会攒进下一杯对话</div>
         </div>
       </div>
@@ -114,6 +115,7 @@
     <div class="wc-word" id="wcWord"></div>
     <div class="wc-phon" id="wcPhon"></div>
     <div class="wc-def" id="wcDef"></div>
+    <div class="morph" id="wcMorph"></div>
     <div class="wc-actions">
       <button id="wcPlay" class="mk small">🔊 单词发音</button>
       <button id="wcAdd" class="mk small hidden">＋ 加入生词本</button>
@@ -200,8 +202,9 @@
   </div>
 </main>
 
-<script src="/static/log.js?v=3"></script>
-<script src="/static/art.js?v=3"></script>
-<script src="/static/home.js?v=3"></script>
+<script src="/static/log.js?v=4"></script>
+<script src="/static/morph.js?v=1"></script>
+<script src="/static/art.js?v=4"></script>
+<script src="/static/home.js?v=4"></script>
 </body>
 </html>

@@ -63,6 +63,11 @@ class TestMaidcafe(unittest.TestCase):
         with open(os.path.join(cache, "words_cache.json"), "w") as f:
             json.dump(words, f)
         cls.db_path = os.path.join(cls.tmp, "test.db")
+        # 词根表夹具（真 data/wordroot.txt 不能漏进来）：w150 有词根，w250 没有
+        wordroot = os.path.join(cls.tmp, "wordroot.json")
+        with open(wordroot, "w") as f:
+            json.dump({"wroot": {"class": "root", "root": "w1", "meaning": "test root",
+                                 "example": ["w150", "w151", "w152"]}}, f)
         env = dict(os.environ,
                    MAIDCAFE_DB=cls.db_path,
                    MAIDCAFE_CACHE=cache,
@@ -71,7 +76,8 @@ class TestMaidcafe(unittest.TestCase):
                    # 开发机上真 ECDICT 会命中合成词、扰动排序——指向空路径隔离
                    MAIDCAFE_ECDICT=os.path.join(cls.tmp, "no-ecdict.db"),
                    # dialogue_delete 会删 AUDIO_OUT/<id>——必须与真 audio_out 隔离
-                   MAIDCAFE_AUDIO_OUT=os.path.join(cls.tmp, "audio_out"))
+                   MAIDCAFE_AUDIO_OUT=os.path.join(cls.tmp, "audio_out"),
+                   MAIDCAFE_WORDROOT=wordroot)
         cls.proc = subprocess.Popen(
             [sys.executable, os.path.join(ROOT, "server.py")], env=env,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -201,6 +207,12 @@ class TestMaidcafe(unittest.TestCase):
     def test_08_lookup_and_wordbook(self):
         r = call("/api/lookup?word=w150")
         self.assertIn("释义150", r["definition"])
+        # J08：查词带词根词缀（英文释义）；同根取例词表其余词
+        self.assertEqual(r["morph"]["parts"],
+                         [{"form": "w", "meaning": "test root", "kind": "root"}])   # w1 的 1 是同形编号
+        self.assertEqual(r["morph"]["family"], ["w151", "w152"])
+        self.assertIsNone(call("/api/lookup?word=w250")["morph"],
+                          "J07: nothing reliable -> null, not an empty shell")
         self.assertTrue(r["in_wordbook"])
         wb = call("/api/wordbook")
         self.assertIn("learning", wb)

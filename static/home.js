@@ -157,6 +157,7 @@ function showLearnCard() {
   $("lWord").classList.add("veiled-word");
   $("lPhon").textContent = "";
   $("lDef").classList.add("hidden");
+  $("lMorph").innerHTML = "";               // 遮着时不显示（盲听不剧透）
   $("lRevealBtn").classList.remove("hidden");
   $("lNextBtn").classList.add("hidden");
   playWord(w);
@@ -177,6 +178,15 @@ function revealLearn() {
   $("lDef").classList.remove("hidden");
   $("lRevealBtn").classList.add("hidden");
   $("lNextBtn").classList.remove("hidden");
+  fillLearnMorph(w.word);
+}
+
+/* 翻开后补词根词缀行（FLOW 工具页）；回来时卡已换就丢弃 */
+async function fillLearnMorph(word) {
+  let r = {};
+  try { r = await fetchJSON("/api/lookup?word=" + encodeURIComponent(word)); } catch (_) {}
+  const w = curLearn();
+  if (lRevealed && w && w.word === word) $("lMorph").innerHTML = morphHTML(r.morph);
 }
 
 let cycles = 0;         // 转满几圈了（只做中性展示，不催——产品原则）
@@ -497,11 +507,13 @@ async function showWordCard(word) {
   $("wcWord").textContent = word;
   $("wcPhon").textContent = "";
   $("wcDef").textContent = "…";
+  $("wcMorph").innerHTML = "";
   $("wcAdd").classList.add("hidden");
   $("wordCard").classList.remove("hidden");
   const r = await fetchJSON("/api/lookup?word=" + encodeURIComponent(word));
   $("wcPhon").textContent = r.phonetic || "";
   $("wcDef").textContent = r.definition || "词典里查不到这个词";
+  $("wcMorph").innerHTML = morphHTML(r.morph);
   $("wcAdd").classList.toggle("hidden", !r.definition || r.in_wordbook);
   $("wcAdd").textContent = "＋ 加入生词本";
   $("wcAdd").dataset.word = word;

@@ -620,3 +620,15 @@ details > summary:hover { color: var(--accent-deep); }
   header, .hint-bar, .mark-btns { display: none; }
   body { background: #fff; }
 }
+
+/* 词根词缀行（FLOW 工具页 · 2026-10-13） */
+.morph { margin-top: 10px; font-size: 13px; line-height: 1.7; color: var(--ink); }
+.morph:empty { display: none; }
+.morph-parts { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; }
+.mp b { font-family: var(--font-en); }
+.mp i { font-style: normal; color: var(--muted); }
+.mp-plus { color: var(--muted); }
+.morph-auto { margin-left: 6px; font-size: 11.5px; color: var(--muted); }
+.morph-line { color: var(--muted); font-family: var(--font-en); }
+.morph-tag { margin-right: 6px; font-size: 11.5px; }
+.wc-word ~ .morph { padding: 0 22px; }
