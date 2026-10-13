@@ -40,8 +40,12 @@ ENTRIES = {
               "meaning": "an amount that fills", "example": ["cupful"]},
     "-ly1": {"class": "adverb-forming suffix", "root": "-ly1",
              "meaning": "in such a way or manner", "example": ["boldly"]},
+    "-ify": {"class": "verb-forming suffix", "root": "-ify",
+             "meaning": "to make", "example": ["purify"]},
     "-ion, -ation": {"class": "noun-forming suffix", "root": "-ion, -ation",
                      "meaning": "the act, process, or result of", "example": ["action"]},
+    "-ule": {"class": "noun-forming suffix", "root": "-ule",
+             "meaning": "small", "example": ["globule"]},
     "-ish": {"class": "adjective-forming suffix", "root": "-ish",
              "meaning": "of, resembling; somewhat", "example": ["childish"]},
     "-er, -or, -ar2": {"class": "noun-forming suffix", "root": "-er, -or, -ar2",
@@ -53,8 +57,9 @@ DICT = {
     "descent": ("n. 下降, 血统", 6000), "agree": ("v. 同意, 赞成", 500),
     "agreement": ("n. 协议, 同意", 900), "disagree": ("vi. 不同意", 6000),
     "achieve": ("vt. 达到, 完成", 800), "achievement": ("n. 完成, 成就", 1500),
-    "shame": ("n. 羞耻, 遗憾", 3000), "shameful": ("a. 可耻的, 丢脸的", 9000),
-    "hand": ("n. 手, 人手, 一把", 100), "handful": ("n. 一把, 少量", 7000),
+    "shame": ("n. 羞耻, 耻辱, 丢脸", 3000), "shameful": ("a. 可耻的, 丢脸的", 9000),
+    "hand": ("n. 手, 人手, 把手, 少量", 100), "handful": ("n. 一把, 少量", 7000),
+    "not": ("adv. 不, 没有 | [计] 非", 13), "notify": ("vt. 通知, 通告 | [计] 非", 5665),
     "natural": ("a. 自然的, 天生的", 700), "naturally": ("adv. 自然地, 天生地", 1200),
     "happy": ("a. 快乐的, 幸福的", 300), "happily": ("adv. 幸福地, 快乐地", 4000),
     "invite": ("vt. 邀请", 2000), "invitation": ("n. 邀请, 请帖", 3500),
@@ -63,6 +68,8 @@ DICT = {
     "fave": ("a. 最喜欢的", 90000), "favor": ("n. 喜爱, 恩惠", 1000),
     "plain": ("a. 平的, 简单的", 1500), "plainly": ("a. 平的", 9500),
     "span": ("n. 跨度, 一段时间", 3000), "spanish": ("a. 西班牙的", 4000),
+    "sched": ("n. [口]（无线电）固定播送时间", 18253),
+    "schedule": ("n. 时刻表, 进度表; 预定计划", 2000),
 }
 
 
@@ -128,6 +135,10 @@ class TestMorph(unittest.TestCase):
     def test_j05_rejections(self):
         m = new()
         self.assertIsNone(m.analyze("flourish"), "no shared meaning with flour")
+        self.assertIsNone(m.analyze("notify"),
+                          "10-13 live: shared only a domain-tag glyph / one char")
+        self.assertIsNone(m.analyze("schedule"),
+                          "10-13 live: 'sched' is a colloquial clipping, not a stem")
         self.assertIsNone(m.analyze("spanish"),
                           "adjective + common stem, but 西班牙 ≠ 跨度: meaning filter alone")
         self.assertIsNone(m.analyze("abroad"), "prefixes are never rule-split")

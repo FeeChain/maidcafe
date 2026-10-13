@@ -153,6 +153,9 @@ class TestMainJourney(UIBase):
         self.assertFalse(self.visible("#topNav"),
                          "result page exits only via its own buttons")
         self.assertIn("边界", self.page.text_content("#probeBoundary"))
+        bar = self.page.text_content("#statsBar")       # 10-13 冒烟：曾残留"本轮 2/3"
+        self.assertIn("测定完成", bar)
+        self.assertNotIn("本轮", bar)
 
     def test_u03_full_coverage_button(self):
         self.page.click("#probeMoreBtn")
@@ -530,6 +533,45 @@ class TestWeightModelUI(UIBase):
                          .locator(".wb-unfam").count(), 0)
 
 
+class TestProbeRace(UIBase):
+    """探针批末竞态（10-13 真机冒烟抓到）：最后一个标记还没落库就要下一批，
+    服务端只见 2 个样本 → 同一块再问一遍，整场题量翻倍。把 /api/mark 人为
+    拖慢 400ms（慢盘/慢网），旧代码稳定复现。"""
+    PORT = 8802
+
+    def test_v05_probe_never_reasks_a_block_on_slow_writes(self):
+        self.page.add_init_script(
+            "const _f = window.fetch; window.fetch = (u, o) => String(u)"
+            ".includes('/api/mark') ? new Promise((r) => setTimeout(r, 400))"
+            ".then(() => _f(u, o)) : _f(u, o);")
+        self.page.goto(self.base + "/calibrate?probe=1")
+        self.page.wait_for_selector("#card", state="visible")
+        tiers = []
+        for _ in range(20):
+            self.page.wait_for_function(
+                "window.__mcview === 'probeResult' || "
+                "(probeInfo && queue.length && idx === 0)", timeout=8000)
+            if self.page.evaluate("window.__mcview") == "probeResult":
+                break
+            tiers.append(self.page.evaluate("probeInfo.tier"))
+            self.page.evaluate("window.__lastProbe = probeInfo")
+            for _ in range(3):
+                self.page.wait_for_selector("#wordPreview", state="visible")
+                w = self.page.text_content("#wordPreview").strip()
+                know = int(w[1:]) < KNOWN_BELOW
+                self.page.click("#btnKnow" if know else "#btnShow")
+                self.page.click("#btnNext" if know else "#btnOops")
+            self.page.wait_for_function(
+                "window.__mcview === 'probeResult' || probeInfo !== window.__lastProbe",
+                timeout=8000)
+        else:
+            self.fail("probe did not finish")
+        repeats = [t for a, t in zip(tiers, tiers[1:]) if a == t]
+        self.assertEqual(repeats, [], "tiers asked: %s" % tiers)
+        marks = self.api("/api/stats?deck=all&tier=all")["marked"]
+        self.assertEqual(marks, 3 * len(tiers), "exactly 3 questions per block")
+
+
 class TestAudioAndTimeout(UIBase):
     """有声词库上的两个此前缺口：
     w01 音频通路（前端请求了正确的 /audio/词 并调用 play，服务端端出真字节）
@@ -617,6 +659,9 @@ class TestAudioAndTimeout(UIBase):
             "document.getElementById('lsGenLine').textContent"
             ".includes('平常约')", timeout=8000)
         t1 = self.page.text_content("#lsGenLine")
+        # 盲听不剧透：进度行只报个数，不亮出锅里是哪些词（10-13 冒烟抓到）
+        self.assertIn("5 个词", t1)
+        self.assertFalse([w for w in words if w in t1], t1)
         self.page.wait_for_function(
             "document.getElementById('lsGenLine').textContent !== %s"
             % json.dumps(t1), timeout=8000)

@@ -292,7 +292,8 @@ function genWatch(words, t0) {
     const clock = `已 ${fmtDur(el)} · 平常约 ${fmtDur(exp)}`;
     let pct = el < exp ? (el / exp) * 88
                        : 88 + 7 * (1 - Math.exp(-(el - exp) / exp));
-    let line = `☕ 女仆去挑豆了（${words.join(", ")}）· ${clock}`;
+    // 只报个数不亮词：盲听产品，挂出来就是自我剧透（2026-09-22 篮子裁决的同一条）
+    let line = `☕ 女仆去挑豆了（${words.length} 个词）· ${clock}`;
     if (hit && hit.status === "writing") {
       const m = hit.progress && hit.progress.match(/attempt (\d)/);
       const n = m ? parseInt(m[1], 10) : 1;

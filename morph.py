@@ -33,6 +33,8 @@ SUFFIX_POS = {
 }
 COMMON_RANK = 20000          # 词干 / 派生词须是牌组词或词频前 2 万
 MAX_FAMILY, MAX_DERIVED = 5, 6
+MIN_SHARED = 2               # 词干与派生词的中文释义至少共享 2 个字（只共享 1 个多是巧合）
+DOMAIN_TAG = re.compile(r"\[[^\]]*\]")   # ECDICT 领域标记 [计] [医]…：标记字本身不算词义
 
 
 def plain(form):
@@ -93,14 +95,25 @@ class Morph:
 
     def zh(self, w, con):
         r = self.row(w, con)
-        return set(CJK.findall(r[0] or "")) - STOP_CHARS if r else set()
+        if not r:
+            return set()
+        return set(CJK.findall(DOMAIN_TAG.sub("", r[0] or ""))) - STOP_CHARS
 
     def pos(self, w, con):
         r = self.row(w, con)
         return {POS_NORM.get(p, p) for p in POS.findall(r[0] or "")} if r else set()
 
     def related(self, a, b, con):
-        return bool(self.zh(a, con) & self.zh(b, con))
+        # 10-13 真机审计：notify≠not+-ify 只共享 [计] 标记里的"计"，stagger≠stag+-er
+        # 只共享 1 个字；正确的拆分普遍共享 3-6 个字（attachment/attach 共 6 个）
+        return len(self.zh(a, con) & self.zh(b, con)) >= MIN_SHARED
+
+    def clipped(self, w, con):
+        """口语截短/缩写不是词干：sched「n. [口]…」之于 schedule（10-13 真机抓到
+        schedule = sched + -ule "small"）。ECDICT 用 [口] / abbr. 标出它们。"""
+        r = self.row(w, con)
+        t = (r[0] or "") if r else ""
+        return "[口]" in t or t.startswith("abbr.")
 
     # ---------------------------------------------------------- 拆分
     def from_examples(self, word):
@@ -144,6 +157,7 @@ class Morph:
                 continue
             for st in self.stems(word[:-len(sfx)]):
                 if (len(st) >= 3 and st != word and self.common(st, con)
+                        and not self.clipped(st, con)
                         and self.related(st, word, con)):
                     return st, sfx, key
         return None

@@ -542,14 +542,17 @@ def spawn_generation(words):
 
 
 def word_info(word):
-    """phonetic + definition for the 释义卡, from the deck data in memory."""
+    """phonetic + definition：牌组词取内存里的牌组数据；牌组外的词（手动加/
+    导入）退回 ECDICT——否则它们在生词本和学习卡上是空白释义（10-13 真机抓到）。"""
     lw = word.lower()
     w = WORD_INDEX.get(lw)
     if w:
         return {"word": word, "phonetic": w.get("phonetic", ""),
                 "definition": (w.get("definition") or "")[:200],
                 "has_audio": lw in AUDIO}
-    return {"word": word, "phonetic": "", "definition": "", "has_audio": False}
+    ec = ecdict_lookup(lw) or {}
+    return {"word": word, "phonetic": ec.get("phonetic", ""),
+            "definition": ec.get("definition", ""), "has_audio": False}
 
 
 def word_rank(lw, ec=None):

@@ -212,14 +212,18 @@ async function finalize(canRead) {
   const status = heard && canRead ? 3 : (!heard && canRead ? 2 : 1);
   mclog("mark", `${w.word}=${status}`);
   idx += 1;
-  showCurrent();
-  await fetchJSON("/api/mark", {
+  const saved = fetchJSON("/api/mark", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ word: w.word, status,
                            src: probeMode ? "probe" : "scan",
                            session: probeSession || undefined }),
   });
+  // 探针批末：等最后一个标记落库再要下一批——否则 probe_next 抢在它前面，
+  // 服务端只看到 2 个样本，把同一块再问一遍（2026-10-13 真机冒烟抓到：每轮都翻倍）
+  if (probeMode && idx >= queue.length) await saved;
+  showCurrent();
+  await saved;
   if (!probeMode) loadStats();
 }
 
@@ -293,6 +297,9 @@ const fmtN = (x) => x.toLocaleString("zh-CN");
 async function showProbeResult(r) {
   $("endBtn").classList.add("hidden");   // 结果页没有"本轮"可结束
   $("topNav").classList.add("hidden");   // 出口只走结果卡上的按钮（用户裁决）
+  // 状态栏收尾：别留着最后一轮的"折半试探第 N 块 · 本轮 2/3"
+  $("statsBar").textContent = r && r.done
+    ? `🔍 测定完成 · 共测 ${r.probe_words} 词` : "🔍 测定已中止";
   window.__mcview = "probeResult";
   mclog("view", "probeResult" +
     (r && r.done ? ` 边界${r.boundary} 共${r.probe_words}词` : " (中止)"));

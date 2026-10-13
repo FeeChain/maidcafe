@@ -524,6 +524,9 @@ class TestWordlistImport(unittest.TestCase):
         server.import_wordlist("zebra")
         ws = [w["word"] for w in server.build_session()["words"]]
         self.assertIn("zebra", ws, "an imported off-deck word must actually be served")
+        card = [w for w in server.build_session()["words"] if w["word"] == "zebra"][0]
+        self.assertEqual(card["definition"], "斑马",
+                         "off-deck words take ECDICT's gloss, not a blank card")
 
 
 class TestKnownSnapshot(unittest.TestCase):
