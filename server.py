@@ -1218,21 +1218,6 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/config":
             return self._send(200, {"new_quota": int(kv_get("new_quota", 20))})
 
-        if path == "/api/daily_status":
-            con = db()
-            try:
-                srs = srs_map(con)
-                backlog = get_backlog(con)
-            finally:
-                con.close()
-            learning = [w for w, s in srs.items() if s["state"] == "learning"]
-            due = [w for w in learning if srs[w]["weight"] <= REVIEW_LINE]
-            graduated = [w for w, s in srs.items() if s["state"] == "graduated"]
-            return self._send(200, {
-                "due": len(due), "backlog": len(backlog),
-                "learning": len(learning), "graduated": len(graduated),
-            })
-
         if path == "/api/decks":
             decks = []
             seen = set()

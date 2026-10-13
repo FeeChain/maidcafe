@@ -132,6 +132,9 @@ class TestMaidcafe(unittest.TestCase):
             self.fail("/api/daily_task must be gone")
         except urllib.error.HTTPError as e:
             self.assertEqual(e.code, 404)
+        # C14：校准页不催，/api/daily_status 随提示条一起删
+        self.assertNotIn("continueBar", get_raw("/calibrate")[1])
+        self.assertEqual(get_raw("/api/daily_status")[0], 404)
         self.assertEqual(get_raw("/static/nope.css")[0], 404)
         self.assertEqual(get_raw("/audio/nothing")[0], 404)
         self.assertEqual(get_raw("/api/dialogue/999")[0], 404)

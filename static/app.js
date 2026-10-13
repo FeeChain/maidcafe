@@ -510,19 +510,6 @@ try {
   if (localStorage.getItem("maidcafe_hints") === "0") setHints(false);
 } catch (_) {}
 
-/* D4: 回访「从哪继续」——有到期词就把客人引去听力室 */
-(async function continueBar() {
-  try {
-    const s = await fetchJSON("/api/daily_status");
-    if (s.due > 0) {
-      const bar = $("continueBar");
-      bar.innerHTML =
-        `今天有 <b>${s.due}</b> 个词等着与你重逢 —— <a href="/listen">去听力室 ☕</a>`;
-      bar.classList.remove("hidden");
-    }
-  } catch (_) {}
-})();
-
 loadDecks();
 loadStats();
 loadVocabLine();

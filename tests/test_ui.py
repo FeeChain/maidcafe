@@ -513,6 +513,11 @@ class TestWeightModelUI(UIBase):
         self.api("/api/config", {"new_quota": 1})       # 一份只有 1 个 → 被复习占满
 
     def test_u14_rest_line_then_silent_fail_then_wordbook(self):
+        # C14：此刻正有 1 个到期在学词——旧校准页会弹"等着与你重逢 —— 去听力室"
+        self.page.goto(self.base + "/calibrate")
+        self.page.wait_for_load_state("networkidle")
+        self.assertEqual(self.page.locator("#continueBar").count(), 0)
+        self.assertNotIn("重逢", self.page.text_content("body"))
         # G13：复习占满整份 → 休息文案；卡标"复习"
         self.page.goto(self.base + "/")
         self.page.wait_for_selector("#vLearn", state="visible")
