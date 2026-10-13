@@ -7,6 +7,7 @@ cache/
 data/
 audio_out/
 generate.log
+server.log
 
 # 环境
 .venv-tts/
