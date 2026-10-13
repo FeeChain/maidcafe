@@ -305,9 +305,8 @@ body:has(#listView) main, body:has(#playerView) main { max-width: 1000px; }
   color: var(--muted-2);
 }
 .wb-srs.pool { background: var(--amber-soft); border-color: var(--amber-line); color: var(--amber-ink); }
-.wb-srs.due  { background: var(--accent); border-color: var(--accent-deep); color: #fff6ea; }
 /* 无修饰类 = 第 N 级 · X 天后 */
-.wb-srs:not(.pool):not(.due) { background: var(--green-soft); border-color: var(--green-line); color: var(--green-ink); }
+.wb-srs:not(.pool) { background: var(--green-soft); border-color: var(--green-line); color: var(--green-ink); }
 
 .wb-dl {
   margin-left: auto;
@@ -372,3 +371,15 @@ body:has(#listView) main, body:has(#playerView) main { max-width: 1000px; }
   .wb-dl { margin-left: 0; width: 100%; }
   .wb-item .mk.small { min-height: var(--tap); flex: 1; justify-content: center; }
 }
+
+/* 词表导入折叠区（FLOW 工具页 · 2026-10-13） */
+.import-fold { margin: 6px 0 2px; }
+.import-fold summary { cursor: pointer; }
+.import-fold textarea {
+  display: block; width: 100%; box-sizing: border-box; margin: 8px 0;
+  font-family: var(--font-en); font-size: 14px; line-height: 1.6;
+  padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--sunken); color: var(--ink); resize: vertical;
+}
+.import-fold textarea:focus { outline: none; border-color: var(--accent); background: var(--card); }
+.import-fold #importMsg button { margin-left: 8px; }

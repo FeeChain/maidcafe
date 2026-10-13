@@ -32,8 +32,7 @@ async function loadDailyStatus() {
   } else if (!localStorage.getItem("mc_gen_pending")) {
     $("dailyBtn").textContent = "☕ 今日任务";
     $("dailyBtn").disabled = false;
-    $("dailyLine").textContent =
-      `到期复习 ${s.due} · 排队中 ${s.backlog} · 学习中 ${s.learning} · 已毕业 ${s.graduated}`;
+    $("dailyLine").textContent = "";   // 不报"到期/欠多少"（FLOW §4 不预告）
   }
 }
 
@@ -353,17 +352,15 @@ async function learnedWithUndo(word) {
   showToast(`${word} 已毕业`, "/api/word/readd", word);
 }
 async function unfamiliarGuarded(w) {
-  // 高梯级的词打回会清进度，问一次
-  if (w.srs && w.srs.level >= 2 &&
-      !confirm(`「${w.word}」已爬到第 ${w.srs.level} 级，打回将从第 1 级重来，确定？`)) return;
+  // 「还是不熟」= 按考挂处理：记忆减半，太低就回生词池（FLOW §4）
   await wordAction("/api/word/unfamiliar", w.word);
-  showToast(`${w.word} 已打回 · 明天会再听到`, null, null);
+  showToast(`${w.word} 已调低记忆程度`, null, null);
 }
 
+/* 只给记忆程度，不给"到期/几天后"——不预告（FLOW §4） */
 function srsBadge(w) {
   if (!w.srs) return '<span class="wb-srs pool">生词池</span>';
-  if (w.srs.due) return '<span class="wb-srs due">今日到期</span>';
-  return `<span class="wb-srs">第${w.srs.level}级 · ${w.srs.due_in_days}天后</span>`;
+  return `<span class="wb-srs" title="记忆程度 0-100，随时间下降，考过回满">记忆 ${w.srs.weight}</span>`;
 }
 
 async function loadWordbook() {
@@ -381,15 +378,16 @@ async function loadWordbook() {
       srsBadge(w) +
       `<span class="wb-dl">${dl ? "出现于 " + dl : "尚未生成对话"}</span>` +
       `<button class="mk small wb-learned" title="跳过剩下的复习，直接毕业">我学会了</button>` +
-      `<button class="mk small wb-unfam" title="回到第 1 级，明天再听一次">打回重听</button></div>` +
+      (w.srs ? `<button class="mk small wb-unfam" title="按考挂处理：记忆减半">打回重听</button>` : "") +
+      `</div>` +
       `<div class="wb-def">${(w.definition || "").split("\n")[0]}</div>`;
     const btn = el.querySelector(".wb-play");
     if (btn) btn.addEventListener("click", () =>
       new Audio("/audio/" + encodeURIComponent(w.word)).play().catch(() => {}));
     el.querySelector(".wb-learned").addEventListener("click", () =>
       learnedWithUndo(w.word));
-    el.querySelector(".wb-unfam").addEventListener("click", () =>
-      unfamiliarGuarded(w));
+    const unfam = el.querySelector(".wb-unfam");
+    if (unfam) unfam.addEventListener("click", () => unfamiliarGuarded(w));
     box.appendChild(el);
   });
 
@@ -505,6 +503,37 @@ $("dailyBtn").addEventListener("click", async () => {
     }
   } catch (_) {}
 })();
+/* 词表导入（FLOW 工具页）：只进生词池；推定已认识的默认不加，给「这些也加上」 */
+$("importFile").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  if (f) $("importText").value = await f.text();
+});
+async function importWordlist(includeKnown) {
+  const text = $("importText").value;
+  const msg = $("importMsg");
+  if (!text.trim()) return;
+  const r = await fetchJSON("/api/wordbook_import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, include_known: includeKnown }),
+  });
+  if (r.error) { msg.textContent = r.error; return; }
+  msg.innerHTML =
+    `加入 <b>${r.added_count}</b> 个 · 已在生词本 ${r.already_count} · 已学会 ${r.learned_count}` +
+    (r.presumed_count ? ` · 按测定的边界你应该已经认识 ${r.presumed_count} 个（没加）` : "") +
+    (r.missing_count ? ` · 查不到 ${r.missing_count} 个：${r.missing.slice(0, 20).join("、")}` : "");
+  if (r.presumed_count) {
+    const b = document.createElement("button");
+    b.id = "importKnownBtn";
+    b.className = "mk small";
+    b.textContent = "这些也加上";
+    b.onclick = () => importWordlist(true);
+    msg.appendChild(b);
+  }
+  loadWordbook();
+}
+$("importBtn").addEventListener("click", () => importWordlist(false));
+
 /* B4: 加词四态——先查再判断 */
 async function tryAddWord() {
   const w = $("addWordInput").value.trim().toLowerCase();

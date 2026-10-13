@@ -63,8 +63,8 @@ function playWord(w) {
 
 /* ---------------- 主状态机 ---------------- */
 /* 开门即学：打开=S2，关掉=结束。没有「每天/任务」概念——
- * 每次打开现抓一份（到期复习全上 + 新词 20），背完就是背完；
- * 唯一落库的是「考试通过」（SRS 爬梯即实时记录），其余什么都不记。 */
+ * 每次打开现抓一份（先复习后新词，总量用户设，FLOW §4），背完就是背完；
+ * 唯一落库的是考试结果（权重即时更新），其余什么都不记。 */
 async function boot() {
   const s = await fetchJSON("/api/home_status");
   resumeScene();   // 煮着的对话在任何视图都继续盯（不在学习页就 toast 通知）
@@ -84,6 +84,7 @@ async function boot() {
 }
 
 let passed = new Set();   // 本次会话已考过的词
+let sessionRest = false;  // 复习占满整份、没有新词（FLOW §4 休息一份）
 
 /* 学习顺序 = 每份现抓后洗牌一次的乱序，循环保持同序（v4 用户裁决） */
 function rebuildPool() {
@@ -95,6 +96,7 @@ async function loadSession() {
   const r = await fetchJSON("/api/session");
   sessionWords = shuffle(r.words.slice());   // 乱序过一遍（循环保持同序）
   sessionTotal = r.words.length;
+  sessionRest = !!r.rest;
   passed = new Set();
   viewed = new Set();
   viewedOrder = [];
@@ -140,6 +142,7 @@ function renderLearnTop() {
   $("learnProgress").innerHTML =
     `这一份 <b>${passed.size}</b>/${sessionTotal} 已拿下 · 在学 ${pool.length} 个`;
   $("examBtn").textContent = `✍ 我准备好了，考试（${pool.length} 词）`;
+  $("restLine").classList.toggle("hidden", !sessionRest);
 }
 
 function curLearn() { return pool[li % pool.length]; }
@@ -580,6 +583,8 @@ async function examFinalize(canRead) {
     POST("/api/word_pass", { word: w.word });
   } else {
     exFailed += 1;
+    // 在学词静默降权、新词零记录——服务端判定，界面零提示（FLOW §4）
+    POST("/api/word_fail", { word: w.word });
   }
   showExamCard();
 }

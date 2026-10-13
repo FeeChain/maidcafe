@@ -160,8 +160,10 @@ class TestMaidcafe(unittest.TestCase):
     def test_05_word_pass_persists_and_is_idempotent(self):
         w = call("/api/session")["words"][0]["word"]
         call("/api/word_pass", {"word": w})
-        row = self.sql("select level, state from word_srs where word='%s'" % w)
-        self.assertEqual(row, [(1, "learning")])
+        row = self.sql("select level, state, stab, base from word_srs"
+                       " where word='%s'" % w)
+        self.assertEqual(row, [(1, "learning", 1.0, 100.0)],
+                         "learned = weight 100, stability 1 day (FLOW §4)")
         self.assertNotIn(w, [x["word"] for x in call("/api/session")["words"]],
                          "passed word must leave the session")
         call("/api/word_pass", {"word": w})  # same day again
@@ -274,14 +276,21 @@ class TestMaidcafe(unittest.TestCase):
         con.close()
         self.assertTrue(call("/api/lookup?word=%s" % w)["known"],
                         "graduation lives in word_srs; markless must still be known")
-        call("/api/word/readd", {"word": w})       # 毕业词拉回重学
+        call("/api/word/readd", {"word": w})       # 毕业词拉回重学 = 刚学会
         self.assertEqual(self.sql(
-            "select state, level from word_srs where word='%s'" % w)[0],
-            ("learning", 0))
-        call("/api/word/unfamiliar", {"word": w})  # 打回梯底
+            "select state, level, stab, base from word_srs where word='%s'" % w)[0],
+            ("learning", 1, 1.0, 100.0))
+        call("/api/word/unfamiliar", {"word": w})  # 还是不熟 = 按考挂（明示，不受同日限制）
+        st, stab, base = self.sql("select state, stab, base from word_srs "
+                                  "where word='%s'" % w)[0]
+        self.assertEqual((st, stab), ("learning", 1.0))
+        self.assertAlmostEqual(base, 50, delta=0.5)
         row = self.sql("select level, reviewed_ts from word_srs "
                        "where word='%s'" % w)
-        self.assertEqual(row[0][0], 0)
+        # 生词池里的词点「还是不熟」无变化（G16）
+        call("/api/word/unfamiliar", {"word": "w299"})
+        self.assertEqual(self.sql(
+            "select count(*) from word_srs where word='w299'"), [(0,)])
         # /api/listened 已按裁决空转：不再计分（过词只有考试一条路）
         con = sqlite3.connect(self.db_path)
         con.execute("insert into dialogues(ts,scene,characters,target_words,"
@@ -296,6 +305,78 @@ class TestMaidcafe(unittest.TestCase):
                          "listened must be a scoring no-op")
         call("/api/dialogue_delete", {"id": did})
         self.assertTrue(all(d["id"] != did for d in call("/api/dialogues")))
+
+    def test_13_word_fail_silently_lowers_weight(self):
+        # G04/G05/G09/G15 over HTTP（假时钟进不了子进程：改 reviewed_ts 造"昨天考过"）
+        ws = call("/api/session")["words"]
+        new_w = [x["word"] for x in ws if x["is_new"]][-1]
+        call("/api/word_fail", {"word": new_w})
+        self.assertEqual(self.sql(
+            "select count(*) from word_srs where word='%s'" % new_w), [(0,)],
+            "a new word's fail leaves no record")
+        w = [x["word"] for x in ws if x["is_new"]][-2]
+        call("/api/word_pass", {"word": w})
+        call("/api/word_fail", {"word": w})                 # 同日第二次：不认
+        self.assertEqual(self.sql("select stab, base from word_srs"
+                                  " where word='%s'" % w), [(1.0, 100.0)])
+        con = sqlite3.connect(self.db_path)
+        con.execute("update word_srs set reviewed_ts=?, stab=4 where word=?",
+                    (time.time() - 86400, w))
+        con.commit()
+        con.close()
+        call("/api/word_fail", {"word": w})                 # 100·0.7^(1/4)=91.5 → 45.7
+        st, stab, base = self.sql("select state, stab, base from word_srs"
+                                  " where word='%s'" % w)[0]
+        self.assertEqual((st, stab), ("learning", 2.0))
+        self.assertAlmostEqual(base, 45.7, delta=0.2)
+        self.assertNotIn(w, [x["word"] for x in call("/api/session")["words"]],
+                         "tested today -> not served again today (G04)")
+        con = sqlite3.connect(self.db_path)
+        con.execute("update word_srs set reviewed_ts=? where word=?",
+                    (time.time() - 86400, w))
+        con.commit()
+        con.close()
+        first = call("/api/session")["words"][0]
+        self.assertEqual((first["word"], first["is_new"]), (w, False),
+                         "next day the failed word comes first")
+        item = [x for x in call("/api/wordbook")["learning"] if x["word"] == w][0]
+        self.assertEqual(item["srs"]["weight"], 38)   # 45.7 · 0.7^(1/2)
+        self.assertNotIn("due_in_days", item["srs"], "no forecasts (FLOW §4)")
+        self.assertNotIn("due", item["srs"])
+        try:
+            call("/api/word_fail", {})
+            self.fail("empty word must be rejected")
+        except urllib.error.HTTPError as e:
+            self.assertEqual(e.code, 400)
+
+    def test_14_wordlist_import(self):
+        # H03-H06 over HTTP（此时边界 = 已认识 w000-w099）
+        call("/api/word/learned", {"word": "w283"})
+        est_before = call("/api/vocab_estimate")["listening"]
+        r = call("/api/wordbook_import", {"text":
+                 "1. w280 adj. 释义280\nw281, w282\nw050\nw283\nzzzqq 不存在\nw280"})
+        self.assertEqual((r["added_count"], r["presumed_count"], r["learned_count"],
+                          r["missing_count"]), (3, 1, 1, 1))
+        self.assertEqual(r["added"], ["w280", "w281", "w282"])
+        self.assertEqual(r["presumed"], ["w050"])
+        self.assertEqual(self.sql("select status, src from marks where word='w280'"),
+                         [(1, "add")], "pool entry, biased source")
+        self.assertEqual(self.sql("select count(*) from word_srs where word in"
+                                  " ('w280','w281','w282')"), [(0,)],
+                         "import never pre-registers learning (only exams do)")
+        r2 = call("/api/wordbook_import", {"text": "w050\nw283\nw280",
+                                           "include_known": True})
+        self.assertEqual((r2["added"], r2["learned"], r2["already"]),
+                         (["w050"], ["w283"], ["w280"]))
+        self.assertEqual(call("/api/vocab_estimate")["listening"], est_before,
+                         "imported (add) marks never feed the estimate")
+        for bad in ({"text": ""}, {"text": "w1\n" * 5001},
+                    {"text": "a" * (512 * 1024 + 1)}):
+            try:
+                call("/api/wordbook_import", bad)
+                self.fail("must reject %r" % str(bad)[:40])
+            except urllib.error.HTTPError as e:
+                self.assertEqual(e.code, 400)
 
     def test_11_event_log(self):
         call("/api/log", {"events": [

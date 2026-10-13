@@ -5,7 +5,8 @@ Imports server.py directly (module import is side-effect free; env must be
 set BEFORE import) and exercises core functions branch by branch:
 tier/rank assignment, every block_class rule, probe bisection against
 simulated users, settle mode, the estimator (exact/probe/interpolated/CI),
-session recipe + evidence gate, the SRS ladder, and the known-set algebra.
+session recipe + evidence gate, the weight model (FLOW §4), and the
+known-set algebra.
 
 Run:  python3 tests/test_server.py -v
 """
@@ -186,20 +187,45 @@ class TestSessionRecipe(unittest.TestCase):
         self.assertEqual(idxs, sorted(idxs))
         self.assertTrue(all(i >= 100 for i in idxs))
 
-    def test_due_reviews_ride_on_top(self):
-        sim_probe(known_below=100)
+    def _learning(self, word, weight_days_ago, stab=1.0, base=100.0):
+        """插一条在学行：last = 现在 − weight_days_ago 天。"""
+        now = time.time()
+        last = now - weight_days_ago * server.DAY
         con = server.db()
-        con.execute("insert into word_srs(word,level,due_ts,state,added_ts)"
-                    " values('w180',2,?, 'learning',0)", (time.time() - 5,))
-        con.execute("insert into word_srs(word,level,due_ts,state,added_ts)"
-                    " values('w181',1,?, 'learning',0)", (time.time() - 99,))
+        con.execute("insert into word_srs(word,level,due_ts,state,added_ts,"
+                    "reviewed_ts,stab,base) values(?,1,?,'learning',0,?,?,?)",
+                    (word, server.srs_due_ts(base, stab, last), last, stab, base))
         con.commit()
         con.close()
-        ws = server.build_session()["words"]
+
+    def test_reviews_first_lowest_weight_then_new(self):
+        # G12：复习词（权重≤70）按权重从低到高先上，权重>70 不上桌，新词补满总量
+        sim_probe(known_below=100)
+        self._learning("w180", 1.5)   # w≈58.6
+        self._learning("w181", 2.0)   # w=49
+        self._learning("w182", 0.5)   # w≈83.7 —— 还新鲜，不上桌
+        r = server.build_session()
+        ws = r["words"]
         self.assertEqual([w["word"] for w in ws[:2]], ["w181", "w180"],
-                         "due reviews first, oldest due first")
+                         "lowest weight first")
         self.assertFalse(ws[0]["is_new"])
-        self.assertEqual(len(ws), 22, "reviews ride on top of the quota")
+        self.assertNotIn("w182", [w["word"] for w in ws])
+        self.assertEqual(len(ws), 20, "total stays at the user's portion size")
+        self.assertTrue(all(w["is_new"] for w in ws[2:]))
+        self.assertFalse(r["rest"])
+
+    def test_reviews_cap_the_portion_and_flag_rest(self):
+        # G12/G13：复习词多于总量 → 只取权重最低的总量个，零新词，rest=True
+        sim_probe(known_below=100)
+        server.kv_set("new_quota", 5)
+        for i, days in enumerate((1.2, 3.0, 1.6, 2.5, 1.1, 4.0, 2.0)):
+            self._learning("w19%d" % i, days)
+        r = server.build_session()
+        server.kv_set("new_quota", 20)
+        self.assertEqual([w["word"] for w in r["words"]],
+                         ["w195", "w191", "w193", "w196", "w192"])
+        self.assertFalse(any(w["is_new"] for w in r["words"]))
+        self.assertTrue(r["rest"])
 
     def test_quota_config(self):
         sim_probe(known_below=100)
@@ -208,39 +234,295 @@ class TestSessionRecipe(unittest.TestCase):
         server.kv_set("new_quota", 20)
 
 
-class TestSrsLadder(unittest.TestCase):
+BASE = time.mktime((2026, 10, 1, 12, 0, 0, 0, 0, -1))   # 固定在中午，避开跨日边界
+
+
+class TestWeightModel(unittest.TestCase):
+    """FLOW §4 权重模型（TESTPLAN G01-G11），假时钟逐日推进。"""
+
     def setUp(self):
         wipe_db()
         server.set_mark("w200", 1, "scan")
+        self.real_time = time.time
 
-    def _review(self, day_offset):
+    def tearDown(self):
+        time.time = self.real_time
+
+    def at(self, day):
+        time.time = lambda: BASE + day * server.DAY
+
+    def act(self, day, fn, word="w200", **kw):
+        self.at(day)
         con = server.db()
-        real_time = time.time
-        time.time = lambda: real_time() + day_offset * server.DAY
         try:
-            server.srs_review(con, "w200")
+            fn(con, word, **kw)
             con.commit()
-            row = con.execute("select level, state from word_srs"
-                              " where word='w200'").fetchone()
         finally:
-            time.time = real_time
             con.close()
-        return row
 
-    def test_climb_graduate_and_idempotency(self):
-        self.assertEqual(self._review(0), (1, "learning"))
-        self.assertEqual(self._review(0), (1, "learning"),
-                         "same-day review must not double-climb")
-        for day, lvl in ((1, 2), (4, 3), (11, 4), (26, 5)):
-            self.assertEqual(self._review(day), (lvl, "learning"))
-        self.assertEqual(self._review(60)[1], "graduated")
+    def passes(self, day, word="w200"):
+        self.act(day, server.srs_pass, word)
+
+    def fails(self, day, word="w200", manual=False):
+        self.act(day, server.srs_fail, word, manual=manual)
+
+    def st(self, day, word="w200"):
+        self.at(day)
         con = server.db()
-        st = con.execute("select status from marks where word='w200'"
-                         ).fetchone()[0]
+        try:
+            return server.srs_map(con).get(word)
+        finally:
+            con.close()
+
+    def test_g01_learn_full_weight_one_day(self):
+        self.passes(0)
+        s = self.st(0)
+        self.assertEqual((s["state"], s["level"], s["stab"]), ("learning", 1, 1.0))
+        self.assertAlmostEqual(s["weight"], 100)
+        self.assertAlmostEqual(self.st(1)["weight"], 70, "one day later = review line")
+
+    def test_g02_decay_is_computed_not_stored(self):
+        self.passes(0)
+        self.assertAlmostEqual(self.st(2)["weight"], 49)
+        self.assertEqual(self.st(2)["base"], 100, "reading never writes")
+        self.assertAlmostEqual(server.srs_weight(100, 4, 0, 4 * server.DAY), 70)
+
+    def test_g03_pass_growth_uses_elapsed_time_only(self):
+        self.passes(0)
+        self.passes(1)
+        self.assertAlmostEqual(self.st(1)["stab"], 1.9)          # 1 × (1 + 3 × 0.3)
+        # 同样耐久 1.9：隔 1 天就考 vs 隔 4 天才考 —— 越晚考过涨得越多
+        self.passes(2)
+        early = self.st(2)["stab"] / 1.9
+        self.passes(0, "w201")
+        self.passes(1, "w201")
+        self.passes(5, "w201")
+        late = self.st(5, "w201")["stab"] / 1.9
+        self.assertGreater(late, early)
+        self.assertAlmostEqual(early, 1 + 3 * (1 - 0.7 ** (1 / 1.9)))
+        # 挂过之后再考过：涨幅只看时间，不因挂科扣低的起点而多涨
+        self.passes(0, "w202")
+        self.passes(1, "w202")                 # S=1.9
+        self.fails(3, "w202")                  # S → 1（最少 1 天）
+        self.passes(4, "w202")                 # 隔 1 天、S=1 → ×1.9
+        self.assertAlmostEqual(self.st(4, "w202")["stab"], 1.9)
+
+    def test_g04_same_day_only_first_result_counts(self):
+        self.passes(0)
+        self.passes(0)
+        self.assertEqual(self.st(0)["level"], 1, "pass→pass same day")
+        self.passes(1)
+        self.fails(1)
+        s = self.st(1)
+        self.assertEqual((s["base"], round(s["stab"], 6)), (100, 1.9), "pass→fail same day")
+        self.fails(2)
+        b = self.st(2)["base"]
+        self.passes(2)
+        self.assertEqual(self.st(2)["base"], b, "fail→pass same day")
+
+    def test_g04b_tested_today_not_served_again_today(self):
+        # 挂了→当天重考过不算数→加餐若再端上来就会每份都缠着用户
+        self.passes(0)
+        self.passes(0, "w201")
+        self.fails(1)                          # 70 → 35，在学但今天考过
+        self.fails(2, "w201")                  # 49 → 24.5，今天回生词池
+        self.at(2)
+        ws = [w["word"] for w in server.build_session()["words"]]
+        self.assertIn("w200", ws, "failed yesterday -> served today")
+        self.assertNotIn("w201", ws, "lapsed today -> not again today")
+        self.at(1)
+        self.assertNotIn("w200", [w["word"] for w in server.build_session()["words"]],
+                         "failed today -> not again today")
+        self.at(3)
+        self.assertIn("w201", [w["word"] for w in server.build_session()["words"]],
+                      "lapsed word returns as a new word the next day")
+
+    def test_g05_fail_halves_weight_and_stability(self):
+        self.passes(0)
+        self.passes(1)
+        self.passes(3)
+        s3 = self.st(3)["stab"]
+        w = self.st(6)["weight"]
+        self.fails(6)
+        s = self.st(6)
+        self.assertAlmostEqual(s["base"], w / 2)
+        self.assertAlmostEqual(s["stab"], s3 / 2)
+        self.assertLessEqual(s["weight"], server.REVIEW_LINE, "failed word is due at once")
+        self.assertEqual(s["state"], "learning")
+        # 耐久最少 1 天
+        self.passes(0, "w201")
+        self.fails(1, "w201")
+        self.assertEqual(self.st(1, "w201")["stab"], 1.0)
+
+    def test_g06_lapse_back_to_pool_then_relearn(self):
+        self.passes(0)
+        self.fails(2)                          # 49 → 24.5 < 30
+        self.assertEqual(self.st(2)["state"], "lapsed")
+        con = server.db()
+        self.assertIn("w200", server.get_backlog(con), "lapsed = in the new-word pool")
         con.close()
-        self.assertEqual(st, 3, "graduation flips the mark to known")
-        self.assertEqual(self._review(90)[1], "graduated",
-                         "graduated words never climb again")
+        self.passes(2)
+        self.assertEqual(self.st(2)["state"], "lapsed", "no same-day revival")
+        self.passes(3)
+        s = self.st(3)
+        self.assertEqual((s["state"], s["level"], s["stab"], s["base"]),
+                         ("learning", 1, 1.0, 100), "relearned from scratch")
+
+    def test_g07_graduation_at_30_day_stability(self):
+        self.passes(0)
+        for day in (1, 3, 7, 15, 30, 58):
+            self.passes(day)
+        self.assertEqual(self.st(58)["state"], "graduated")
+        con = server.db()
+        mark = con.execute("select status from marks where word='w200'").fetchone()[0]
+        con.close()
+        self.assertEqual(mark, 3, "graduation flips the mark to known")
+        self.passes(90)
+        self.fails(91)
+        self.assertEqual(self.st(91)["state"], "graduated", "graduates are final")
+
+    def test_g08_absence_never_drops_a_word(self):
+        self.passes(0)
+        s = self.st(60)
+        self.assertEqual(s["state"], "learning")
+        self.assertLess(s["weight"], 1)
+        self.at(60)
+        ws = server.build_session()["words"]
+        self.assertEqual(ws[0]["word"], "w200")
+        self.assertFalse(ws[0]["is_new"])
+
+    def test_g09_fail_on_new_or_graduated_is_noop(self):
+        self.fails(0, "w201")
+        self.assertIsNone(self.st(0, "w201"), "new word fail leaves no record")
+        self.fails(0, "w201", manual=True)
+        self.assertIsNone(self.st(0, "w201"))
+
+    def test_g10_migration_keeps_old_due_times(self):
+        wipe_db()
+        con = sqlite3.connect(server.DB_PATH)
+        con.execute("create table word_srs(word text primary key, level integer,"
+                    " due_ts real, state text, added_ts real, reviewed_ts real)")
+        due = BASE + 0.3 * server.DAY
+        for lvl in (0, 1, 2, 3, 4, 5):
+            con.execute("insert into word_srs values(?,?,?,'learning',0,NULL)",
+                        ("m%d" % lvl, lvl, due))
+        con.commit()
+        con.close()
+        con = server.db()
+        srs = server.srs_map(con, due)
+        con.close()
+        for lvl, stab in ((0, 1), (1, 1), (2, 3), (3, 7), (4, 15), (5, 30)):
+            s = srs["m%d" % lvl]
+            self.assertEqual((s["stab"], s["base"]), (stab, 100))
+            self.assertAlmostEqual(s["weight"], 70, msg="old due time = review line")
+            self.assertAlmostEqual(server.srs_due_ts(s["base"], s["stab"], s["last"]), due)
+
+    def _simulate(self, open_days, fail_at=()):
+        """FLOW §4 模拟表：第 0 天学会，之后按来法打开；权重≤70 才出现并考。"""
+        word = "w250"
+        self.passes(0, word)
+        n = 0
+        for d in open_days:
+            s = self.st(d, word)
+            if s["state"] == "graduated":
+                break
+            if s["weight"] > server.REVIEW_LINE:
+                continue
+            n += 1
+            (self.fails if n in fail_at else self.passes)(d, word)
+            if self.st(d, word)["state"] == "graduated":
+                return d, n
+        return None, n
+
+    def test_g11_flow_table_numbers(self):
+        self.assertEqual(self._simulate(range(1, 400)), (58, 6), "every day")
+        wipe_db()
+        self.assertEqual(self._simulate(range(1, 400, 3)), (43, 5), "every 3 days")
+        wipe_db()
+        self.assertEqual(self._simulate(range(1, 400, 7)), (57, 5), "weekly")
+        wipe_db()
+        self.assertEqual(self._simulate(range(1, 400, 30)), (91, 4), "monthly")
+        wipe_db()
+        self.assertEqual(self._simulate(range(1, 400), fail_at=(3,))[1], 8,
+                         "one fail costs two extra reviews")
+
+
+class TestWordlistImport(unittest.TestCase):
+    """词表导入 + 牌组外词排序（TESTPLAN H01-H03/H07）。假 ECDICT：只含几个词。"""
+
+    def setUp(self):
+        wipe_db()
+        self.ec_path = os.path.join(TMP, "fake_ecdict.db")
+        if os.path.exists(self.ec_path):
+            os.remove(self.ec_path)
+        con = sqlite3.connect(self.ec_path)
+        con.execute("create table stardict(word text collate nocase unique,"
+                    " phonetic text, translation text, frq int, bnc int, tag text)")
+        con.executemany("insert into stardict values(?,?,?,?,?,?)", [
+            ("give up", "", "放弃", 900, 0, "cet4"),
+            ("give", "", "给", 50, 0, "zk"),
+            ("abandon", "", "放弃", 2000, 0, "cet4"),
+            ("zebra", "", "斑马", 9000, 0, "cet6"),
+        ])
+        con.commit()
+        con.close()
+        self.real_path = server.ECDICT_PATH
+        server.ECDICT_PATH = self.ec_path
+        server._OFFDECK_RANK.clear()
+
+    def tearDown(self):
+        server.ECDICT_PATH = self.real_path
+        server._OFFDECK_RANK.clear()
+
+    def test_h01_parse_lines(self):
+        p = server.parse_wordlist(
+            "1. abandon v. 放弃\n  23) w150 [x] adj. 仁慈的\n"
+            "w151, w152; w153\n放弃，抛弃\n\n•\tself-esteem\tn.\n"
+            "give up 放弃，抛弃")
+        self.assertEqual([t for _, t in p], [
+            ["abandon", "v"], ["w150"], ["w151"], ["w152"], ["w153"],
+            ["self-esteem", "n"], ["give", "up"]],
+            "numbering stripped; comma lists split only without Chinese")
+
+    def test_h02_longest_dictionary_match(self):
+        ec = sqlite3.connect(self.ec_path)
+        try:
+            self.assertEqual(server.resolve_entry(["give", "up"], ec), "give up")
+            self.assertEqual(server.resolve_entry(["abandon", "v"], ec), "abandon")
+            self.assertEqual(server.resolve_entry(["w150", "adj"], ec), "w150",
+                             "deck words resolve without ECDICT")
+            self.assertIsNone(server.resolve_entry(["zzqq"], ec))
+        finally:
+            ec.close()
+
+    def test_h03_five_way_classification(self):
+        sim_probe(known_below=100)
+        server.set_mark("w150", 1, "scan")          # 已在生词本
+        server.set_mark("w160", 3, "scan")          # 已学会（显式认识）
+        out = server.import_wordlist(
+            "w150\nw160\nw050\nw200\nw200\nzzqq 什么\ngive up 放弃")
+        self.assertEqual(out["already"], ["w150"])
+        self.assertEqual(out["learned"], ["w160"])
+        self.assertEqual(out["presumed"], ["w050"], "inside the boundary: not added")
+        self.assertEqual(out["added"], ["w200", "give up"], "duplicates count once")
+        self.assertEqual(out["missing"], ["zzqq 什么"])
+        marks = server.get_marks()
+        self.assertEqual((marks.get("w200"), marks.get("give up")), (1, 1))
+        self.assertNotIn("w050", marks)
+        again = server.import_wordlist("w050\nw160", include_known=True)
+        self.assertEqual((again["added"], again["learned"]), (["w050"], ["w160"]))
+
+    def test_h07_offdeck_words_rank_between_deck_words(self):
+        # 牌组外词（只有 ECDICT 有）：修复前序号 10^9 → 永远排在前沿推定生词后面
+        self.assertEqual(server.word_rank("w123"), 123)
+        r = server.word_rank("zebra")
+        self.assertIsInstance(r, float)
+        self.assertLess(r, 10 ** 9)
+        self.assertEqual(r % 1, 0.5, "slots between two deck ranks")
+        sim_probe(known_below=100)
+        server.import_wordlist("zebra")
+        ws = [w["word"] for w in server.build_session()["words"]]
+        self.assertIn("zebra", ws, "an imported off-deck word must actually be served")
 
 
 class TestKnownSnapshot(unittest.TestCase):
@@ -275,11 +557,15 @@ class TestBacklogAndHelpers(unittest.TestCase):
     def test_backlog_rank_order_and_srs_exclusion(self):
         for w in ("w172", "w105", "w168"):
             server.set_mark(w, 1, "probe")
+        server.set_mark("w140", 1, "probe")
         con = server.db()
-        con.execute("insert into word_srs(word,level,due_ts,state,added_ts)"
-                    " values('w168',1,0,'learning',0)")
+        con.execute("insert into word_srs(word,level,due_ts,state,added_ts,"
+                    "reviewed_ts,stab,base) values('w168',1,0,'learning',0,0,1,100)")
+        con.execute("insert into word_srs(word,level,due_ts,state,added_ts,"
+                    "reviewed_ts,stab,base) values('w140',1,0,'lapsed',0,0,1,20)")
         con.commit()
-        self.assertEqual(server.get_backlog(con), ["w105", "w172"])
+        self.assertEqual(server.get_backlog(con), ["w105", "w140", "w172"],
+                         "learning words leave the pool; lapsed ones are back in")
         con.close()
 
     def test_same_day(self):

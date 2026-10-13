@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>maidcafe ☕</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
-<link rel="stylesheet" href="/static/style.css?v=2">
-<link rel="stylesheet" href="/static/listen.css?v=2">
-<link rel="stylesheet" href="/static/home.css?v=2">
+<link rel="stylesheet" href="/static/style.css?v=3">
+<link rel="stylesheet" href="/static/listen.css?v=3">
+<link rel="stylesheet" href="/static/home.css?v=3">
 </head>
 <body>
 <header>
@@ -60,6 +60,8 @@
       <span style="flex:1"></span>
       <button id="examBtn" class="mk">✍ 我准备好了，考试</button>
     </div>
+    <!-- 复习占满整份、没有新词时（FLOW §4 休息文案）：复习优先是休息，不是欠账 -->
+    <p id="restLine" class="hint-line hidden">这一份都是老朋友 ☕ 偶尔也要休息一下，不用总那么努力学新的。</p>
 
     <div class="card learn-card">
       <div class="card-body" id="learnBody">
@@ -177,11 +179,11 @@
   <div id="cfgModal" class="word-card hidden" style="width:380px;">
     <div class="wc-word" style="font-family:var(--font-display);font-size:20px;">设置</div>
     <div class="cfg-body">
-      <label>每份新词数量（到期复习另算，全上）
+      <label>每份词数（复习+新词）
         <input id="quotaInput" type="number" min="1" max="100" style="width:70px;">
         <button id="quotaSave" class="mk small">保存</button>
       </label>
-      <div class="hint-line">断几天也没关系：任务不累计，每天打开都是同一份量。</div>
+      <div class="hint-line">先放要复习的，再用新词补满。断几天也没关系：每次打开都是这么多，不累计。</div>
       <div id="cfgVocab" class="hint-line"></div>
       <div class="cfg-links hint-line">
         校准工具：<a href="/calibrate">全扫词库</a> ·
@@ -198,8 +200,8 @@
   </div>
 </main>
 
-<script src="/static/log.js?v=2"></script>
-<script src="/static/art.js?v=2"></script>
-<script src="/static/home.js?v=2"></script>
+<script src="/static/log.js?v=3"></script>
+<script src="/static/art.js?v=3"></script>
+<script src="/static/home.js?v=3"></script>
 </body>
 </html>

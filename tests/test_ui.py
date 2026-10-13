@@ -309,6 +309,8 @@ class TestMainJourney(UIBase):
     def test_u12_settings_modal(self):
         self.page.click("#cfgBtn")
         self.page.wait_for_selector("#cfgModal", state="visible")
+        self.assertIn("每份词数（复习+新词）", self.page.text_content("#cfgModal"),
+                      "G17: the setting is the whole portion, reviews included")
         self.page.fill("#quotaInput", "15")
         self.page.click("#quotaSave")
         self.page.wait_for_function(
@@ -385,6 +387,132 @@ class TestSecondaryFlows(UIBase):
         # 品牌逃生口：对话史/生词本页 → 主页
         self.page.click(".brand")
         self.page.wait_for_selector("#vEmpty", state="visible")
+
+
+class TestImportUI(UIBase):
+    """H04/H08/H09：生词本导入词表（全认识用户 → 推定已认识 → 这些也加上）。"""
+    PORT = 8801
+
+    def test_v04_import_wordlist_panel(self):
+        for _ in range(40):                      # 全认识用户：边界内=全部牌组词
+            r = self.api("/api/probe_next")
+            if r.get("done"):
+                break
+            for w in r["words"]:
+                self.api("/api/mark", {"word": w["word"].lower(),
+                                       "status": 3, "src": "probe"})
+        con = sqlite3.connect(os.path.join(self.tmp, "ui.db"))
+        marked = {w for (w,) in con.execute("select word from marks")}
+        con.close()
+        picks = [w for w in ("w%03d" % i for i in range(150, 300))
+                 if w not in marked][:3]          # 没被探针显式标过 = 纯推定已认识
+        self.page.goto(self.base + "/listen#wordbook")
+        self.page.wait_for_selector("#wordbookView", state="visible")
+        hint = self.page.text_content("#wordbookView")
+        self.assertNotIn("1 / 3 / 7", hint, "H09: the old ladder text is gone")
+        self.assertNotIn("听完一段", hint, "listening never counted as a review")
+        self.page.click("#importFold summary")
+        self.page.fill("#importText",
+                       "1. %s adj. 释义\n%s, %s\nzzzqq" % tuple(picks))
+        self.page.click("#importBtn")
+        self.page.wait_for_function(
+            "document.getElementById('importMsg').textContent.includes('加入')")
+        msg = self.page.text_content("#importMsg")
+        self.assertIn("加入 0 个", msg)
+        self.assertIn("应该已经认识 3 个", msg)
+        self.assertIn("查不到 1 个：zzzqq", msg)
+        self.page.click("#importKnownBtn")
+        self.page.wait_for_function(
+            "document.getElementById('importMsg').textContent.includes('加入 3 个')")
+        for w in picks:
+            self.page.locator(".wb-item", has_text=w).wait_for()
+            self.assertIn("生词池", self.page.locator(".wb-item", has_text=w).text_content())
+
+
+class TestWeightModelUI(UIBase):
+    """FLOW §4 权重模型的界面面（TESTPLAN A13/G04/G13/G15/G16）。
+    时钟进不了子进程：直接写 reviewed_ts 造出"1.2 天前考过"的在学词。"""
+    PORT = 8800
+
+    def sql(self, q, args=()):
+        con = sqlite3.connect(os.path.join(self.tmp, "ui.db"))
+        try:
+            rows = con.execute(q, args).fetchall()
+            con.commit()
+            return rows
+        finally:
+            con.close()
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        self = cls("run")
+        for _ in range(40):                      # 探针走 API，省得点穿
+            r = self.api("/api/probe_next")
+            if r.get("done"):
+                break
+            for w in r["words"]:
+                self.api("/api/mark", {"word": w["word"].lower(), "src": "probe",
+                                       "status": 3 if int(w["word"][1:]) < KNOWN_BELOW else 1})
+        self.api("/api/word_pass", {"word": "w150"})   # 建行，再把上次考试拨回 1.2 天前
+        self.sql("update word_srs set reviewed_ts=? where word='w150'",
+                 (time.time() - 1.2 * 86400,))          # 100·0.7^1.2 ≈ 65.2 ≤ 70
+        self.api("/api/config", {"new_quota": 1})       # 一份只有 1 个 → 被复习占满
+
+    def test_u14_rest_line_then_silent_fail_then_wordbook(self):
+        # G13：复习占满整份 → 休息文案；卡标"复习"
+        self.page.goto(self.base + "/")
+        self.page.wait_for_selector("#vLearn", state="visible")
+        self.assertTrue(self.visible("#restLine"))
+        self.assertIn("偶尔也要休息一下", self.page.text_content("#restLine"))
+        self.assertEqual(self.page.text_content("#newTag").strip(), "复习")
+        # A13/G05：考挂 → 界面零提示，服务端静默减半（65.2 → 32.6，仍在学）
+        self.page.click("#examBtn")
+        self.page.wait_for_selector("#vExam", state="visible")
+        self.page.click("#exNo")
+        self.page.click("#exNo2")
+        self.page.wait_for_selector("#vExamDone", state="visible")
+        self.assertNotIn("记忆", self.page.text_content("#vExamDone"),
+                         "no weight talk on the exam result screen")
+        for _ in range(20):
+            row = self.sql("select state, base from word_srs where word='w150'")[0]
+            if row[1] < 100:
+                break
+            time.sleep(0.1)
+        self.assertEqual(row[0], "learning")
+        self.assertAlmostEqual(row[1], 32.6, delta=0.3)
+        # G04：今天考过的词今天不再上桌——放宽总量后整份都是新词，休息文案消失
+        self.api("/api/config", {"new_quota": 20})
+        self.page.goto(self.base + "/")
+        self.page.wait_for_selector("#vLearn", state="visible")
+        self.assertFalse(self.visible("#restLine"))
+        words = self.page.evaluate("sessionWords.map((w) => w.word)")
+        self.assertEqual(len(words), 20)
+        self.assertNotIn("w150", words)
+        # G15：生词本只给记忆程度，不预告；生词池的词没有打回键
+        self.page.goto(self.base + "/listen#wordbook")
+        self.page.wait_for_selector("#wordbookView", state="visible")
+        item = self.page.locator(".wb-item", has_text="w150")
+        item.wait_for()
+        self.assertIn("记忆 33", item.text_content())
+        listing = self.page.text_content("#wordbookList")
+        self.assertNotIn("到期", listing)
+        self.assertNotIn("天后", listing)
+        self.page.evaluate("loadDailyStatus()")   # 等异步状态真正写完（按钮静态文案不可作信号）
+        self.assertNotIn("到期", self.page.text_content("#dailyLine"),
+                         "the history page must not count reviews owed")
+        pool_item = self.page.locator(".wb-item").filter(has_text="生词池").first
+        self.assertEqual(pool_item.locator(".wb-unfam").count(), 0)
+        # G16：点「打回重听」= 按考挂（明示操作不受同日限制）：32.6 → 16.3 < 30 → 回生词池
+        item.locator(".wb-unfam").click()
+        self.page.wait_for_function(
+            "Array.from(document.querySelectorAll('.wb-item'))"
+            ".some((el) => el.textContent.includes('w150')"
+            " && el.textContent.includes('生词池'))")
+        self.assertEqual(self.sql("select state from word_srs where word='w150'"),
+                         [("lapsed",)])
+        self.assertEqual(self.page.locator(".wb-item", has_text="w150")
+                         .locator(".wb-unfam").count(), 0)
 
 
 class TestAudioAndTimeout(UIBase):

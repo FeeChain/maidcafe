@@ -8,11 +8,13 @@ serves an audio-first triage UI, and records per-word mastery marks
 Run:  python3 server.py   then open http://localhost:8770
 """
 
+import bisect
 import hashlib
 import json
 import math
 import os
 import random
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -37,6 +39,9 @@ BLOCK_SIZE = 100    # words per difficulty block
 WORDS = []          # list of word dicts, difficulty-block order
 AUDIO = {}          # word(lower) -> absolute audio path
 N_TIERS = 1
+WORD_INDEX = {}     # word(lower) -> word dict（word_info / 导入查词用，免线性扫）
+RANK_KEYS = []      # 牌组词按难度排好的 difficulty_key 列表（rank i 对应第 i 个）
+_OFFDECK_RANK = {}  # 牌组外词 -> 插值难度序（缓存）
 
 
 def build_words():
@@ -65,12 +70,27 @@ TAG_TIER = {"zk": 1, "gk": 2, "cet4": 3, "cet6": 4, "ky": 5,
 UNTAGGED_TIER = 8
 
 
+def difficulty_key(word, row):
+    """难度尺子：(考纲段, 词频序, 词)。row = ECDICT 的 (frq, bnc, tag)，查不到
+    为 None（排最后）。牌组词和牌组外的词（手动加/导入）共用同一把。"""
+    if not row:
+        return (UNTAGGED_TIER + 1, 10 ** 9, word.lower())
+    frq, bnc, tag = row
+    ranks = [x for x in (frq, bnc) if isinstance(x, int) and x > 0]
+    band = UNTAGGED_TIER
+    if tag:
+        hit = [TAG_TIER[t] for t in tag.split() if t in TAG_TIER]
+        if hit:
+            band = min(hit)
+    return (band, min(ranks) if ranks else 10 ** 9, word.lower())
+
+
 def attach_tiers():
     """Order words by (exam-syllabus band, corpus frequency), cut into
     BLOCK_SIZE blocks, shuffle stably inside each block (md5 of the word,
     so order survives restarts)."""
-    global WORDS, N_TIERS
-    info = {}  # word(lower) -> (band, freq_rank)
+    global WORDS, N_TIERS, WORD_INDEX, RANK_KEYS
+    info = {}  # word(lower) -> ECDICT (frq, bnc, tag)
     if os.path.exists(ECDICT_DB):
         con = sqlite3.connect(ECDICT_DB)
         try:
@@ -83,35 +103,29 @@ def attach_tiers():
                     row = con.execute(
                         "select frq, bnc, tag from stardict where word = ?",
                         (w["word"],)).fetchone()
-                if not row:
-                    continue
-                frq, bnc, tag = row
-                ranks = [x for x in (frq, bnc) if isinstance(x, int) and x > 0]
-                band = UNTAGGED_TIER
-                if tag:
-                    tiers_hit = [TAG_TIER[t] for t in tag.split() if t in TAG_TIER]
-                    if tiers_hit:
-                        band = min(tiers_hit)
-                info[lw] = (band, min(ranks) if ranks else None)
+                if row:
+                    info[lw] = row
         finally:
             con.close()
         print("ECDICT matched: %d/%d words" % (len(info), len(WORDS)))
     else:
         print("NOTE: %s missing — difficulty blocks fall back to load order" % ECDICT_DB)
 
-    big = 10 ** 9
-
     def sort_key(w):
-        band, rank = info.get(w["word"].lower(), (UNTAGGED_TIER + 1, None))
-        return (band, rank if rank is not None else big, w["word"].lower())
+        return difficulty_key(w["word"], info.get(w["word"].lower()))
 
     ordered = sorted(WORDS, key=sort_key)
+    RANK_KEYS = [sort_key(w) for w in ordered]
     for i, w in enumerate(ordered):
         w["tier"] = i // BLOCK_SIZE + 1
         w["rank"] = i          # 全局难度序号（band+词频），生词池按它出词
-        band, rank = info.get(w["word"].lower(), (None, None))
-        w["band"] = band
-        w["freq_rank"] = rank
+        if w["word"].lower() in info:
+            band, fr, _ = RANK_KEYS[i]
+            w["band"], w["freq_rank"] = band, (fr if fr != 10 ** 9 else None)
+        else:
+            w["band"] = w["freq_rank"] = None
+    WORD_INDEX = {w["word"].lower(): w for w in ordered}
+    _OFFDECK_RANK.clear()
     N_TIERS = (len(WORDS) + BLOCK_SIZE - 1) // BLOCK_SIZE if WORDS else 1
     WORDS = sorted(
         ordered, key=lambda w: (w["tier"], hashlib.md5(w["word"].encode()).hexdigest()))
@@ -122,8 +136,14 @@ AUDIO_OUT = os.environ.get("MAIDCAFE_AUDIO_OUT",
 GEN_MODEL = os.environ.get("MAIDCAFE_MODEL", "qwen3.6:27b-mlx")
 ECDICT_PATH = ECDICT_DB
 
-# 复习梯子: 第 N 次听完后，下次到期 = INTERVALS[N-1] 天后；爬完毕业
-INTERVALS = [1, 3, 7, 15, 30]
+# 权重模型（FLOW §4，2026-10-13 用户确认）：权重 = 记忆程度，打开时现算
+#   w = 起点 × DECAY^(距上次考试天数 / 耐久)；耐久 = 从 100 掉到复习线要几天
+DECAY = 0.7         # 每过一个耐久期，权重剩 70%
+REVIEW_LINE = 70    # 权重 ≤ 70 的在学词才进这一份
+LAPSE_FLOOR = 30    # 考挂减半后低于它 → 回生词池（只认考试证据，没来不算忘）
+GRAD_STAB = 30      # 耐久 ≥ 30 天 → 毕业
+GAIN = 3            # 考过：耐久 × (1 + GAIN × 这次间隔造成的衰减比例)
+OLD_LADDER = [1, 3, 7, 15, 30]   # 旧固定梯子，仅用于迁移老数据
 DAY = 86400
 NEW_QUOTA_DEFAULT = 5
 CHUNK = 7  # 每段对话目标词数
@@ -165,11 +185,27 @@ def db():
         "create table if not exists events("
         "id integer primary key autoincrement, ts real, page text,"
         "view text, event text, detail text)")
-    # 同一天内重复复习不重复爬梯（听完对话 + 考试通过只算一次）
+    # 上次考试时刻：权重衰减的起点，也是"每天只认第一次考试"的判据
     try:
         con.execute("alter table word_srs add column reviewed_ts real")
     except sqlite3.OperationalError:
         pass
+    # 权重模型：stab=耐久（天），base=上次考试后的起点权重，reviewed_ts=上次考试
+    for col in ("stab real", "base real"):
+        try:
+            con.execute("alter table word_srs add column " + col)
+        except sqlite3.OperationalError:
+            pass
+    # 旧梯子行迁移：level n → 耐久 = 旧梯子第 n 格，起点 100，上次考试时刻
+    # 倒推为 到期 − 耐久，于是原到期时刻恰好是权重落到复习线的时刻（不变）
+    old = con.execute("select word, level, due_ts from word_srs"
+                      " where stab is null").fetchall()
+    for word, level, due in old:
+        stab = float(OLD_LADDER[min(max(level or 1, 1), len(OLD_LADDER)) - 1])
+        con.execute("update word_srs set stab=?, base=100, reviewed_ts=?"
+                    " where word=?", (stab, (due or time.time()) - stab * DAY, word))
+    if old:
+        con.commit()
     return con
 
 
@@ -189,42 +225,105 @@ def ecdict_lookup(word):
             "definition": (row[1] or "").strip()[:200]}
 
 
-def srs_map(con):
-    return {w: {"level": l, "due_ts": d, "state": s}
-            for w, l, d, s in con.execute(
-                "select word, level, due_ts, state from word_srs")}
+def srs_weight(base, stab, last, now):
+    """权重（0-100）= 起点 × 0.7^(距上次考试天数 / 耐久)。打开时现算，不落库。"""
+    return base * DECAY ** (max(0.0, (now - last) / DAY) / stab)
+
+
+def srs_due_ts(base, stab, last):
+    """权重落到复习线的时刻。派生字段，只为按时间查询方便（dialogue CLI 等）；
+    起点已在复习线以下（考挂过）则立即。"""
+    if base <= REVIEW_LINE:
+        return last
+    return last + stab * DAY * math.log(REVIEW_LINE / base) / math.log(DECAY)
+
+
+def srs_map(con, now=None):
+    """word -> 状态。state: learning 在学 / graduated 毕业 / lapsed 考挂回生词池。
+    weight 只对在学词现算。"""
+    now = now or time.time()
+    out = {}
+    for w, lvl, due, st, stab, base, last in con.execute(
+            "select word, level, due_ts, state, stab, base, reviewed_ts"
+            " from word_srs"):
+        out[w] = {"level": lvl, "due_ts": due, "state": st, "stab": stab,
+                  "base": base, "last": last,
+                  "weight": (srs_weight(base, stab, last or now, now)
+                             if st == "learning" else None)}
+    return out
 
 
 def same_day(a, b):
     return a and b and time.localtime(a)[:3] == time.localtime(b)[:3]
 
 
-def srs_review(con, word):
-    """One completed review for a learning word: climb the ladder.
-    Idempotent per calendar day — 听完对话与考试通过同天只爬一级。"""
+def srs_upsert_learning(con, word, level, stab, now):
+    """考过后的落库：权重回满（起点 100），耐久=stab，上次考试=now。"""
+    con.execute(
+        "insert into word_srs(word, level, due_ts, state, added_ts,"
+        " reviewed_ts, stab, base) values(?,?,?,'learning',?,?,?,100)"
+        " on conflict(word) do update set level=excluded.level,"
+        " due_ts=excluded.due_ts, state='learning',"
+        " reviewed_ts=excluded.reviewed_ts, stab=excluded.stab, base=100",
+        (word, level, srs_due_ts(100, stab, now), now, now, stab))
+
+
+def srs_pass(con, word):
+    """考过（FLOW §4）：新学（含回生词池后重学）→ 权重 100、耐久 1 天；
+    在学 → 权重回满，耐久 × (1 + 3 × 这次间隔造成的衰减比例)——只看时间，
+    越晚考过涨得越多；耐久 ≥ 30 天毕业。每个词每天只认第一次考试结果。"""
     now = time.time()
     row = con.execute(
-        "select level, state, reviewed_ts from word_srs where word=?",
+        "select level, state, stab, reviewed_ts from word_srs where word=?",
         (word,)).fetchone()
     if row and row[1] == "graduated":
         return
-    if row and same_day(row[2], now):
+    if row and same_day(row[3], now):
         return
-    con.execute("update word_srs set reviewed_ts=? where word=?", (now, word))
-    level = (row[0] if row else 0) + 1
-    if level > len(INTERVALS):
+    if row and row[1] == "learning":
+        level = (row[0] or 0) + 1
+        decayed = DECAY ** (max(0.0, (now - (row[3] or now)) / DAY) / row[2])
+        stab = row[2] * (1 + GAIN * (1 - decayed))
+    else:
+        level, stab = 1, 1.0
+    if stab >= GRAD_STAB:
         con.execute(
-            "update word_srs set level=?, state='graduated' where word=?",
-            (level, word))
+            "update word_srs set level=?, stab=?, base=100, reviewed_ts=?,"
+            " state='graduated' where word=?", (level, stab, now, word))
         con.execute(
             "update marks set status=3, ts=? where word=?", (now, word))
-    else:
-        due = now + INTERVALS[level - 1] * DAY
+        return
+    srs_upsert_learning(con, word, level, stab, now)
+
+
+def srs_fail(con, word, manual=False):
+    """考挂（FLOW §4）：在学词权重、耐久减半（耐久最少 1 天），静默生效；
+    减半后 < 30 → 回生词池（lapsed）。新词/生词池/毕业词零记录。
+    manual=生词本「还是不熟」：明示操作，不受同日只认第一次的限制。"""
+    now = time.time()
+    row = con.execute(
+        "select stab, base, reviewed_ts, state from word_srs where word=?",
+        (word,)).fetchone()
+    if not row or row[3] != "learning":
+        return
+    stab, base, last = row[0], row[1], row[2] or now
+    if not manual and same_day(last, now):
+        return
+    nb = srs_weight(base, stab, last, now) / 2
+    ns = max(1.0, stab / 2)
+    if nb < LAPSE_FLOOR:
         con.execute(
-            "insert into word_srs(word, level, due_ts, state, added_ts, reviewed_ts)"
-            " values(?,?,?,'learning',?,?)"
-            " on conflict(word) do update set level=?, due_ts=?, reviewed_ts=?",
-            (word, level, due, now, now, level, due, now))
+            "update word_srs set state='lapsed', base=?, stab=?, reviewed_ts=?"
+            " where word=?", (nb, ns, now, word))
+        # 回生词池要靠生词标记才进 backlog：兜底补行/翻回 1
+        con.execute("insert or ignore into marks(word,status,ts,src)"
+                    " values(?,1,?,'add')", (word, now))
+        con.execute("update marks set status=1 where word=?"
+                    " and status not in (1,2)", (word,))
+        return
+    con.execute(
+        "update word_srs set base=?, stab=?, reviewed_ts=?, due_ts=?"
+        " where word=?", (nb, ns, now, srs_due_ts(nb, ns, now), word))
 
 
 def kv_get(key, default=None):
@@ -255,18 +354,23 @@ def session_word_out(word, is_new):
 
 
 def build_session():
-    """一份学习会话（无「每天/任务」概念，打开一次抓一份，零落库）：
-    到期复习全部上桌（最早到期在前）+ 新词取配额个（不预注册，考过才进梯）。
-    背完就是背完；没背完的什么都不记——复习词照旧到期、新词留在生词池，
-    下次打开（当天或十天后）自然回来。"""
+    """一份学习会话（无「每天/任务」概念，打开一次抓一份，零落库；FLOW §4）：
+    总量由用户设（默认 20）——先放复习词（权重 ≤ 70，最低优先，最多占满），
+    新词按难度序补满（不预注册，考过才进入在学）。离开再久也不变多：
+    没轮上的复习词只是权重继续降、下次排更前。复习占满整份 = 休息一份（rest）。"""
     con = db()
     try:
         now = time.time()
-        srs = srs_map(con)
-        due = [w for w, s in sorted(srs.items(), key=lambda x: x[1]["due_ts"])
-               if s["state"] == "learning" and s["due_ts"] <= now]
-        quota = int(kv_get("new_quota", 20))
-        candidates = get_backlog(con)
+        srs = srs_map(con, now)
+        total = int(kv_get("new_quota", 20))   # 设置里的「每份词数（复习+新词）」
+        # 同日只认第一次考试：今天考过的（含今天考挂回池的）今天不再端上来
+        today = {w for w, s in srs.items() if same_day(s["last"], now)}
+        due = sorted((w for w, s in srs.items()
+                      if s["state"] == "learning" and w not in today
+                      and s["weight"] <= REVIEW_LINE),
+                     key=lambda w: srs[w]["weight"])[:total]
+        quota = total - len(due)
+        candidates = [w for w in get_backlog(con) if w not in today]
         if len(candidates) < quota and has_probe_evidence():
             # 生词池不够一份：探针已定位边界，边界之外没标过的词
             # 本来就推定为生词——按难度顺序补满（考过才进梯，其余零记录）。
@@ -284,30 +388,36 @@ def build_session():
                         taken.add(lw)
                         if len(candidates) >= quota:
                             break
-        rank_of = {w["word"].lower(): w.get("rank", 10 ** 9) for w in WORDS}
-        fresh = sorted(candidates, key=lambda w: rank_of.get(w, 10 ** 9))[:quota]
+        fresh = sorted(candidates, key=word_rank)[:quota]
     finally:
         con.close()
     return {"words": ([session_word_out(w, False) for w in due] +
-                      [session_word_out(w, True) for w in fresh])}
+                      [session_word_out(w, True) for w in fresh]),
+            "rest": len(due) >= total}
 
 
 def get_backlog(con):
-    """Marked unknown but not yet in the SRS ladder, strict difficulty order
+    """生词池：标了生词、还没在学的词（含考挂回池的 lapsed），严格难度序
     (global band+frequency rank, not just block number)."""
     srs = srs_map(con)
-    rank_of = {w["word"].lower(): w.get("rank", 10 ** 9) for w in WORDS}
     rows = con.execute(
         "select word from marks where status in (1,2)").fetchall()
-    backlog = [r[0] for r in rows if r[0] not in srs]
-    backlog.sort(key=lambda w: rank_of.get(w, 10 ** 9))
+    backlog = [r[0] for r in rows
+               if r[0] not in srs or srs[r[0]]["state"] == "lapsed"]
+    backlog.sort(key=word_rank)
     return backlog
 
 
 def write_known_snapshot():
-    """已知词集快照，dialogue.py 校验已知占比用。
-    核心定义（用户定稿）：已知 = 边界块之内的**全部**单词（推定已知）
-    + 显式标记认识的词。边界由探针无状态重放得出。"""
+    """已知词集快照，dialogue.py 校验已知占比用。"""
+    with open(os.path.join(CACHE_DIR, "known_words.json"), "w",
+              encoding="utf-8") as f:
+        json.dump(sorted(known_set()), f, ensure_ascii=False)
+
+
+def known_set():
+    """核心定义（用户定稿）：已知 = 边界块之内的**全部**单词（推定已知）
+    + 显式标记认识的词 − 显式标记不认识的词。边界由探针无状态重放得出。"""
     known = set()
     try:
         if has_probe_evidence():
@@ -322,9 +432,88 @@ def write_known_snapshot():
     known.update(w for w, s in marks.items() if s == 3)
     # 全扫在边界内逐词揪出的漏词：显式标了不认识的，推定失效，从已知集剔除
     known.difference_update(w for w, s in marks.items() if s in (1, 2))
-    with open(os.path.join(CACHE_DIR, "known_words.json"), "w",
-              encoding="utf-8") as f:
-        json.dump(sorted(known), f, ensure_ascii=False)
+    return known
+
+
+# ---------------------------------------------------------------- 词表导入
+IMPORT_MAX_ITEMS = 5000
+IMPORT_MAX_BYTES = 512 * 1024
+_CJK = re.compile(r"[\u3000-\u9fff\uff00-\uffef]")
+_LEAD = re.compile(r"[\s\d.)）、\-*•·#]+")
+_HEAD = re.compile(r"^\s*([A-Za-z][A-Za-z0-9'\-]*(?:[ \t]+[A-Za-z][A-Za-z0-9'\-]*){0,3})")
+
+
+def parse_wordlist(text):
+    """词表文本 → [(原文, [前导英文词…])]。一行一个；去行首编号/符号；
+    不含中文的行可用逗号/分号写多个词（含中文的行，逗号多半在释义里，不拆）。"""
+    items = []
+    for line in text.splitlines():
+        line = _LEAD.sub("", line, count=1) if _LEAD.match(line) else line
+        parts = [line] if _CJK.search(line) else re.split(r"[,;，；]", line)
+        for part in parts:
+            m = _HEAD.match(part)
+            if m:
+                items.append((part.strip(), m.group(1).split()))
+    return items
+
+
+def resolve_entry(tokens, ec):
+    """最长匹配词典：give up 放弃 → give up；abandon v. → abandon。"""
+    for k in range(len(tokens), 0, -1):
+        cand = " ".join(tokens[:k]).lower()
+        if cand in WORD_INDEX:
+            return cand
+        if ec is not None and ec.execute(
+                "select 1 from stardict where word = ?", (cand,)).fetchone():
+            return cand
+    return None
+
+
+def import_wordlist(text, include_known=False):
+    """生词本词表导入（FLOW 工具页）：只进生词池，不建在学行，不计分。
+    按测定边界推定已认识的词默认不加（include_known=True 才加）。"""
+    items = parse_wordlist(text)
+    if len(items) > IMPORT_MAX_ITEMS:
+        raise ValueError("too many items")
+    ec = sqlite3.connect(ECDICT_PATH) if os.path.exists(ECDICT_PATH) else None
+    con = db()
+    try:
+        marks = get_marks()
+        srs = srs_map(con)
+        known = known_set()
+        out = {"added": [], "already": [], "learned": [], "presumed": [],
+               "missing": []}
+        seen = set()
+        now = time.time()
+        for raw, toks in items:
+            w = resolve_entry(toks, ec)
+            if w is None:
+                if raw not in out["missing"]:
+                    out["missing"].append(raw)
+                continue
+            if w in seen:
+                continue
+            seen.add(w)
+            st = srs.get(w, {}).get("state")
+            m = marks.get(w)
+            if m in (1, 2) or st in ("learning", "lapsed"):
+                out["already"].append(w)
+            elif m == 3 or st == "graduated":
+                out["learned"].append(w)
+            elif w in known and not include_known:
+                out["presumed"].append(w)
+            else:
+                con.execute(
+                    "insert into marks(word,status,ts,src) values(?,1,?,'add')"
+                    " on conflict(word) do update set status=1, ts=excluded.ts,"
+                    " src='add'", (w, now))
+                out["added"].append(w)
+        con.commit()
+    finally:
+        con.close()
+        if ec is not None:
+            ec.close()
+    return out
 
 
 def spawn_generation(words):
@@ -340,12 +529,35 @@ def spawn_generation(words):
 def word_info(word):
     """phonetic + definition for the 释义卡, from the deck data in memory."""
     lw = word.lower()
-    for w in WORDS:
-        if w["word"].lower() == lw:
-            return {"word": word, "phonetic": w.get("phonetic", ""),
-                    "definition": (w.get("definition") or "")[:200],
-                    "has_audio": lw in AUDIO}
+    w = WORD_INDEX.get(lw)
+    if w:
+        return {"word": word, "phonetic": w.get("phonetic", ""),
+                "definition": (w.get("definition") or "")[:200],
+                "has_audio": lw in AUDIO}
     return {"word": word, "phonetic": "", "definition": "", "has_audio": False}
+
+
+def word_rank(lw, ec=None):
+    """全局难度序。牌组词 = attach_tiers 的 rank；牌组外的词（手动加/导入，
+    只有 ECDICT 有）用同一把尺子插进牌组词之间（x.5）。否则它们序号无穷大，
+    前沿推定生词永远排在前面，这些词永远轮不到。ec = 可复用的 ECDICT 连接。"""
+    w = WORD_INDEX.get(lw)
+    if w is not None:
+        return w["rank"]
+    if lw not in _OFFDECK_RANK:
+        row = None
+        con = ec or (sqlite3.connect(ECDICT_PATH)
+                     if os.path.exists(ECDICT_PATH) else None)
+        if con is not None:
+            try:
+                row = con.execute("select frq, bnc, tag from stardict"
+                                  " where word = ?", (lw,)).fetchone()
+            finally:
+                if ec is None:
+                    con.close()
+        _OFFDECK_RANK[lw] = (
+            bisect.bisect_left(RANK_KEYS, difficulty_key(lw, row)) - 0.5)
+    return _OFFDECK_RANK[lw]
 
 
 def get_marks():
@@ -920,21 +1132,18 @@ class Handler(BaseHTTPRequestHandler):
                 for t in json.loads(tw or "[]"):
                     appearances.setdefault(t.lower(), []).append(
                         {"id": did, "scene": scene})
-            now = time.time()
             out = []
             for w, s in words:
                 info = word_info(w)
                 info["status"] = s
                 info["dialogues"] = appearances.get(w.lower(), [])
                 st = srs.get(w)
-                if st:
-                    info["srs"] = {
-                        "level": st["level"],
-                        "due_in_days": round((st["due_ts"] - now) / DAY, 1),
-                        "due": st["due_ts"] <= now,
-                    }
+                if st and st["state"] == "learning":
+                    # 只给记忆程度，不给"到期/几天后"——不预告（FLOW §4）
+                    info["srs"] = {"weight": round(st["weight"]),
+                                   "level": st["level"]}
                 else:
-                    info["srs"] = None  # 还在生词池
+                    info["srs"] = None  # 还在生词池（含考挂回池的）
                 out.append(info)
             graduated = [word_info(r[0]) for r in grad_rows]
             return self._send(200, {"learning": out, "graduated": graduated})
@@ -1009,9 +1218,8 @@ class Handler(BaseHTTPRequestHandler):
                 backlog = get_backlog(con)
             finally:
                 con.close()
-            now = time.time()
             learning = [w for w, s in srs.items() if s["state"] == "learning"]
-            due = [w for w in learning if srs[w]["due_ts"] <= now]
+            due = [w for w in learning if srs[w]["weight"] <= REVIEW_LINE]
             graduated = [w for w, s in srs.items() if s["state"] == "graduated"]
             return self._send(200, {
                 "due": len(due), "backlog": len(backlog),
@@ -1171,7 +1379,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"ok": True})
 
         if parsed.path == "/api/word_pass":
-            # 考试通过——整个产品唯一的学习落库动作（SRS 爬梯即实时记录）
+            # 考试通过——整个产品唯一的加分动作（权重回满、耐久变长，FLOW §4）
             word = (payload.get("word") or "").lower()
             if not word:
                 return self._send(400, {"error": "bad word"})
@@ -1182,7 +1390,21 @@ class Handler(BaseHTTPRequestHandler):
                 con.execute(
                     "insert or ignore into marks(word,status,ts,src) "
                     "values(?,1,?,'add')", (word, time.time()))
-                srs_review(con, word)
+                srs_pass(con, word)
+                con.commit()
+            finally:
+                con.close()
+            return self._send(200, {"ok": True})
+
+        if parsed.path == "/api/word_fail":
+            # 考挂（FLOW §4）：在学词静默降权（权重、耐久减半，太低回生词池）；
+            # 新词零记录。界面零提示，不记挂科史
+            word = (payload.get("word") or "").lower()
+            if not word:
+                return self._send(400, {"error": "bad word"})
+            con = db()
+            try:
+                srs_fail(con, word)
                 con.commit()
             finally:
                 con.close()
@@ -1197,12 +1419,12 @@ class Handler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/daily_task":
             quota = payload.get("new_quota", NEW_QUOTA_DEFAULT)
-            now = time.time()
             con = db()
             try:
                 srs = srs_map(con)
                 due = [w for w, s in srs.items()
-                       if s["state"] == "learning" and s["due_ts"] <= now]
+                       if s["state"] == "learning"
+                       and s["weight"] <= REVIEW_LINE]
                 backlog = get_backlog(con)
                 fresh = backlog[:quota]
                 # 不预注册：新词考过才进梯（FLOW 不变量——过词只有考试一条路）
@@ -1231,10 +1453,10 @@ class Handler(BaseHTTPRequestHandler):
             con = db()
             try:
                 con.execute(
-                    "insert into word_srs(word, level, due_ts, state, added_ts)"
-                    " values(?,99,?, 'graduated', ?)"
+                    "insert into word_srs(word, level, due_ts, state, added_ts,"
+                    " reviewed_ts, stab, base) values(?,99,?,'graduated',?,?,?,100)"
                     " on conflict(word) do update set state='graduated'",
-                    (word, now, now))
+                    (word, now, now, now, float(GRAD_STAB)))
                 con.execute(
                     "insert into marks(word,status,ts,src) values(?,3,?,NULL) "
                     "on conflict(word) do update set status=3, ts=excluded.ts",
@@ -1248,15 +1470,10 @@ class Handler(BaseHTTPRequestHandler):
             word = (payload.get("word") or "").lower()
             if not word:
                 return self._send(400, {"error": "no word"})
-            now = time.time()
+            # 「还是不熟」= 按考挂处理（FLOW §4）；生词池/回池的词本来就在池里，无变化
             con = db()
             try:
-                con.execute(
-                    "insert into word_srs(word, level, due_ts, state, added_ts)"
-                    " values(?,0,?, 'learning', ?)"
-                    " on conflict(word) do update set"
-                    " level=0, due_ts=?, state='learning'",
-                    (word, now, now, now))
+                srs_fail(con, word, manual=True)
                 con.commit()
             finally:
                 con.close()
@@ -1273,12 +1490,7 @@ class Handler(BaseHTTPRequestHandler):
                     "insert into marks(word,status,ts,src) values(?,1,?,'add') "
                     "on conflict(word) do update set status=1, ts=excluded.ts",
                     (word, now))
-                con.execute(
-                    "insert into word_srs(word, level, due_ts, state, added_ts)"
-                    " values(?,0,?, 'learning', ?)"
-                    " on conflict(word) do update set"
-                    " level=0, due_ts=?, state='learning'",
-                    (word, now, now, now))
+                srs_upsert_learning(con, word, 1, 1.0, now)  # 按刚学会处理
                 con.commit()
             finally:
                 con.close()
@@ -1293,6 +1505,21 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, {"error": "词典里查不到这个词"})
             set_mark(word, 1, "add")
             return self._send(200, {"ok": True})
+
+        if parsed.path == "/api/wordbook_import":
+            # 词表导入（FLOW 工具页）：只进生词池，工具页不计分
+            text = payload.get("text")
+            if not isinstance(text, str) or not text.strip():
+                return self._send(400, {"error": "empty"})
+            if len(text.encode("utf-8")) > IMPORT_MAX_BYTES:
+                return self._send(400, {"error": "词表太大（上限 512KB）"})
+            try:
+                out = import_wordlist(text, bool(payload.get("include_known")))
+            except ValueError:
+                return self._send(400, {"error": "一次最多 %d 个词" % IMPORT_MAX_ITEMS})
+            return self._send(200, {
+                **{k + "_count": len(v) for k, v in out.items()},
+                **{k: v[:100] for k, v in out.items()}})
 
         if parsed.path == "/api/dialogue_delete":
             did = payload.get("id")
