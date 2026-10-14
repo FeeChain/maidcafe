@@ -105,7 +105,8 @@ class TestVerifier(unittest.TestCase):
         self.assertEqual(r["known_ratio"], 1.0)
 
     def test_honorifics_setting_words_interjections_not_unknown(self):
-        r = self._v(turns("Ooh, Momo-san and Suzu-chan run the maid cafe!"),
+        r = self._v(turns("Ooh, Momo-san and Suzu-chan run the maid cafe!",
+                          "Phew! Alright, whew."),
                     [], {"run"})
         self.assertEqual(r["unknown_words"], [])
         self.assertEqual(r["known_ratio"], 1.0)
@@ -296,6 +297,52 @@ class TestPerTurnCap(unittest.TestCase):
             (dialogue.call_ollama, dialogue.synthesize, dialogue.DB_PATH) = orig
         self.assertEqual(len(calls), 2, "the dense line alone must force a rewrite")
         self.assertIn("line 11 (Suzu): zymurgy, calx, quux", calls[1][-1]["content"])
+
+
+class TestBestDraftSelection(unittest.TestCase):
+    def test_passing_draft_wins_even_with_lower_score(self):
+        # 第 1 稿：已知率 1.0 但一句扎堆（它同时也算 1 句超偏好）→ 0.88；
+        # 第 2 稿达标但三句各 2 个生词 → 0.87
+        reports = [
+            {"missing_targets": [], "unknown_words": [], "banned_address": [],
+             "dense_turns": [{"turn": 1, "speaker": "Momo", "words": ["a", "b", "c"]}],
+             "busy_turns": 1, "known_ratio": 1.0, "checkable_tokens": 40},
+            {"missing_targets": [], "unknown_words": ["x", "y"], "banned_address": [],
+             "dense_turns": [], "busy_turns": 3, "known_ratio": 0.93,
+             "checkable_tokens": 40},
+        ]
+        self.assertGreater(dialogue.score(reports[0]), dialogue.score(reports[1]))
+        drafts = [[{"speaker": "Momo", "text": "draft one"}],
+                  [{"speaker": "Momo", "text": "draft two"}]]
+        n = {"call": 0, "verify": 0}
+
+        def fake_ollama(messages):
+            n["call"] += 1
+            return drafts[n["call"] - 1]
+
+        def fake_verify(*a, **k):
+            n["verify"] += 1
+            return dict(reports[n["verify"] - 1])
+
+        db_path = os.path.join(TMP, "best.db")
+        con = sqlite3.connect(db_path)
+        con.execute("create table marks(word text primary key, status integer, ts real)")
+        con.commit()
+        con.close()
+        orig = (dialogue.call_ollama, dialogue.verify, dialogue.synthesize, dialogue.DB_PATH)
+        dialogue.call_ollama, dialogue.verify = fake_ollama, fake_verify
+        dialogue.synthesize = lambda turns, vmap, out_dir: []
+        dialogue.DB_PATH = db_path
+        try:
+            did = dialogue.generate(["tea"], seed=5)
+        finally:
+            (dialogue.call_ollama, dialogue.verify, dialogue.synthesize,
+             dialogue.DB_PATH) = orig
+        con = sqlite3.connect(db_path)
+        shipped = con.execute("select turns from dialogues where id=?", (did,)).fetchone()[0]
+        con.close()
+        self.assertEqual(n["call"], 2)
+        self.assertIn("draft two", shipped, "the passing draft must be the one shipped")
 
 
 class TestCastDiscipline(unittest.TestCase):

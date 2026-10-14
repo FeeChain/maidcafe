@@ -62,8 +62,10 @@ time day way things thing something anything nothing everyone someone maybe
 back still even also always never again guest guests miss mr mrs ms
 """.split())
 # 设定强加的词不算生词：场景词、日式称谓（Suzu-chan 拆出 chan）、口头感叹
+# （alright/phew/whew：10-14 真模型实测 6 稿里被误判 3 次）
 FUNCTION_WORDS |= {"maid", "maids", "cafe", "san", "chan", "kun", "sama",
-                   "senpai", "ooh", "aww", "huh", "oops", "whoa", "yay"}
+                   "senpai", "ooh", "aww", "huh", "oops", "whoa", "yay",
+                   "alright", "phew", "whew"}
 # 缩写一律是代词/助动词的变体（don't/isn't/we're/you'll/I'd）；'s 已由 norm 去掉
 CLITIC = re.compile(r"(?:n't|'m|'re|'ve|'ll|'d)$")
 
@@ -445,11 +447,14 @@ def generate(targets, seed=None):
                       report["unknown_words"][:8], report["banned_address"],
                       [(d["turn"], d["words"]) for d in report["dense_turns"]],
                       report["gen_seconds"]))
-            if best is None or score(report) > score(best[1]):
+            ok = (not report["missing_targets"] and not report["banned_address"]
+                  and not report["dense_turns"]
+                  and report["known_ratio"] >= KNOWN_RATIO_TARGET)
+            # 达标稿无条件采用；分数只在不达标的稿之间比（每句 2 个生词的轻扣分
+            # 可能让达标稿分数低于不达标稿——10-14 读码时发现）
+            if ok or best is None or score(report) > score(best[1]):
                 best = (turns, report)
-            if (not report["missing_targets"] and not report["banned_address"]
-                    and not report["dense_turns"]
-                    and report["known_ratio"] >= KNOWN_RATIO_TARGET):
+            if ok:
                 break
             messages.append({"role": "assistant",
                              "content": json.dumps({"turns": turns})})
