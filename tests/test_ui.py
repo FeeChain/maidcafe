@@ -579,10 +579,13 @@ class TestProbeRace(UIBase):
     PORT = 8802
 
     def test_v05_probe_never_reasks_a_block_on_slow_writes(self):
+        # 每批 3 个标记的延迟依次 900/300/100ms：先答的反而后落库——只等"批末那个"
+        # 不够，必须等整批（10-14 CI 偶发失败暴露的残留竞态）
         self.page.add_init_script(
-            "const _f = window.fetch; window.fetch = (u, o) => String(u)"
-            ".includes('/api/mark') ? new Promise((r) => setTimeout(r, 400))"
-            ".then(() => _f(u, o)) : _f(u, o);")
+            "const _f = window.fetch; let _n = 0; window.fetch = (u, o) => {"
+            " if (!String(u).includes('/api/mark')) return _f(u, o);"
+            " const d = [900, 300, 100][_n++ % 3];"
+            " return new Promise((r) => setTimeout(r, d)).then(() => _f(u, o)); };")
         self.page.goto(self.base + "/calibrate?probe=1")
         self.page.wait_for_selector("#card", state="visible")
         tiers = []

@@ -219,9 +219,7 @@ async function finalize(canRead) {
                            src: probeMode ? "probe" : "scan",
                            session: probeSession || undefined }),
   });
-  // 探针批末：等最后一个标记落库再要下一批——否则 probe_next 抢在它前面，
-  // 服务端只看到 2 个样本，把同一块再问一遍（2026-10-13 真机冒烟抓到：每轮都翻倍）
-  if (probeMode && idx >= queue.length) await saved;
+  if (probeMode) markSaves.push(saved);   // 登记：probeNext 要等它落库
   showCurrent();
   await saved;
   if (!probeMode) loadStats();
@@ -265,7 +263,15 @@ async function startProbe(kind, fresh) {
 
 /* 动态折半：向服务端要下一批 3 词；服务端每次从全部标记重放搜索，
  * 所以中途退出、明天再来都严格接着走 */
+/* 尚未落库的标记请求。要下一批前必须全部落库——否则服务端少看到样本，把同一块
+   再问一遍。10-13 真机冒烟抓到（每轮翻倍），当时只等了批末那一个；10-14 CI 偶发
+   失败证明不够：服务器多线程并发写，先发的标记可能后落库，所以等整批。 */
+let markSaves = [];
+
 async function probeNext() {
+  const pending = markSaves;
+  markSaves = [];
+  await Promise.allSettled(pending);
   const r = await fetchJSON(`/api/probe_next?deck=${encodeURIComponent(currentDeck())}${sessParam()}`);
   if (r.done) { showProbeResult(r); return; }
   probeInfo = r;
