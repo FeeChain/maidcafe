@@ -102,6 +102,7 @@
 | E12 | t12 word actions | learned/unfamiliar/readd/dialogue_delete/listened空转 |
 | E17 | t08 lookup.morph | 有词根→parts+family；拆不出→null |
 | E16 | t14 wordbook_import | 五类判定/也加上/只进生词池不建在学行/不进估算/空·超项·超大 400 |
+| E18 | test_dialogue TestPerTurnCap + TestVerifier per_turn/dense | 单句生词硬线 2（目标词不算、同句去重）；整段过线但一句扎堆也退稿；修改意见点名第几句；每句 2 个只轻扣分（✅ 10-14） |
 | E15 | t13 word_fail | 新词零记录/同日不认/昨天考过→静默减半/次日排最前/生词本只给记忆程度/空词 400 |
 | E13 | test_dialogue TestGuestAddress + TestVerifier banned_* | 女仆称客人（10-13 裁决）：叫名字或不加称呼；角色卡不教禁用称呼、prompt 明令、master/sir/ma'am/dear guest 触发修复轮至干净、作目标词不误伤 |
 | E14 | test_dialogue TestVerifier contractions/honorifics | 缩写(don't/we're)、日式称谓(-san/-chan)、场景词(maid/cafe)、感叹词不算生词（10-13 真模型日志抓到的误判） |
@@ -182,7 +183,7 @@
 | E 服务端契约 | e2e t01-t12（12 用例） |
 | F 不变量 1-8 | unit+e2e+ui 交叉（见各区） |
 
-合计 **108 个自动化用例**：test_server 37 · test_dialogue 24 · test_morph 9 · test_e2e 14 ·
+合计 **112 个自动化用例**：test_server 37 · test_dialogue 28 · test_morph 9 · test_e2e 14 ·
 test_ui 24（u01-u14+u08b+u10b+u13b / v01-v05 / w01-w02 有声套件）。本地约 25 秒
 全跑完；CI 两个 job（core 双OS×双Py + ui@ubuntu）。
 

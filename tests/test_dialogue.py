@@ -110,6 +110,18 @@ class TestVerifier(unittest.TestCase):
         self.assertEqual(r["unknown_words"], [])
         self.assertEqual(r["known_ratio"], 1.0)
 
+    def test_per_turn_cap_excludes_targets_and_dedupes(self):
+        # 单句生词上限（10-14 用户裁决）：硬线 2、偏好 1，目标词不算，同句重复只算一次
+        r = self._v(turns("the zymurgy calx quux is warm",     # 3 个 → 超线
+                          "nice blorp and blorp tea",          # blorp 重复 → 1 个
+                          "nice frob grok tea",                # 2 个 → 只扣分
+                          "the mania flib flob warm"),         # mania 是目标词 → 2 个
+                    ["mania"], {"warm", "nice", "tea"})
+        self.assertEqual(r["dense_turns"],
+                         [{"turn": 1, "speaker": "Momo",
+                           "words": ["zymurgy", "calx", "quux"]}])
+        self.assertEqual(r["busy_turns"], 3, "turns 1, 3 and 4 exceed the preferred 1")
+
     def test_banned_address_flagged_not_counted(self):
         # 女仆称客人：master/mistress 单独报出，不混进生词与已知率
         r = self._v(turns("Welcome back, Master! Masters love tea. Yes sir, ma'am, madam."),
@@ -145,6 +157,11 @@ class TestVerifier(unittest.TestCase):
         self.assertGreater(dialogue.score(good), dialogue.score(miss))
         banned = dict(good, banned_address=["master"])
         self.assertGreater(dialogue.score(good), dialogue.score(banned))
+        dense = dict(good, dense_turns=[{"turn": 2, "speaker": "Suzu", "words": ["a", "b", "c"]}])
+        busy = dict(good, busy_turns=1)
+        self.assertGreater(dialogue.score(busy), dialogue.score(dense),
+                           "a hard-cap breach costs more than a 2-word line")
+        self.assertGreater(dialogue.score(good), dialogue.score(busy))
 
     def test_repair_message_contents(self):
         m = dialogue.repair_message(
@@ -154,6 +171,14 @@ class TestVerifier(unittest.TestCase):
         self.assertIn("zymurgy", m["content"])
         self.assertIn("JSON", m["content"])
         self.assertNotIn("by name", m["content"], "no address note when clean")
+
+    def test_repair_message_names_dense_lines(self):
+        m = dialogue.repair_message(
+            {"missing_targets": [], "unknown_words": ["calx"],
+             "dense_turns": [{"turn": 3, "speaker": "Suzu",
+                              "words": ["zymurgy", "calx", "quux"]}]})
+        self.assertIn("line 3 (Suzu): zymurgy, calx, quux", m["content"])
+        self.assertIn("at most 2 per line", m["content"])
 
     def test_repair_message_banned_address(self):
         m = dialogue.repair_message(
@@ -232,6 +257,45 @@ class TestGuestAddress(unittest.TestCase):
         self.assertEqual(row[2], "done")
         self.assertIn("Mr. Sato", row[0])
         self.assertEqual(json.loads(row[1])["banned_address"], [])
+
+
+class TestPerTurnCap(unittest.TestCase):
+    """单句生词上限进了生成循环：整段已知率过线，只因一句扎堆也要退稿重写。"""
+
+    def test_prompt_asks_for_one_hard_word_per_line(self):
+        cast, guest, hid = dialogue.build_cast(random.Random(1))
+        user = dialogue.build_messages(cast, guest, hid, "s", ["tea"])[1]["content"]
+        self.assertIn("at most ONE less common word in any single line", user)
+
+    def test_generate_rejects_a_dense_line_even_when_ratio_passes(self):
+        good = {"speaker": "Momo", "text": "Welcome! The warm sweet tea is nice."}
+        dense = {"speaker": "Suzu", "text": "The zymurgy calx quux."}
+        plain = {"speaker": "Suzu", "text": "The tea is nice."}
+        replies = [[good] * 10 + [dense],      # 40/43 = 0.93 过线，但第 11 句 3 个生词
+                   [good] * 10 + [plain]]
+        calls = []
+
+        def fake_ollama(messages):
+            calls.append([dict(m) for m in messages])
+            return replies[len(calls) - 1]
+
+        db_path = os.path.join(TMP, "cap.db")
+        con = sqlite3.connect(db_path)
+        con.execute("create table marks(word text primary key, status integer, ts real)")
+        con.executemany("insert into marks values(?,3,0)",
+                        [(w,) for w in ("welcome", "warm", "sweet", "nice")])
+        con.commit()
+        con.close()
+        orig = (dialogue.call_ollama, dialogue.synthesize, dialogue.DB_PATH)
+        dialogue.call_ollama = fake_ollama
+        dialogue.synthesize = lambda turns, vmap, out_dir: []
+        dialogue.DB_PATH = db_path
+        try:
+            dialogue.generate(["tea"], seed=3)
+        finally:
+            (dialogue.call_ollama, dialogue.synthesize, dialogue.DB_PATH) = orig
+        self.assertEqual(len(calls), 2, "the dense line alone must force a rewrite")
+        self.assertIn("line 11 (Suzu): zymurgy, calx, quux", calls[1][-1]["content"])
 
 
 class TestCastDiscipline(unittest.TestCase):

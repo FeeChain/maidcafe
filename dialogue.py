@@ -32,6 +32,10 @@ OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL = os.environ.get("MAIDCAFE_MODEL", "qwen3.5:9b-mlx")
 KNOWN_RATIO_TARGET = 0.92
 MAX_REPAIR = 3
+# 单句生词上限（2026-10-14 用户裁决；目标词不算）：整段 92% 会把一句里扎堆的
+# 生词摊平——12 句里有一句挤 3 个生词，整段仍过线，那一句却听不懂。
+MAX_UNKNOWN_PER_TURN = 2      # 硬线：超过就退稿，修改意见点名哪一句
+PREFER_UNKNOWN_PER_TURN = 1   # 软偏好：prompt 里要求；打分时每句 2 个扣一点
 # 女仆称客人（2026-10-13 用户裁决）：中日文的「客人/お客様」在英语口语里不是
 # 称呼语——英语服务业要么叫名字（Mr. Sato），要么不加称呼。所以：不喊 master/
 # mistress，也不用 sir/madam/ma'am 和书面腔的 "dear guest"。maid-cafe 题材模型
@@ -151,10 +155,6 @@ def get_auto_targets(con, n):
 
 # ---------------------------------------------------------------- verifier
 def verify(turns, targets, known, lemmatizer, char_names):
-    text_tokens = []
-    for t in turns:
-        text_tokens.extend(tokenize(t.get("text", "")))
-
     target_set = {t.lower() for t in targets}
     target_lemmas = {lemmatizer.lemma(t) for t in target_set}
 
@@ -163,22 +163,33 @@ def verify(turns, targets, known, lemmatizer, char_names):
     banned = set()
     checkable = 0
     known_count = 0
-    for tok in text_tokens:
-        lem = lemmatizer.lemma(tok)
-        if tok in target_set or lem in target_lemmas:
-            found_targets.add(lem if lem in target_lemmas else tok)
-            continue
-        if tok in BANNED_ADDRESS:
-            banned.add(tok)
-            continue
-        if (tok in char_names or tok in FUNCTION_WORDS or len(tok) <= 2
-                or CLITIC.search(tok)):
-            continue
-        checkable += 1
-        if tok in known or lem in known:
-            known_count += 1
-        else:
-            unknown[tok] = unknown.get(tok, 0) + 1
+    per_turn = []          # 每句的生词（去重，不含目标词），单句上限用
+    for t in turns:
+        turn_unknown = []
+        for tok in tokenize(t.get("text", "")):
+            lem = lemmatizer.lemma(tok)
+            if tok in target_set or lem in target_lemmas:
+                found_targets.add(lem if lem in target_lemmas else tok)
+                continue
+            if tok in BANNED_ADDRESS:
+                banned.add(tok)
+                continue
+            if (tok in char_names or tok in FUNCTION_WORDS or len(tok) <= 2
+                    or CLITIC.search(tok)):
+                continue
+            checkable += 1
+            if tok in known or lem in known:
+                known_count += 1
+            else:
+                unknown[tok] = unknown.get(tok, 0) + 1
+                if tok not in turn_unknown:
+                    turn_unknown.append(tok)
+        per_turn.append(turn_unknown)
+
+    # 超过单句上限的句子：第几句（从 1 数）、谁说的、哪几个生词——修改意见点名用
+    dense = [{"turn": i + 1, "speaker": turns[i].get("speaker", ""), "words": w}
+             for i, w in enumerate(per_turn) if len(w) > MAX_UNKNOWN_PER_TURN]
+    busy = sum(1 for w in per_turn if len(w) > PREFER_UNKNOWN_PER_TURN)
 
     for t in turns:
         if BANNED_PHRASE.search(t.get("text", "")):
@@ -190,14 +201,19 @@ def verify(turns, targets, known, lemmatizer, char_names):
         "missing_targets": missing,
         "unknown_words": sorted(unknown, key=unknown.get, reverse=True),
         "banned_address": sorted(banned),
+        "dense_turns": dense,
+        "busy_turns": busy,
         "known_ratio": round(ratio, 4),
         "checkable_tokens": checkable,
     }
 
 
 def score(report):
+    # 缺目标词最重；违规称呼、超单句上限次之；每句 2 个生词只轻扣（软偏好）
     return (report["known_ratio"] - 0.2 * len(report["missing_targets"])
-            - 0.1 * len(report.get("banned_address", [])))
+            - 0.1 * len(report.get("banned_address", []))
+            - 0.1 * len(report.get("dense_turns", []))
+            - 0.02 * report.get("busy_turns", 0))
 
 
 # ---------------------------------------------------------------- prompts
@@ -283,7 +299,8 @@ def build_messages(cast, guest, hidden, scene, targets):
         "REQUIREMENTS:\n"
         "1. Each of these words MUST appear at least once, used CORRECTLY "
         "with its real meaning (do not force poetic or wrong usages):\n%s\n"
-        "2. All OTHER words must be simple, common everyday English.\n"
+        "2. All OTHER words must be simple, common everyday English, with at "
+        "most ONE less common word in any single line.\n"
         "3. Reply as JSON only: {\"turns\": [{\"speaker\": \"Name\", \"text\": \"...\"}]}\n"
         % (cards, hidden_note, scene, ", ".join(speakers), target_briefs(targets)))
     return [{"role": "system", "content": system},
@@ -299,6 +316,13 @@ def repair_message(report):
         parts.append("These words are too difficult, replace them with very "
                      "simple everyday words or rephrase: %s."
                      % ", ".join(report["unknown_words"][:15]))
+    if report.get("dense_turns"):
+        parts.append("These lines have too many difficult words (at most %d per "
+                     "line, ideally 1), simplify them: %s."
+                     % (MAX_UNKNOWN_PER_TURN, "; ".join(
+                         "line %d (%s): %s" % (d["turn"], d["speaker"],
+                                                ", ".join(d["words"]))
+                         for d in report["dense_turns"])))
     if report.get("banned_address"):
         parts.append("The maids address customers by name (e.g. 'Mr. Sato') "
                      "or with no title, never: %s. Replace every such address."
@@ -415,13 +439,16 @@ def generate(targets, seed=None):
             report = verify(turns, targets, known, lem, char_names)
             report["attempt"] = attempt + 1
             report["gen_seconds"] = round(time.time() - t0, 1)
-            print("attempt %d: ratio=%.3f missing=%s unknown=%s banned=%s (%.1fs)" % (
-                attempt + 1, report["known_ratio"], report["missing_targets"],
-                report["unknown_words"][:8], report["banned_address"],
-                report["gen_seconds"]))
+            print("attempt %d: ratio=%.3f missing=%s unknown=%s banned=%s "
+                  "dense=%s (%.1fs)" % (
+                      attempt + 1, report["known_ratio"], report["missing_targets"],
+                      report["unknown_words"][:8], report["banned_address"],
+                      [(d["turn"], d["words"]) for d in report["dense_turns"]],
+                      report["gen_seconds"]))
             if best is None or score(report) > score(best[1]):
                 best = (turns, report)
             if (not report["missing_targets"] and not report["banned_address"]
+                    and not report["dense_turns"]
                     and report["known_ratio"] >= KNOWN_RATIO_TARGET):
                 break
             messages.append({"role": "assistant",
