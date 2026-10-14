@@ -106,7 +106,7 @@ class TestVerifier(unittest.TestCase):
 
     def test_honorifics_setting_words_interjections_not_unknown(self):
         r = self._v(turns("Ooh, Momo-san and Suzu-chan run the maid cafe!",
-                          "Phew! Alright, whew."),
+                          "Phew! Alright, whew. Haha!"),
                     [], {"run"})
         self.assertEqual(r["unknown_words"], [])
         self.assertEqual(r["known_ratio"], 1.0)
@@ -215,11 +215,55 @@ class TestGuestAddress(unittest.TestCase):
             _, guest, _ = dialogue.build_cast(random.Random(seed))
             if guest:
                 seen[guest["name"]] = guest["card"]
-        self.assertEqual(set(seen), {n for n, _ in dialogue.GUESTS})
-        for name, call in dialogue.GUESTS:
-            self.assertIn("call this customer '%s'" % call, seen[name])
-            self.assertIn("never invent a surname", seen[name])
+        guests = dialogue.ROSTER["guests"]
+        self.assertEqual(set(seen), {g["name"] for g in guests})
+        for g in guests:
+            self.assertIn("call this customer '%s'" % g["call"], seen[g["name"]])
+            self.assertIn("never invent a surname", seen[g["name"]])
         self.assertIn("'Tom'", seen["Old Tom"])
+
+    def test_regulars_have_a_fixed_persona_and_voice(self):
+        # 10-14 用户裁决：名字固定 = 熟客，年龄/性格/音色也固定（旧代码随机，
+        # 会出"年轻的 Old Tom"，同一个人这次害羞下次话痨）
+        seen = {}
+        for seed in range(600):
+            _, guest, _ = dialogue.build_cast(random.Random(seed))
+            if guest:
+                seen.setdefault(guest["name"], set()).add(
+                    (guest["card"], guest["voice"], guest["kokoro_voice"]))
+        self.assertEqual(len(seen), 5)
+        for name, variants in seen.items():
+            self.assertEqual(len(variants), 1, "%s varies: %s" % (name, variants))
+        tom_card = next(iter(seen["Old Tom"]))[0]
+        self.assertIn("elderly", tom_card)
+        self.assertNotIn("young", tom_card)
+
+    def test_every_guest_is_voiced_with_their_own_kokoro_voice(self):
+        # 5 位熟客逐一检查（只查一位时，随机抽音色有一半概率碰巧抽对——变异检查抓到）
+        seeds = {}
+        for s in range(2000):
+            g = dialogue.build_cast(random.Random(s))[1]
+            if g and g["name"] not in seeds:
+                seeds[g["name"]] = s
+        self.assertEqual(len(seeds), 5)
+        db_path = os.path.join(TMP, "voice.db")
+        con = sqlite3.connect(db_path)
+        con.execute("create table if not exists marks(word text primary key,"
+                    " status integer, ts real)")
+        con.commit()
+        con.close()
+        got = {}
+        orig = (dialogue.call_ollama, dialogue.synthesize, dialogue.DB_PATH)
+        dialogue.call_ollama = lambda m: [{"speaker": "Momo", "text": "tea"}]
+        dialogue.synthesize = lambda turns, vmap, out_dir: got.update(vmap) or []
+        dialogue.DB_PATH = db_path
+        try:
+            for seed in seeds.values():
+                dialogue.generate(["tea"], seed=seed)
+        finally:
+            (dialogue.call_ollama, dialogue.synthesize, dialogue.DB_PATH) = orig
+        for g in dialogue.ROSTER["guests"]:
+            self.assertEqual(got[g["name"].lower()]["kokoro"], g["kokoro_voice"], g["name"])
 
     def test_generate_repairs_master_until_name(self):
         calls = []

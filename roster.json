@@ -41,20 +41,41 @@
       "kokoro_voice": "af_heart"
     }
   ],
-  "guest_voices": [
-    "Moira",
-    "Tessa",
-    "Daniel",
-    "Fred",
-    "Grandma (English (US))",
-    "Grandpa (English (US))",
-    "Tara"
-  ],
-  "guest_kokoro_voices": [
-    "am_adam",
-    "am_michael",
-    "bm_george",
-    "af_nicole",
-    "bf_emma"
+  "guests": [
+    {
+      "name": "Mr. Sato",
+      "call": "Mr. Sato",
+      "card": "Mr. Sato, a middle-aged office worker and a regular. Shy and polite, speaks briefly, and orders the same coffee every time.",
+      "voice": "Fred",
+      "kokoro_voice": "am_michael"
+    },
+    {
+      "name": "Ms. Lin",
+      "call": "Ms. Lin",
+      "card": "Ms. Lin, a young international student and a regular. Curious about everything in the cafe and likes asking the maids questions.",
+      "voice": "Tessa",
+      "kokoro_voice": "af_nicole"
+    },
+    {
+      "name": "Old Tom",
+      "call": "Tom",
+      "card": "Old Tom, an elderly regular. Grumpy on the surface but soft-hearted: he grumbles a little, then says something kind.",
+      "voice": "Grandpa (English (US))",
+      "kokoro_voice": "bm_george"
+    },
+    {
+      "name": "Anna",
+      "call": "Anna",
+      "card": "Anna, a young regular. Cheerful and very talkative; she loves chatting with the maids.",
+      "voice": "Tara",
+      "kokoro_voice": "bf_emma"
+    },
+    {
+      "name": "Ken",
+      "call": "Ken",
+      "card": "Ken, a middle-aged regular. Quiet; he always brings a book and reads by the window.",
+      "voice": "Daniel",
+      "kokoro_voice": "am_adam"
+    }
   ]
 }

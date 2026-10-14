@@ -62,10 +62,10 @@ time day way things thing something anything nothing everyone someone maybe
 back still even also always never again guest guests miss mr mrs ms
 """.split())
 # 设定强加的词不算生词：场景词、日式称谓（Suzu-chan 拆出 chan）、口头感叹
-# （alright/phew/whew：10-14 真模型实测 6 稿里被误判 3 次）
+# （alright/phew/whew/haha：10-14 真模型实测中被误判为生词）
 FUNCTION_WORDS |= {"maid", "maids", "cafe", "san", "chan", "kun", "sama",
                    "senpai", "ooh", "aww", "huh", "oops", "whoa", "yay",
-                   "alright", "phew", "whew"}
+                   "alright", "phew", "whew", "haha"}
 # 缩写一律是代词/助动词的变体（don't/isn't/we're/you'll/I'd）；'s 已由 norm 去掉
 CLITIC = re.compile(r"(?:n't|'m|'re|'ve|'ll|'d)$")
 
@@ -219,10 +219,12 @@ def score(report):
 
 
 # ---------------------------------------------------------------- prompts
-# 散客：名字 + 女仆怎么叫他。叫名字是称客人的英语说法（见 BANNED_ADDRESS），
-# 所以必须给定叫法——否则模型会给没姓的 Old Tom 编一个 "Mr. Smith"。
-GUESTS = [("Mr. Sato", "Mr. Sato"), ("Ms. Lin", "Ms. Lin"), ("Old Tom", "Tom"),
-          ("Anna", "Anna"), ("Ken", "Ken")]
+# 客人 = roster.json 里 5 位熟客，年龄/性格/音色都固定（2026-10-14 用户裁决：
+# 名字固定就是熟客，随机年龄会出"年轻的 Old Tom"、性格每次不同说不通）。
+# call = 女仆怎么叫他：叫名字是称客人的英语说法（见 BANNED_ADDRESS），必须给定，
+# 否则模型会给没姓的 Old Tom 编一个 "Mr. Smith"。
+GUEST_CALL_RULE = ("The maids call this customer '%s' — never invent a surname "
+                   "or any other title. Keep their lines short and natural.")
 
 
 def build_cast(rng):
@@ -232,17 +234,8 @@ def build_cast(rng):
     cast = rng.sample(chars, k)
     guest = None
     if k <= 2 and rng.random() < SCENES.get("guest_probability", 0.3):
-        name, call = rng.choice(GUESTS)
-        guest = {
-            "name": name,
-            "voice": rng.choice(ROSTER["guest_voices"]),
-            "card": "A walk-in customer: %s, %s. The maids call this customer "
-                    "'%s' — never invent a surname or any other title. "
-                    "Keep their lines short and natural."
-                    % (rng.choice(["young", "middle-aged", "elderly"]),
-                       rng.choice(["cheerful", "shy", "grumpy but soft-hearted",
-                                   "curious", "very talkative"]), call),
-        }
+        g = rng.choice(ROSTER["guests"])
+        guest = dict(g, card=g["card"] + " " + GUEST_CALL_RULE % g["call"])
     hidden = None
     if rng.random() < SCENES.get("hidden_side_probability", 0.1):
         hidden = rng.choice(cast)
@@ -406,14 +399,14 @@ def generate(targets, seed=None):
     known = get_known_set(con)
     lem = Lemma(ECDICT_DB)
     char_names = {c["name"].lower() for c in ROSTER["characters"]}
-    char_names.update({"sato", "lin", "tom", "anna", "ken"})
+    for g in ROSTER["guests"]:      # 客人名（Mr. Sato → sato）不算生词
+        char_names.update(tokenize(g["call"]) + tokenize(g["name"])[-1:])
 
     cast, guest, hidden = build_cast(rng)
     guest_vmap = {}
     if guest:
         guest_vmap[guest["name"].lower()] = {
-            "say": guest["voice"],
-            "kokoro": rng.choice(ROSTER.get("guest_kokoro_voices", ["am_adam"]))}
+            "say": guest["voice"], "kokoro": guest["kokoro_voice"]}
     scene = rng.choice(SCENES["scenes"])
     messages = build_messages(cast, guest, hidden, scene, targets)
 
