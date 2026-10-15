@@ -106,6 +106,7 @@
 | E19 | test_dialogue TestBestDraftSelection | 达标稿无条件被采用：哪怕它因"每句 2 个生词"轻扣分而分数低于更早的不达标稿（10-14 读码发现的 bug）（✅ 10-14） |
 | E20 | test_dialogue TestGuestAddress regulars/voice | 5 位熟客设定与音色恒定（600 个种子下每人只有一种卡片+音色；Old Tom 永远 elderly）；配音逐一用各自固定的 Kokoro 音色（✅ 10-14） |
 | E21 | test_dialogue TestVoicesAndSetting | 口音配比（女仆 3美1英1日、Momo 日音；熟客 3美2英）；英式音色 en-gb、其余 en-us；配音任务逐角色带发音规则；prompt 写明香港，Hong Kong 不算生词（✅ 10-15） |
+| E22 | test_dialogue target_briefs_clean | 目标词释义：去 WordNet 词性标记、例句整理成 e.g.、中文取前 3 行跳过 [计][医] 领域义（secular 的常用义在第 2 行）（✅ 10-15） |
 | E15 | t13 word_fail | 新词零记录/同日不认/昨天考过→静默减半/次日排最前/生词本只给记忆程度/空词 400 |
 | E13 | test_dialogue TestGuestAddress + TestVerifier banned_* | 女仆称客人（10-13 裁决）：叫名字或不加称呼；角色卡不教禁用称呼、prompt 明令、master/sir/ma'am/dear guest 触发修复轮至干净、作目标词不误伤 |
 | E14 | test_dialogue TestVerifier contractions/honorifics | 缩写(don't/we're)、日式称谓(-san/-chan)、场景词(maid/cafe)、感叹词不算生词（10-13 真模型日志抓到的误判） |
@@ -186,7 +187,7 @@
 | E 服务端契约 | e2e t01-t12（12 用例） |
 | F 不变量 1-8 | unit+e2e+ui 交叉（见各区） |
 
-合计 **119 个自动化用例**：test_server 37 · test_dialogue 35 · test_morph 9 · test_e2e 14 ·
+合计 **120 个自动化用例**：test_server 37 · test_dialogue 36 · test_morph 9 · test_e2e 14 ·
 test_ui 24（u01-u14+u08b+u10b+u13b / v01-v05 / w01-w02 有声套件）。本地约 25 秒
 全跑完；CI 两个 job（core 双OS×双Py + ui@ubuntu）。
 

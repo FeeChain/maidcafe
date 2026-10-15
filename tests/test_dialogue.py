@@ -466,6 +466,33 @@ class TestCastDiscipline(unittest.TestCase):
         self.assertEqual(guest_when_big, 0, "guests only when cast <= 2")
         self.assertLess(abs(hidden / n - .10), .03, "hidden side ~10%")
 
+    def test_target_briefs_clean_and_keep_common_senses(self):
+        ec = os.path.join(TMP, "briefs_ecdict.db")
+        con = sqlite3.connect(ec)
+        con.execute("create table if not exists stardict(word text, definition text,"
+                    " translation text)")
+        con.execute("delete from stardict")
+        con.executemany("insert into stardict values(?,?,?)", [
+            ("monotonous", 's tediously repetitious; dull"', "a. 单调的"),
+            ("ascend", 'v. travel up, "We ascended the mountain"', "vi. 上升\nvt. 攀登"),
+            ("secular", "a. not religious", "n. 修道院外的教士\na. 世俗的, 现世的\n[法] 世俗的"),
+        ])
+        con.commit()
+        con.close()
+        orig = dialogue.ECDICT_DB
+        dialogue.ECDICT_DB = ec
+        try:
+            out = dialogue.target_briefs(["monotonous", "ascend", "secular"]).splitlines()
+        finally:
+            dialogue.ECDICT_DB = orig
+        self.assertEqual(out[0], "- monotonous — tediously repetitious; dull / a. 单调的",
+                         "WordNet POS marker and stray quote removed")
+        self.assertEqual(out[1], '- ascend — travel up, e.g. "We ascended the mountain"'
+                                 " / vi. 上升; vt. 攀登",
+                         "example kept in a clean e.g. form; second Chinese line kept")
+        self.assertIn("a. 世俗的", out[2], "common sense on line 2 must reach the model")
+        self.assertNotIn("[法]", out[2], "domain-tag lines skipped")
+
     def test_target_briefs_without_ecdict(self):
         out = dialogue.target_briefs(["seldom", "praise"])
         self.assertIsInstance(out, str)

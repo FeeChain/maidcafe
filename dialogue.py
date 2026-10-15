@@ -242,21 +242,33 @@ def build_cast(rng):
     return cast, guest, hidden
 
 
+WN_POS = re.compile(r"^[nvasr]\.?\s+")   # 英文释义开头的 WordNet 词性标记
+
+
 def target_briefs(targets):
     """word -> short usage brief (EN definition + CN gloss) from ECDICT, so the
-    model uses each target word CORRECTLY instead of forcing it in."""
+    model uses each target word CORRECTLY instead of forcing it in.
+    英文取第一行，去掉词性标记（"s tediously…" 的 s），引号里的例句整理成 e.g. 保留
+    （例句帮模型用对词）；中文取前 3 行、
+    跳过 [计][医] 等领域义——只取第一行时 secular 拿到的是冷僻义"修道院外的教士"，
+    常用的"世俗的"在第二行（10-15 读码发现）。"""
     briefs = []
     con = sqlite3.connect(ECDICT_DB) if os.path.exists(ECDICT_DB) else None
     for w in targets:
         line = w
         if con:
             row = con.execute(
-                "select pos, definition, translation from stardict where word=?",
+                "select definition, translation from stardict where word=?",
                 (w.lower(),)).fetchone()
             if row:
-                pos, definition, translation = row
-                en = (definition or "").split("\n")[0].strip()
-                cn = (translation or "").split("\n")[0].strip()
+                definition, translation = row
+                first = WN_POS.sub("", (definition or "").split("\n")[0].strip())
+                en = first.split('"')[0].strip(" ,;")
+                example = re.findall(r'"([^"]+)"', first)
+                if en and example:
+                    en += ', e.g. "%s"' % example[0]
+                cn = "; ".join([l.strip() for l in (translation or "").splitlines()
+                                if l.strip() and not l.strip().startswith("[")][:3])
                 bits = [b for b in (en, cn) if b]
                 if bits:
                     line = "%s — %s" % (w, " / ".join(bits[:2]))
