@@ -4,6 +4,7 @@
 Usage: .venv-tts/bin/python tts_kokoro.py <job.json>
 job.json: {"turns": [{"speaker": "...", "text": "..."}],
            "voice_map": {"name-lower": "kokoro_voice"},
+           "lang_map": {"name-lower": "en-us" | "en-gb"},
            "default_voice": "af_sarah",
            "out_dir": "/abs/path"}
 Writes turn_NN.wav files; prints one filename per line.
@@ -31,7 +32,8 @@ def main(job_path):
     default = job.get("default_voice", "af_sarah")
     for i, turn in enumerate(job["turns"]):
         voice = vmap.get(turn["speaker"].lower(), default)
-        samples, sr = kokoro.create(turn["text"], voice=voice, speed=1.0, lang="en-us")
+        lang = job.get("lang_map", {}).get(turn["speaker"].lower(), "en-us")
+        samples, sr = kokoro.create(turn["text"], voice=voice, speed=1.0, lang=lang)
         name = "turn_%02d.wav" % i
         sf.write(os.path.join(out_dir, name), samples, sr)
         print(name, flush=True)

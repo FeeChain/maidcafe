@@ -65,7 +65,7 @@ back still even also always never again guest guests miss mr mrs ms
 # （alright/phew/whew/haha：10-14 真模型实测中被误判为生词）
 FUNCTION_WORDS |= {"maid", "maids", "cafe", "san", "chan", "kun", "sama",
                    "senpai", "ooh", "aww", "huh", "oops", "whoa", "yay",
-                   "alright", "phew", "whew", "haha"}
+                   "alright", "phew", "whew", "haha", "hong", "kong"}
 # 缩写一律是代词/助动词的变体（don't/isn't/we're/you'll/I'd）；'s 已由 norm 去掉
 CLITIC = re.compile(r"(?:n't|'m|'re|'ve|'ll|'d)$")
 
@@ -278,7 +278,9 @@ def build_messages(cast, guest, hidden, scene, targets):
     speakers = [c["name"] for c in cast] + ([guest["name"]] if guest else [])
     system = (
         "/no_think You write short slice-of-life dialogues set in a cozy "
-        "Japanese-style anime maid cafe. Style: light, warm, a little funny. "
+        "Japanese-style anime maid cafe in Hong Kong. The maids "
+        "come from different countries and use cute maid names at work. "
+        "Style: light, warm, a little funny. "
         "Use ONLY simple everyday English (CEFR A2-B1). Short sentences. "
         "Stay strictly in character. Characters are normal adults with common "
         "sense: they NEVER ask what an everyday object is. Surprise must come "
@@ -350,6 +352,12 @@ KOKORO_PY = os.path.join(ROOT, ".venv-tts", "bin", "python")
 KOKORO_MODEL = os.path.join(ROOT, "data", "kokoro-v1.0.onnx")
 
 
+def kokoro_lang(voice):
+    """Kokoro 的发音规则：英式音色（bf_/bm_）用 en-gb，其余一律 en-us——日语、中文
+    音色也用 en-us，要的是"带口音的英语"，用 ja/zh 规则会把英文当日文/中文念。"""
+    return "en-gb" if voice.startswith("b") else "en-us"
+
+
 def kokoro_available():
     return os.path.exists(KOKORO_PY) and os.path.exists(KOKORO_MODEL)
 
@@ -365,6 +373,7 @@ def synthesize(turns, guest_voice_map, out_dir):
         for name, v in guest_voice_map.items():
             vmap[name] = v["kokoro"]
         job = {"turns": turns, "voice_map": vmap,
+               "lang_map": {n: kokoro_lang(v) for n, v in vmap.items()},
                "default_voice": "af_sarah", "out_dir": out_dir}
         job_path = os.path.join(out_dir, "job.json")
         with open(job_path, "w", encoding="utf-8") as f:

@@ -389,6 +389,58 @@ class TestBestDraftSelection(unittest.TestCase):
         self.assertIn("draft two", shipped, "the passing draft must be the one shipped")
 
 
+class TestVoicesAndSetting(unittest.TestCase):
+    """10-15 用户裁决：女仆 3 美 1 英 1 日（中文音色念英语太难听，Aoi 改纯正美音）、
+    熟客 3 美 2 英，店开在香港。"""
+
+    def test_accent_mix_matches_the_ruling(self):
+        maids = [c["kokoro_voice"][:1] for c in dialogue.ROSTER["characters"]]
+        guests = [g["kokoro_voice"][:1] for g in dialogue.ROSTER["guests"]]
+        self.assertEqual(sorted(maids), ["a", "a", "a", "b", "j"])
+        self.assertEqual(sorted(guests), ["a", "a", "a", "b", "b"])
+        momo = next(c for c in dialogue.ROSTER["characters"] if c["name"] == "Momo")
+        self.assertTrue(momo["kokoro_voice"].startswith("jf_"),
+                        "Momo's art is a Japanese girl, so she is the Japanese voice")
+
+    def test_british_voices_use_british_pronunciation(self):
+        self.assertEqual(dialogue.kokoro_lang("bf_isabella"), "en-gb")
+        self.assertEqual(dialogue.kokoro_lang("bm_george"), "en-gb")
+        for v in ("af_sarah", "am_adam", "jf_alpha", "zf_xiaoxiao"):
+            self.assertEqual(dialogue.kokoro_lang(v), "en-us", v)
+
+    def test_tts_job_carries_a_language_per_speaker(self):
+        jobs = []
+
+        class Done:
+            returncode, stdout, stderr = 0, "turn_00.wav\n", ""
+
+        def fake_run(cmd, **kw):
+            with open(cmd[-1], encoding="utf-8") as f:
+                jobs.append(json.load(f))
+            return Done()
+
+        orig = (dialogue.kokoro_available, dialogue.subprocess.run)
+        dialogue.kokoro_available = lambda: True
+        dialogue.subprocess.run = fake_run
+        try:
+            dialogue.synthesize([{"speaker": "Shizuku", "text": "No."},
+                                 {"speaker": "Momo", "text": "Ta-da!"}],
+                                {"old tom": {"say": "x", "kokoro": "bm_george"}},
+                                os.path.join(TMP, "tts_job"))
+        finally:
+            dialogue.kokoro_available, dialogue.subprocess.run = orig
+        lang = jobs[0]["lang_map"]
+        self.assertEqual((lang["shizuku"], lang["momo"], lang["old tom"]),
+                         ("en-gb", "en-us", "en-gb"))
+
+    def test_hong_kong_setting(self):
+        cast, guest, hid = dialogue.build_cast(random.Random(2))
+        system = dialogue.build_messages(cast, guest, hid, "s", ["tea"])[0]["content"]
+        self.assertIn("maid cafe in Hong Kong", system)
+        r = dialogue.verify(turns("Welcome to Hong Kong!"), [], {"welcome"}, LEM, CHARS)
+        self.assertEqual(r["unknown_words"], [], "the setting's own name is not vocabulary")
+
+
 class TestCastDiscipline(unittest.TestCase):
     def test_size_distribution_and_guest_rule(self):
         counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
