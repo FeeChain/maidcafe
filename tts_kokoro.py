@@ -18,8 +18,8 @@ from kokoro_onnx import Kokoro
 import soundfile as sf
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-MODEL = os.path.join(ROOT, "data", "kokoro-v1.0.onnx")
-VOICES = os.path.join(ROOT, "data", "voices-v1.0.bin")
+MODEL = os.path.join(os.environ.get("MAIDCAFE_DATA_DIR", os.path.join(ROOT, "data")), "kokoro-v1.0.onnx")
+VOICES = os.path.join(os.environ.get("MAIDCAFE_DATA_DIR", os.path.join(ROOT, "data")), "voices-v1.0.bin")
 
 
 def main(job_path):

@@ -36,7 +36,7 @@ async function loadList() {
     el.className = "ditem";
     const date = new Date(d.ts * 1000).toLocaleDateString("zh-CN",
       { month: "numeric", day: "numeric" });
-    const heard = listenedRec[d.id] ? ` · <span class="s3">已听完 ${listenedRec[d.id]}</span>` : "";
+    const heard = listenedRec[d.id] ? ` · <span class="s3">已听完 ${cafeEscape(listenedRec[d.id])}</span>` : "";
     let state = "";
     if (d.status === "writing") {
       state = ` · <span class="s2">☕ 写稿中${d.progress && d.progress.startsWith("attempt")
@@ -44,12 +44,12 @@ async function loadList() {
     } else if (d.status === "tts") {
       state = ` · <span class="s2">🔊 配音中</span>`;
     } else if (d.status === "error") {
-      state = ` · <span class="s1">✗ 翻车了：${d.error || ""}（点击删除）</span>`;
+      state = ` · <span class="s1">这次没准备好：${cafeEscape(d.error || "")}（点击移除）</span>`;
     }
     el.innerHTML =
       `<div class="d-top"><b>#${d.id}</b> · ${date} · ${d.n_turns} 轮 · ` +
-      `${d.characters.join("、")}${heard}${state}</div>` +
-      `<div class="d-scene">${d.scene}</div>`;   // 不挂目标词：盲听不剧透（FLOW 全局）
+      `${cafeEscape(d.characters.join("、"))}${heard}${state}</div>` +
+      `<div class="d-scene">${cafeEscape(d.scene)}</div>`;   // 不挂目标词：盲听不剧透（FLOW 全局）
     if (d.status === "error") {
       el.addEventListener("click", async () => {
         if (!confirm(`删除翻车的对话 #${d.id}？`)) return;
@@ -113,15 +113,7 @@ function matchTarget(token) {
 }
 
 /* every word is clickable (lookup / add-to-wordbook); targets are red */
-function highlightTargets(text) {
-  return text.replace(/[A-Za-z][A-Za-z']*/g, (m) => {
-    if (m.length <= 2) return m;
-    const target = matchTarget(m);
-    const cls = target ? "wclick tword" : "wclick";
-    const word = target || m.toLowerCase();
-    return `<span class="${cls}" data-word="${word}">${m}</span>`;
-  });
-}
+function highlightTargets(text) { return cafeSpeech(text, current.targets); }
 
 let revealedOnce = new Set();  // C4: 纯听模式下被单独揭示的轮
 
@@ -135,12 +127,12 @@ function renderTurns() {
   current.turns.forEach((t, i) => {
     const el = document.createElement("div");
     el.className = "turn" + (i === turnIdx ? " current" : "");
-    const show = mode === "full" ||
+    const show = !current.files.length || mode === "full" ||
       (mode === "progressive" && played.has(i)) ||
       (mode === "pure" && revealedOnce.has(i));
     const color = speakerColor[t.speaker] || "#999";
     let inner =
-      `<span class="spk" style="color:${color}">${artAvatar(t.speaker)}${t.speaker}</span>` +
+      `<span class="spk" style="color:${color}">${artAvatar(t.speaker)}${cafeEscape(t.speaker)}</span>` +
       (show ? `<span class="txt">${highlightTargets(t.text)}</span>`
             : `<span class="txt veiled">●●●</span>`);
     // C4: 纯听模式当前轮给一个"只揭示这一句"的出口
@@ -174,7 +166,7 @@ function playTurn(i) {
   playing = true;
   if (audioEl) audioEl.pause();
   const file = current.files[i];
-  if (!file) { onTurnEnd(); return; }
+  if (!file) { playing = false; renderTurns(); updatePlayBtn(); return; }
   audioEl = new Audio(`/dialogue_audio/${current.id}/${file}`);
   audioEl.onended = onTurnEnd;
   audioEl.play().catch(() => {});
@@ -233,7 +225,8 @@ function togglePlay() {
 }
 
 function updatePlayBtn() {
-  $("playBtn2").textContent = playing ? "⏸ 暂停" : "▶ 播放";
+  $("playBtn2").textContent = current && !current.files.length ? "文字故事 · 点句子阅读" : playing ? "⏸ 暂停" : "▶ 播放";
+  $("playBtn2").disabled = !!current && !current.files.length;
 }
 
 /* ---------------- word card ---------------- */
@@ -329,7 +322,7 @@ async function learnedWithUndo(word) {
 async function unfamiliarGuarded(w) {
   // 「还是不熟」= 按考挂处理：记忆减半，太低就回生词池（FLOW §4）
   await wordAction("/api/word/unfamiliar", w.word);
-  showToast(`${w.word} 已调低记忆程度`, null, null);
+  showToast(`${cafeEscape(w.word)} 已调低记忆程度`, null, null);
 }
 
 /* 只给记忆程度，不给"到期/几天后"——不预告（FLOW §4） */
@@ -348,14 +341,14 @@ async function loadWordbook() {
     el.className = "wb-item";
     const dl = w.dialogues.map((d) => `#${d.id}`).join(" ");
     el.innerHTML =
-      `<div class="wb-head"><b>${w.word}</b> <span class="wb-phon">${w.phonetic}</span>` +
+      `<div class="wb-head"><b>${cafeEscape(w.word)}</b> <span class="wb-phon">${cafeEscape(w.phonetic)}</span>` +
       (w.has_audio ? ' <button class="wb-play">🔊</button>' : "") +
       srsBadge(w) +
       `<span class="wb-dl">${dl ? "出现于 " + dl : "尚未生成对话"}</span>` +
       `<button class="mk small wb-learned" title="跳过剩下的复习，直接毕业">我学会了</button>` +
       (w.srs ? `<button class="mk small wb-unfam" title="按考挂处理：记忆减半">打回重听</button>` : "") +
       `</div>` +
-      `<div class="wb-def">${(w.definition || "").split("\n")[0]}</div>`;
+      `<div class="wb-def">${cafeEscape((w.definition || "").split("\n")[0])}</div>`;
     const btn = el.querySelector(".wb-play");
     if (btn) btn.addEventListener("click", () =>
       new Audio("/audio/" + encodeURIComponent(w.word)).play().catch(() => {}));
@@ -380,7 +373,7 @@ async function loadWordbook() {
       el.className = "wb-item";
       el.style.cursor = "pointer";
       el.innerHTML =
-        `<div class="wb-head"><b>${w.word}</b> <span class="wb-phon">${w.phonetic}</span>` +
+        `<div class="wb-head"><b>${cafeEscape(w.word)}</b> <span class="wb-phon">${cafeEscape(w.phonetic)}</span>` +
         `<span class="wb-dl">点击查看 / 再学一遍</span></div>`;
       el.addEventListener("click", () => showWordCard(w.word, { graduated: true }));
       gbox.appendChild(el);
@@ -432,7 +425,7 @@ async function importWordlist(includeKnown) {
   msg.innerHTML =
     `加入 <b>${r.added_count}</b> 个 · 已在生词本 ${r.already_count} · 已学会 ${r.learned_count}` +
     (r.presumed_count ? ` · 按测定的边界你应该已经认识 ${r.presumed_count} 个（没加）` : "") +
-    (r.missing_count ? ` · 查不到 ${r.missing_count} 个：${r.missing.slice(0, 20).join("、")}` : "");
+    (r.missing_count ? ` · 查不到 ${r.missing_count} 个：${cafeEscape(r.missing.slice(0, 20).join("、"))}` : "");
   if (r.presumed_count) {
     const b = document.createElement("button");
     b.id = "importKnownBtn";
@@ -452,11 +445,11 @@ async function tryAddWord() {
   const info = await fetchJSON("/api/lookup?word=" + encodeURIComponent(w));
   const msg = $("addWordMsg");
   if (!info.definition) {
-    msg.innerHTML = `<span class="s1">词典里没有「${w}」</span>`;
+    msg.innerHTML = `<span class="s1">词典里没有「${cafeEscape(w)}」</span>`;
   } else if (info.in_wordbook) {
     msg.textContent = `「${w}」已在生词池里了`;
   } else if (info.known) {
-    msg.innerHTML = `「${w}」已经毕业了 —— `;
+    msg.innerHTML = `「${cafeEscape(w)}」已经毕业了 —— `;
     const b = document.createElement("button");
     b.className = "mk small";
     b.textContent = "再学一遍";

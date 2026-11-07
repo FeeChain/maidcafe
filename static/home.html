@@ -41,9 +41,9 @@
       <audio id="sampleAudio" controls preload="metadata" aria-label="播放窗边的第一杯" src="/static/cafe/window-seat.mp3"></audio>
       <details><summary>看看她们说了什么</summary><p><b>Momo</b>　You found the window seat! Can I get you a refill?<br><b>Haruka</b>　Leave your cup on the counter. I will fill it for you.<br><b>Momo</b>　Here you go. Two hands this time!<br><b>Haruka</b>　And a napkin, just in case.</p><p>refill · 续杯　 counter · 柜台　 napkin · 餐巾</p></details></div>
     </article>
-    <form id="orderForm" class="order-card"><label for="orderWords">用我的词，听一段新故事</label><p id="orderHelp">写 1–5 个英文词或短语，用逗号分开。由本机 Ollama 现写并配音。</p>
+    <form id="orderForm" class="order-card"><label for="orderWords">用我的词，听一段新故事</label><p id="orderHelp">写 1–5 个英文词或短语，用逗号分开。让店员把它们编进一段日常。</p>
       <div class="order-row"><input id="orderWords" maxlength="180" placeholder="例如 refill, give up" aria-describedby="orderHelp" required><button class="cafe-primary">点这段故事 →</button></div>
-      <p id="orderMsg" role="status"></p>
+      <p id="orderMsg" role="status"></p><div class="story-readiness"><span id="storyStatus" role="status">试听与词卡已准备好</span><button type="button" class="mk small" data-story-setup>故事设置</button></div>
     </form>
     <div class="menu-links"><button id="starterBtn" class="mk">翻翻店里的词卡 →</button><button id="goProbeBtn" class="mk">调一调听力难度</button><a href="/window-seat.apkg" download>带走入门词包 ↓</a></div>
     <details class="cast-notes"><summary>翻开当班名册</summary><div class="cast-grid"><figure><img loading="lazy" src="/static/art/V1_haruka.png" alt=""><figcaption>Haruka<small>店长</small></figcaption></figure><figure><img loading="lazy" src="/static/art/V2_momo.png" alt=""><figcaption>Momo<small>看板娘</small></figcaption></figure><figure><img loading="lazy" src="/static/art/V3_shizuku.png" alt=""><figcaption>Shizuku<small>后厨</small></figcaption></figure><figure><img loading="lazy" src="/static/art/V4_suzu.png" alt=""><figcaption>Suzu<small>大厅接待</small></figcaption></figure><figure><img loading="lazy" src="/static/art/V5_aoi.png" alt=""><figcaption>Aoi<small>实习店员</small></figcaption></figure></div></details>
@@ -124,7 +124,7 @@
         煮着不耽误学——点 [← 回去学] 照常翻卡，出锅了会提醒你 ☕
       </div>
       <div class="gen-row" style="margin-bottom:0;margin-top:12px;">
-        <button id="lsAgainBtn" class="mk hidden">☕ 同组换个场景，再来一杯</button>
+        <button class="mk small" data-story-setup>检查故事助手</button><button id="lsAgainBtn" class="mk hidden">☕ 同组换个场景，再来一杯</button>
       </div>
     </div>
     <div id="lsDlgList" class="dlist" style="margin-top:14px;"></div>
@@ -207,6 +207,15 @@
       </label>
       <div class="hint-line">先放要复习的，再用新词补满。断几天也没关系：每次打开都是这么多，不累计。</div>
       <div id="cfgVocab" class="hint-line"></div>
+      <button class="mk small" data-story-setup>配置故事助手与配音</button>
+      <details class="data-tools"><summary>词库与学习记录</summary>
+        <label class="file-label">导入 Anki 词包 <input id="deckFile" type="file" accept=".apkg"></label>
+        <p class="hint-line">支持常见 .apkg 格式。导入后可去校准工具调整难度。</p>
+        <a href="/api/backup" download="maidcafe-records.json" class="mk small">导出学习记录</a>
+        <label class="file-label">从备份恢复 <input id="restoreFile" type="file" accept=".json"></label>
+        <p class="hint-line">备份包含学习进度和对话文本，不包含词库、模型和录音。恢复仅适用于没有学习记录的安装。</p>
+        <p id="dataStatus" role="status"></p>
+      </details>
       <div class="cfg-links hint-line">
         <a href="/?welcome=1">重看迎宾</a> · <a href="/window-seat.apkg" download>下载入门词包</a><br>校准工具：<a href="/calibrate">全扫词库</a> ·
         <a href="/calibrate?probe=1">探针测词汇量</a> ·
@@ -216,16 +225,34 @@
     <div class="wc-actions"><button id="cfgClose" class="mk small" style="margin-left:auto;">关闭</button></div>
   </div>
 
+  <div id="setupModal" class="word-card hidden setup-dialog" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+    <h2 id="setupTitle">准备你的故事助手</h2>
+    <p class="hint-line">只需设置一次。故事由电脑上的 AI 创作，试听和词卡随时可用。</p>
+    <p id="setupStatus" role="status" class="setup-status"></p>
+    <details id="setupSteps"><summary>第一次使用，从这里开始</summary>
+      <ol><li><a href="https://ollama.com/download" target="_blank" rel="noopener">下载并打开 Ollama</a>，让本地助手运行起来。</li>
+      <li>在 Ollama 中下载一个适合电脑内存的本地聊天模型。首次下载需要联网，模型通常占几 GB。</li>
+      <li>回到这里点「重新检测」，选择模型并保存。之后可以断网使用。</li></ol>
+    </details>
+    <label class="model-label" for="modelSelect">用来写故事的模型</label>
+    <select id="modelSelect"><option value="">正在检测…</option></select>
+    <p id="modelLocked" class="hint-line hidden">本次由启动配置指定模型，应用内选择已锁定。</p>
+    <p id="voiceStatus" class="hint-line"></p>
+    <div class="setup-actions"><button id="setupRefresh" class="mk">重新检测</button><button id="modelSave" class="cafe-primary">保存选择</button><button id="setupClose" class="mk">回到店里</button></div>
+  </div>
+
   <div id="toast" class="toast hidden"
        style="position:fixed;right:24px;bottom:24px;z-index:60;box-shadow:0 6px 24px rgba(90,60,30,.15);">
     <span id="toastMsg"></span>
   </div>
 </main>
 
+<script src="/static/speech.js"></script>
 <script src="/static/keys.js"></script>
 <script src="/static/log.js?v=5"></script>
 <script src="/static/morph.js?v=1"></script>
 <script src="/static/art.js?v=5"></script>
+<script src="/static/setup.js"></script>
 <script src="/static/home.js?v=5"></script>
 </body>
 </html>

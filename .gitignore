@@ -25,3 +25,9 @@ INTERNAL.md
 .DS_Store
 static/_css_backup/
 *.zip
+
+# Desktop build products and private build environments
+build/
+dist/
+.venv-desktop/
+*.spec

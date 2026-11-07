@@ -75,6 +75,20 @@ maidcafe 把你想学的词，<br>
 
 ## 快速开始
 
+### 桌面预览：Mac 与 Windows
+
+桌面版使用独立窗口，内置 Python、界面、入门词库和试听录音。Mac 打开 `.dmg` 后拖入 Applications；Windows 运行 `Windows-x64-Setup.exe` 按向导安装。从开始菜单/应用程序打开即可，无需终端。
+
+安装包由 [desktop-preview 构建](https://github.com/FeeChain/maidcafe/actions/workflows/desktop.yml)产出（Mac Apple Silicon、Mac Intel、Windows x64）。当前是未签名/未公证的测试版本，尚不是正式发行；Actions 附件需要登录且有保留期限。正式公开下载将通过 GitHub Releases 提供，Drive 可以作词包镜像。
+
+第一次可以直接听招待、翻词卡。想生成自己的故事，在「故事设置」中下载并打开 Ollama，选择已下载到本机的聊天模型，再保存；不需要填写环境变量或密钥。Mac/Windows 优先使用已配置的 Kokoro，否则使用系统英语语音；没有可用配音时仍可阅读故事。
+
+设置中的「词库与学习记录」支持导入 Anki 词包、导出记录，在没有学习记录的安装中恢复备份。备份包含进度和故事文字，不含词库、模型或录音。Mac 数据目录是 `~/Library/Application Support/maidcafe/`，Windows 是 `%LOCALAPPDATA%\maidcafe\`；替换应用不会覆盖记录。Windows 需要 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。
+
+维护者构建：Python 3.12 环境安装 `requirements-desktop.txt`，运行 `python packaging/build_desktop.py`；Windows 另需 Inno Setup 6。验证实际程序可运行 `python packaging/smoke_desktop.py <可执行文件路径>`。发布前完成签名、公证，并抽查生成内容。
+
+### 从源代码运行
+
 核心**零依赖**，Python 3.9+ 即可跑起来：
 
 ```bash
@@ -84,7 +98,7 @@ python3 server.py
 
 项目已附带「窗边的第一杯」24 词入门包，含原创中英释义/例句与合成录音。无 Ollama 时仍可试听和翻卡。下载入口在窗边菜单与设置页，标准 `.apkg` 也可导入 Anki，制作说明见 [resources/README.md](resources/README.md)。
 
-自己的 `.apkg` 放进 `decks/`，重启后加载。新增、替换同名包或移除包都会更新缓存。已有的个人词库与学习记录无需搬迁。
+自己的 `.apkg` 可在设置中导入，也可放进 `decks/`，重启后加载。新增、替换同名包或移除包都会更新缓存。源代码版已有的个人词库与学习记录仍使用原路径；迁移到桌面版可导出记录再恢复。
 
 ### 完整体验（对话生成 + 高质量 TTS）还需要
 

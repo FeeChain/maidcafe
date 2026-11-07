@@ -16,16 +16,23 @@ import os
 import random
 import re
 import shutil
+import signal
 import sqlite3
 import subprocess
 import sys
 import time
+import tempfile
+import threading
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import deckparse  # noqa: E402
 import morph  # noqa: E402
+import ai_runtime
+import portability
+from app_paths import VERSION
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DECKS_DIR = os.environ.get("MAIDCAFE_DECKS", os.path.join(ROOT, "decks"))
@@ -167,7 +174,46 @@ def get_morph():
     return _MORPH
 
 
-GEN_MODEL = os.environ.get("MAIDCAFE_MODEL", "qwen3.6:27b-mlx")
+GEN_MODEL = os.environ.get("MAIDCAFE_MODEL", "")
+GEN_PROCESS = None
+GEN_LOCK = threading.Lock()
+IMPORT_LOCK = threading.Lock()
+LOG_DIR = os.environ.get("MAIDCAFE_LOG_DIR", ROOT)
+
+
+def stop_generation():
+    global GEN_PROCESS
+    with GEN_LOCK:
+        if GEN_PROCESS is not None and GEN_PROCESS.poll() is None:
+            if os.name == 'nt':
+                subprocess.run(['taskkill', '/PID', str(GEN_PROCESS.pid), '/T', '/F'],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               creationflags=subprocess.CREATE_NO_WINDOW)
+            else:
+                try:
+                    os.killpg(GEN_PROCESS.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+            try:
+                GEN_PROCESS.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                if os.name != 'nt':
+                    try:
+                        os.killpg(GEN_PROCESS.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                else:
+                    GEN_PROCESS.kill()
+                GEN_PROCESS.wait(timeout=3)
+            con = db()
+            try:
+                con.execute("update dialogues set status='error', report=? where status in ('writing','tts')",
+                            (json.dumps({'error': '上次离店时故事尚未完成，可以重新点单。'}),))
+                con.commit()
+            finally:
+                con.close()
+        GEN_PROCESS = None
+
 ECDICT_PATH = ECDICT_DB
 
 # 权重模型（FLOW §4，2026-10-13 用户确认）：权重 = 记忆程度，打开时现算
@@ -891,6 +937,8 @@ CONTENT_TYPES = {
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
     ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".m4a": "audio/mp4",
     ".json": "application/json; charset=utf-8",
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -933,10 +981,40 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _local_request(self):
+        host = self.headers.get('Host', '')
+        origin = self.headers.get('Origin')
+        if not (host.startswith('127.0.0.1:') or host.startswith('localhost:')):
+            self._send(403, {'error': '仅限本机使用'})
+            return False
+        if origin and origin not in ('http://' + host, 'https://' + host):
+            self._send(403, {'error': '请求来源不匹配'})
+            return False
+        return True
+
     def do_GET(self):
+        if not self._local_request():
+            return
         parsed = urlparse(self.path)
         path = parsed.path
         qs = parse_qs(parsed.query)
+
+        if path == "/api/setup":
+            return self._send(200, dict(ai_runtime.inspect(kv_get('model', '')), version=VERSION))
+
+        if path == "/api/backup":
+            con = db()
+            try:
+                body = json.dumps(portability.export_records(con), ensure_ascii=False).encode('utf-8')
+            finally:
+                con.close()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Disposition', 'attachment; filename="maidcafe-records-%s.json"' % time.strftime('%Y%m%d'))
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
 
         if path == "/":
             return self._send_file(os.path.join(STATIC_DIR, "home.html"))
@@ -1244,13 +1322,86 @@ class Handler(BaseHTTPRequestHandler):
 
         return self._send(404, {"error": "not found"})
 
+    def _import_deck(self, parsed, length):
+        if not 0 < length <= 512 * 1024 * 1024:
+            return self._send(413, {'error': '请选择 512 MB 以内的 Anki 词包。'})
+        name = os.path.basename(parse_qs(parsed.query).get('name', [''])[0])
+        if not name.lower().endswith('.apkg'):
+            return self._send(400, {'error': '请选择 .apkg 格式的 Anki 词包。'})
+        os.makedirs(DECKS_DIR, exist_ok=True)
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with IMPORT_LOCK, tempfile.TemporaryDirectory(dir=CACHE_DIR) as tmp:
+            path = os.path.join(tmp, 'incoming.apkg')
+            with open(path, 'wb') as f:
+                left = length
+                while left:
+                    block = self.rfile.read(min(left, 1024 * 1024))
+                    if not block:
+                        return self._send(400, {'error': '文件没有传完，请重新选择。'})
+                    f.write(block)
+                    left -= len(block)
+            try:
+                with zipfile.ZipFile(path) as z:
+                    entries = z.infolist()
+                    if 'collection.anki2' not in z.namelist():
+                        raise ValueError('请在 Anki 导出时开启兼容旧版格式，再导入。')
+                    if sum(x.file_size for x in entries) > 2 * 1024 ** 3 or any('..' in x.filename.replace('\\', '/').split('/') or x.filename.startswith(('/', '\\')) or ':' in x.filename for x in entries):
+                        raise ValueError('这个词包无法安全读取，请换一个文件。')
+                words = deckparse.load_deck(path, os.path.join(tmp, 'check'))
+                if not words:
+                    raise ValueError('这个词包没有找到可用的英文词条。')
+            except (ValueError, OSError, sqlite3.Error, zipfile.BadZipFile, KeyError) as error:
+                return self._send(400, {'error': str(error) if isinstance(error, ValueError) else '无法读取词包，请检查文件是否完整。'})
+            safe = re.sub(r'[^\w. -]', '_', name, flags=re.UNICODE)
+            target = os.path.join(DECKS_DIR, safe)
+            if os.path.exists(target):
+                target = os.path.join(DECKS_DIR, '%s-%d.apkg' % (os.path.splitext(safe)[0], time.time_ns()))
+            shutil.move(path, target)
+            build_words()
+            global _MORPH
+            _MORPH = None
+        return self._send(200, {'ok': True, 'words': len(words), 'name': os.path.basename(target)})
+
     def do_POST(self):
+        global GEN_PROCESS
+        if not self._local_request():
+            return
         parsed = urlparse(self.path)
-        length = int(self.headers.get("Content-Length", 0))
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except ValueError:
+            return self._send(400, {"error": "无效的文件大小"})
+        if parsed.path == "/api/decks/import":
+            return self._import_deck(parsed, length)
+        if length < 0 or length > 32 * 1024 * 1024:
+            return self._send(413, {"error": "文件太大，请选择 32 MB 以内的记录备份。"})
         try:
             payload = json.loads(self.rfile.read(length) or b"{}")
         except json.JSONDecodeError:
             return self._send(400, {"error": "bad json"})
+
+        if not isinstance(payload, dict):
+            return self._send(400, {"error": "请求格式无效"})
+
+        if parsed.path == "/api/setup":
+            model = payload.get('model')
+            state = ai_runtime.inspect(kv_get('model', ''))
+            if state['locked']:
+                return self._send(409, {'error': '模型已由启动配置指定。移除 MAIDCAFE_MODEL 后可在这里选择。'})
+            if not isinstance(model, str) or model not in state['models']:
+                return self._send(400, {'error': '这个模型当前不可用，请重新检测。'})
+            kv_set('model', model)
+            return self._send(200, {'ok': True, 'model': model})
+
+        if parsed.path == "/api/restore":
+            con = db()
+            try:
+                count = portability.restore_records(con, payload)
+            except (ValueError, sqlite3.Error) as error:
+                return self._send(400, {'error': str(error) if isinstance(error, ValueError) else '备份内容无法恢复，原有记录未改变。'})
+            finally:
+                con.close()
+            return self._send(200, {'ok': True, 'records': count})
 
         if parsed.path == "/api/visit":
             kv_set("seated", "1")
@@ -1355,17 +1506,35 @@ class Handler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/generate":
             words = payload.get("words") or []
-            write_known_snapshot()
-            cmd = [sys.executable, os.path.join(ROOT, "dialogue.py")]
-            if words:
-                cmd += ["--words", ",".join(words)]
-            else:
-                cmd += ["--auto", str(payload.get("auto", 6))]
-            env = dict(os.environ, MAIDCAFE_MODEL=GEN_MODEL)
-            log = open(os.path.join(ROOT, "generate.log"), "a")
-            subprocess.Popen(cmd, env=env, stdout=log, stderr=log,
-                             start_new_session=True)
-            return self._send(200, {"started": True})
+            if (not isinstance(words, list) or len(words) > 5 or any(not isinstance(w, str) or len(w) > 80 or
+                    not re.fullmatch(r"[A-Za-z][A-Za-z0-9]*(?:[ '-][A-Za-z0-9]+){0,3}", w) for w in words)):
+                return self._send(400, {'error': '请用逗号分开 1–5 个英文词或短语。'})
+            # Existing automatic caller support stays, with the same five-word cap.
+            if not words:
+                con = db()
+                try:
+                    words = get_backlog(con)[:5]
+                finally:
+                    con.close()
+            if not words:
+                return self._send(400, {'error': '先选一个想学的词。'})
+            state = ai_runtime.inspect(kv_get('model', ''))
+            if not state['ready']:
+                return self._send(503, {'error': state['message'], 'code': 'setup_required'})
+            with GEN_LOCK:
+                if GEN_PROCESS is not None and GEN_PROCESS.poll() is None:
+                    return self._send(409, {'error': '上一段故事还在准备，请稍后再点。'})
+                write_known_snapshot()
+                if getattr(sys, 'frozen', False):
+                    cmd = [sys.executable, '--generate', json.dumps(words)]
+                else:
+                    cmd = [sys.executable, os.path.join(ROOT, 'dialogue.py'), '--words', ','.join(words)]
+                env = dict(os.environ, MAIDCAFE_MODEL=state['model'])
+                os.makedirs(LOG_DIR, exist_ok=True)
+                opts = {'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
+                with open(os.path.join(LOG_DIR, 'generate.log'), 'a') as log:
+                    GEN_PROCESS = subprocess.Popen(cmd, env=env, stdout=log, stderr=log, **opts)
+            return self._send(200, {'started': True})
 
         if parsed.path == "/api/log":
             events = payload.get("events") or []
@@ -1488,7 +1657,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/wordbook_add":
             word = (payload.get("word") or "").strip().lower()
-            if not word or not word.replace("-", "").replace("'", "").isalpha():
+            if not word or not re.fullmatch(r"[a-z]+(?:[ '-][a-z]+){0,3}", word):
                 return self._send(400, {"error": "bad word"})
             info = word_info(word)
             if not info["definition"] and not ecdict_lookup(word):

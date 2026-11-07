@@ -24,6 +24,8 @@ jobs:
         run: python3 tests/test_morph.py -v
       - name: Clean checkout and bundled wordbook
         run: python3 tests/test_starter.py -v
+      - name: Desktop setup and data portability
+        run: python3 tests/test_desktop.py -v
       - name: Integration tests (HTTP, isolated server)
         run: python3 tests/test_e2e.py -v
 

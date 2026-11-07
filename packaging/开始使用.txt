@@ -1,0 +1,33 @@
+maidcafe · 0.2.0 预览版
+
+Mac 安装
+打开 DMG，将 maidcafe 拖进 Applications，然后从应用程序打开。
+无需安装 Python。首次打开即可听店内招待、翻 24 个入门词卡。
+
+本预览尚未经过 Apple Developer ID 签名与公证。
+若 macOS 阻止打开，请先确认来源，再在系统设置的「隐私与安全性」中按系统提示处理。
+不需要关闭系统安全功能。正式公开发布前应由维护者完成签名与公证。
+
+Windows 安装
+运行 Windows-x64-Setup.exe，按向导安装；从开始菜单打开 maidcafe。
+无需 Python，也不需要管理员权限。卸载应用会保留学习记录。
+需 Windows 10 1809 或更新版本、Microsoft Edge WebView2 Runtime。
+若提示缺少 WebView2，可从微软官方网站安装：https://developer.microsoft.com/microsoft-edge/webview2/
+当前预览安装包尚未代码签名；正式分发前需要完成签名。
+
+想用自己的词生成故事
+在「窗边点单」点「故事设置」，按引导打开 Ollama。
+选择一个已下载到本机的聊天模型，点保存即可。无需填写密钥或环境变量。
+Mac 和 Windows 可使用系统英语语音配音。高质量 Kokoro 配音是可选进阶设置。
+
+词库与记录
+设置内可以导入 Anki .apkg 词包、导出学习记录、在全新安装中恢复记录。
+记录备份不含词库、模型或对话录音，请另行保留这些文件。
+Mac 桌面版的数据位于 ~/Library/Application Support/maidcafe/。
+Windows 桌面版的数据位于 %LOCALAPPDATA%\maidcafe\。
+替换或移动应用不会覆盖这里的学习记录。
+
+遇到问题
+先尝试「重新检测」故事助手。离线试听和词卡不依赖 Ollama。
+日志保存在数据目录的 logs 文件夹。
+源代码和问题反馈：https://github.com/FeeChain/maidcafe

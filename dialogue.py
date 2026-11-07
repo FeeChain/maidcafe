@@ -17,8 +17,11 @@ import random
 import re
 import sqlite3
 import subprocess
+import sys
 import time
 import urllib.request
+import shutil
+from functools import lru_cache
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("MAIDCAFE_DB", os.path.join(ROOT, "progress.db"))
@@ -372,8 +375,8 @@ def call_ollama(messages):
 
 
 # ---------------------------------------------------------------- tts
-KOKORO_PY = os.path.join(ROOT, ".venv-tts", "bin", "python")
-KOKORO_MODEL = os.path.join(ROOT, "data", "kokoro-v1.0.onnx")
+KOKORO_PY = os.environ.get("MAIDCAFE_TTS_PY", os.path.join(ROOT, ".venv-tts", "bin", "python"))
+KOKORO_MODEL = os.path.join(os.environ.get("MAIDCAFE_DATA_DIR", os.path.join(ROOT, "data")), "kokoro-v1.0.onnx")
 
 
 def kokoro_lang(voice):
@@ -384,6 +387,17 @@ def kokoro_lang(voice):
 
 def kokoro_available():
     return os.path.exists(KOKORO_PY) and os.path.exists(KOKORO_MODEL)
+
+
+@lru_cache(maxsize=1)
+def system_voices():
+    result = subprocess.run(['say', '-v', '?'], capture_output=True, text=True)
+    voices = {}
+    for line in result.stdout.splitlines():
+        match = re.match(r'^(.+?)\s+([a-z]{2}_[A-Z]{2})\s+#', line)
+        if match:
+            voices[match[1].strip()] = match[2]
+    return voices
 
 
 def synthesize(turns, guest_voice_map, out_dir):
@@ -409,6 +423,12 @@ def synthesize(turns, guest_voice_map, out_dir):
             return [line for line in res.stdout.split() if line.endswith(".wav")]
         print("kokoro failed, falling back to say:\n" + res.stderr[-800:])
 
+    if sys.platform == 'win32':
+        from windows_speech import synthesize as windows_synthesize
+        return windows_synthesize(turns, out_dir)
+    if not shutil.which('say') or not shutil.which('afconvert'):
+        # Non-macOS installations without Kokoro can still read generated stories.
+        return []
     vmap = {c["name"].lower(): c["voice"] for c in ROSTER["characters"]}
     for name, v in guest_voice_map.items():
         vmap[name] = v["say"]
@@ -417,7 +437,10 @@ def synthesize(turns, guest_voice_map, out_dir):
         voice = vmap.get(t["speaker"].lower(), "Samantha")
         aiff = os.path.join(out_dir, "turn_%02d.aiff" % i)
         m4a = os.path.join(out_dir, "turn_%02d.m4a" % i)
-        subprocess.run(["say", "-v", voice, "-o", aiff, t["text"]], check=True)
+        available = system_voices()
+        voice = voice if voice in available else next((v for v, lang in available.items() if lang.startswith('en_')), None)
+        command = ['say'] + (['-v', voice] if voice else [])
+        subprocess.run(command + ['-o', aiff, t['text']], check=True)
         subprocess.run(["afconvert", "-f", "m4af", "-d", "aac", aiff, m4a],
                        check=True, capture_output=True)
         os.remove(aiff)
@@ -495,7 +518,8 @@ def generate(targets, seed=None):
         con.commit()
 
         files = synthesize(turns, guest_vmap, os.path.join(AUDIO_OUT, str(did)))
-        con.execute("update dialogues set status='done' where id=?", (did,))
+        report['audio_mode'] = 'audio' if files else 'text'
+        con.execute("update dialogues set status='done', report=? where id=?", (json.dumps(report), did))
         con.commit()
     except Exception as e:
         con.execute("update dialogues set status='error', report=? where id=?",

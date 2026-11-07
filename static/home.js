@@ -4,8 +4,9 @@
 const $ = (id) => document.getElementById(id);
 async function fetchJSON(url, opts) {
   const r = await fetch(url, opts);
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json();
+  const data = await r.json();
+  if (!r.ok) { const error = new Error(data.error || '暂时没有连到店内服务。'); error.code = data.code; throw error; }
+  return data;
 }
 const POST = (url, body) => fetchJSON(url, {
   method: "POST", headers: { "Content-Type": "application/json" },
@@ -36,6 +37,7 @@ function show(v) {
   if (v !== "vSeat") $("sampleAudio").pause();
   if (audioEl) audioEl.pause();
   lsPlaying = false;
+  if (v === "vSeat") refreshStorySetup();
   view = v;
   window.__mcview = v;
   mclog("view", v);
@@ -252,9 +254,11 @@ async function startGen(words) {
     const r = await POST("/api/generate", { words });
     if (!r.started) throw Error();
     genWatch(words, t0);
-  } catch (_) {
+  } catch (error) {
     localStorage.removeItem("mc_home_gen");
-    genIdle("这段还没开始。可以再试一次，或回窗边听离线招待。");
+    words.forEach(word => inPot.delete(word));
+    renderBrew();
+    genIdle(error.message || "这段还没开始。可以再试一次，或回窗边听离线招待。");
   }
 }
 
@@ -391,8 +395,8 @@ async function loadTodayDialogues() {
     el.dataset.id = d.id;
     el.innerHTML =
       `<div class="d-top"><span class="ls-arrow">▸</span> <b>#${d.id}</b> · ` +
-      `${d.n_turns} 轮 · ${d.characters.join("、")}</div>` +
-      `<div class="d-scene">${d.scene}</div>` +   // 不挂目标词：盲听不剧透（FLOW 全局）
+      `${d.n_turns} 轮 · ${cafeEscape(d.characters.join("、"))}</div>` +
+      `<div class="d-scene">${cafeEscape(d.scene)}</div>` +   // 不挂目标词：盲听不剧透（FLOW 全局）
       `<div class="ls-body hidden"></div>`;
     el.addEventListener("click", (e) => {
       if (e.target.closest(".ls-body") || e.target.closest("button")) return;
@@ -448,14 +452,7 @@ function lsMatchTarget(tok) {
   return t ? t.word : null;
 }
 
-function lsHl(text) {
-  return text.replace(/[A-Za-z][A-Za-z']*/g, (m) => {
-    if (m.length <= 2) return m;
-    const tg = lsMatchTarget(m);
-    return `<span class="${tg ? "wclick tword" : "wclick"}" ` +
-           `data-word="${(tg || m).toLowerCase()}">${m}</span>`;
-  });
-}
+function lsHl(text) { return cafeSpeech(text, lsCur.targets); }
 
 function lsRenderTurns() {
   if (!lsBodyEl || !lsCur) return;
@@ -463,14 +460,15 @@ function lsRenderTurns() {
   box.innerHTML = "";
   lsBodyEl.querySelector(".ls-prog").textContent =
     `${lsPlayed.size}/${lsCur.turns.length} 轮`;
-  lsBodyEl.querySelector(".ls-play").textContent = lsPlaying ? "⏸ 暂停" : "▶ 播放";
+  lsBodyEl.querySelector(".ls-play").textContent = !lsCur.files.length ? "文字故事 · 点句子阅读" : lsPlaying ? "⏸ 暂停" : "▶ 播放";
+  lsBodyEl.querySelector(".ls-play").disabled = !lsCur.files.length;
   lsCur.turns.forEach((t, i) => {
     const div = document.createElement("div");
     div.className = "turn" + (i === lsTurnIdx ? " current" : "");
-    const show = lsPlayed.has(i);
+    const show = !lsCur.files.length || lsPlayed.has(i);
     const color = SPK_COLORS[t.speaker.toLowerCase()] || "var(--muted-2)";
     div.innerHTML =
-      `<span class="spk" style="color:${color}">${artAvatar(t.speaker)}${t.speaker}</span>` +
+      `<span class="spk" style="color:${color}">${artAvatar(t.speaker)}${cafeEscape(t.speaker)}</span>` +
       (show ? `<span class="txt">${lsHl(t.text)}</span>`
             : `<span class="txt veiled">●●●</span>`);
     div.addEventListener("click", (e) => {
@@ -493,7 +491,7 @@ function lsPlayTurn(i) {
   lsPlaying = true;
   if (audioEl) audioEl.pause();
   const f = lsCur.files[i];
-  if (!f) { lsOnEnd(); return; }
+  if (!f) { lsPlaying = false; lsRenderTurns(); return; }
   audioEl = new Audio(`/dialogue_audio/${lsCur.id}/${f}`);
   audioEl.onended = lsOnEnd;
   audioEl.play().catch(() => {});
@@ -652,6 +650,7 @@ $("orderForm").addEventListener("submit", async (e) => {
   if (!words.length || words.length > 5 || words.some(w => !/^[a-z]+(?:[ '-][a-z]+){0,3}$/.test(w))) {
     $("orderMsg").textContent = "写 1–5 个英文词或短语，词与词用逗号隔开。"; return;
   }
+  if (storySetupState && !storySetupState.ready) { openStorySetup(); return; }
   if (getPending()) { $("orderMsg").textContent = "上一段故事还在准备，稍后再点这一段。"; return; }
   const button = e.currentTarget.querySelector("button");
   button.disabled = true;

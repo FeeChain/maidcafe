@@ -102,3 +102,18 @@ summary { cursor:pointer; }
 @media(max-width:720px) { .arrival {grid-template-columns:minmax(0,1fr)} .arrival-cover {min-height:210px; aspect-ratio:2/1} .arrival-letter {gap:10px} .arrival h1 br {display:none} .sample-ticket {grid-template-columns:1fr} .sample-scene {min-height:0; height:130px} .menu-links>a {margin:0} .cast-grid {gap:4px} .cast-grid small {font-size:11px} }
 
 .arrival-letter > * { max-width:100%; overflow-wrap:anywhere; }
+
+.story-readiness { display:flex; align-items:center; gap:12px; justify-content:space-between; margin-top:12px; color:var(--muted); font-size:13px; }
+.word-card { max-height:calc(100vh - 40px); overflow:auto; }
+.setup-dialog { width:min(560px,calc(100vw - 32px)); padding:24px; }
+.setup-dialog h2 { font-family:var(--font-display); font-size:25px; margin-bottom:9px; }
+.setup-status { padding:12px 14px; background:#f3ebdf; border-radius:10px; margin:16px 0; }
+.setup-dialog ol { padding-left:22px; font-size:14px; line-height:1.9; margin:10px 0; }
+.model-label { display:block; margin:18px 0 7px; font-weight:600; }
+#modelSelect { width:100%; padding:12px; border:1px solid var(--line); border-radius:8px; background:var(--card); font-size:15px; }
+.setup-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:20px; }
+.data-tools { border-top:1px solid var(--line); padding-top:12px; margin-top:16px; }
+.file-label { display:block; margin:14px 0 8px; font-size:14px; }
+.file-label input { display:block; width:100%; margin-top:8px; }
+#dataStatus { font-size:13px; margin:12px 0; }
+@media(max-width:720px) { .story-readiness {align-items:flex-start} .story-readiness button {flex:none} }

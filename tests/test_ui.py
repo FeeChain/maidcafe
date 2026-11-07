@@ -239,11 +239,12 @@ class TestMainJourney(UIBase):
         row = self.page.locator("#lsDlgList .ditem").first
         row.locator(".d-top").click()
         self.page.wait_for_selector(".ls-play", state="visible")
-        row.locator(".ls-play").click()
-        self.page.wait_for_function(
-            "document.querySelector('.ls-prog').textContent.startsWith('2/2')")
+        # The fixture has no recordings: show readable text, never pretend to play.
+        self.assertTrue(row.locator(".ls-play").is_disabled())
+        self.assertIn('文字故事', row.locator(".ls-play").text_content())
+        self.assertTrue(row.locator('.ls-prog').text_content().startswith('0/2'))
         self.assertEqual(row.locator(".txt.veiled").count(), 0,
-                         "all turns revealed after playing through")
+                         "text-only stories are readable without pretending to listen")
         self.page.remove_listener("request", on_req)
         self.assertLessEqual(len(missing), 1, "missing avatar re-requested: %s" % missing)
         row.locator(".wclick").first.click()
@@ -268,7 +269,7 @@ class TestMainJourney(UIBase):
         self.page.click("#examQuitBtn")
         self.page.wait_for_selector("#vLearn", state="visible")
         self.assertEqual(self.page.evaluate("passed.size"), 2)
-        self.assertLessEqual(len(self.page.evaluate("brewQueue()")), 1)
+        self.assertLessEqual(len(self.page.evaluate("brewQueue()")), 5)
         ps = self.page.evaluate("Array.from(passed)")
         self.assertEqual(sorted(ps), sorted(passed_words))
         session = [w["word"] for w in self.api("/api/session")["words"]]
@@ -290,7 +291,7 @@ class TestMainJourney(UIBase):
         q = self.page.evaluate("brewQueue()")
         pot = self.page.evaluate("Array.from(inPot)")
         self.assertEqual(len(q), 5)
-        self.assertEqual(len(pot), 5, "the first brew claimed five words")
+        self.assertEqual(len(pot), 0, "a failed setup must return words to the basket")
         self.assertFalse(set(q) & set(pot),
                          "brewed words don't come back to the basket")
         self.assertEqual(self.page.evaluate("sessionTotal"), 20)
@@ -802,6 +803,45 @@ class TestAudioAndTimeout(UIBase):
         self.assertIsNone(
             self.page.evaluate("localStorage.getItem('mc_home_gen')"),
             "timed-out brew must be cleared, not resumed forever")
+
+
+class TestDesktopSetup(UIBase):
+    PORT = 8795
+
+    def test_d01_setup_can_be_opened_and_closed_without_leaving_cafe(self):
+        self.page.goto(self.base + '/?welcome=1')
+        self.page.click('#cfgBtn')
+        self.page.click('#cfgModal [data-story-setup]')
+        self.page.wait_for_function("!document.getElementById('setupRefresh').disabled")
+        self.assertTrue(self.visible('#setupModal'))
+        self.assertIn('Ollama', self.page.text_content('#setupStatus'))
+        self.assertTrue(self.page.is_disabled('#modelSelect'))
+        self.page.keyboard.press('Escape')
+        self.assertFalse(self.visible('#setupModal'))
+
+    def test_d02_import_and_export_use_visible_settings(self):
+        self.page.goto(self.base)
+        self.page.click('#cfgBtn')
+        self.page.click('.data-tools summary')
+        self.page.set_input_files('#deckFile', os.path.join(ROOT, 'resources/window-seat.apkg'))
+        self.page.wait_for_function("document.getElementById('dataStatus').textContent.includes('已导入 24')")
+        with self.page.expect_download() as download:
+            self.page.click('a[href="/api/backup"]')
+        with open(download.value.path(), encoding='utf-8') as f:
+            self.assertEqual(json.load(f)['format'], 'maidcafe-records')
+
+    def test_d03_target_phrases_inflections_and_html_are_rendered_safely(self):
+        self.page.goto(self.base)
+        result = self.page.evaluate('''() => {
+          const box = document.createElement('div');
+          const text = 'Do not give up. She served tea. <img src=x onerror="alert(1)">';
+          box.innerHTML = cafeSpeech(text, ['give up', 'serve']);
+          return {text: box.textContent, images: box.querySelectorAll('img').length,
+                  targets: [...box.querySelectorAll('.tword')].map(el => el.dataset.word)};
+        }''')
+        self.assertEqual(result['images'], 0)
+        self.assertEqual(result['targets'], ['give up', 'serve'])
+        self.assertIn('<img src=x onerror="alert(1)">', result['text'])
 
 
 if __name__ == "__main__":
