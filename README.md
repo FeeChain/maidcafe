@@ -4,6 +4,8 @@
 
 # maidcafe ☕
 
+**[下载 Mac / Windows 桌面版](https://github.com/FeeChain/maidcafe/releases/tag/v0.3.0-preview)** <!-- desktop-download-cta -->
+
 **一间记得你认识哪些单词的女仆咖啡厅。**
 
 背了几千个单词，还是听不出、拼不对？<br>
@@ -24,15 +26,15 @@ maidcafe 先摸清你的真实听力词汇量，再把你正在学的词，<br>
 <!-- desktop-downloads:start -->
 ## 下载桌面版
 
-**[点击这里下载 Mac / Windows 安装包](https://github.com/FeeChain/maidcafe/releases/tag/v0.2.0-preview)**
+**[点击这里下载 Mac / Windows 安装包](https://github.com/FeeChain/maidcafe/releases/tag/v0.3.0-preview)**
 
 | 你的电脑 | 直接下载 |
 |---|---|
-| Mac M 系列 | [下载 DMG · 20.1 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.2.0-preview/maidcafe-0.2.0-preview-macOS-arm64.dmg) |
-| Intel Mac | [下载 DMG · 20.8 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.2.0-preview/maidcafe-0.2.0-preview-macOS-x86_64.dmg) |
-| Windows 64 位 | [下载安装程序 · 18.4 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.2.0-preview/maidcafe-0.2.0-preview-Windows-x64-Setup.exe) |
+| Mac M 系列 | [下载 · 20.1 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.3.0-preview/maidcafe-0.3.0-preview-macOS-arm64.dmg) |
+| Intel Mac | [下载 · 20.8 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.3.0-preview/maidcafe-0.3.0-preview-macOS-x86_64.dmg) |
+| Windows 64 位 | [下载 · 18.4 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.3.0-preview/maidcafe-0.3.0-preview-Windows-x64-Setup.exe) |
 
-无需 Python 或命令行。先体验内置词卡和试听，再按软件里的「故事设置」准备本地 AI。当前为未完成发行签名的预览版，首次打开可能出现系统来源提示；[安装说明与更新记录](https://github.com/FeeChain/maidcafe/releases)。
+无需 Python 或命令行。先体验内置词卡和试听，生成自己的故事只需在软件内点「故事设置 → 一键准备」；引擎和模型会自动下载、校验和配置，支持暂停续传。轻量模型约 1.4 GB、标准约 2.5 GB，首次还需下载引擎；自动准备需要 macOS 14+ / Windows 10 22H2+。当前为未完成发行签名的预览版，首次打开可能出现系统来源提示；[安装说明与更新记录](https://github.com/FeeChain/maidcafe/releases/tag/v0.3.0-preview)。
 <!-- desktop-downloads:end -->
 
 ## 它解决什么问题
