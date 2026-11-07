@@ -8,6 +8,12 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import ai_runtime
+# Server editions of Windows may have no installed speech engines. Compare the
+# frozen build against the source runtime so missing bundled modules cannot pass.
+expected_audio = ai_runtime.audio_backend()
+print('Source speech backend:', expected_audio, flush=True)
 exe = Path(sys.argv[1]).resolve()
 with tempfile.TemporaryDirectory(prefix='maidcafe-package-') as tmp:
     home = Path(tmp)
@@ -26,7 +32,11 @@ with tempfile.TemporaryDirectory(prefix='maidcafe-package-') as tmp:
     native = json.loads((home / 'native-smoke.json').read_text(encoding='utf-8'))
     assert native['welcome'] and native['bridge'], native
     audio = json.loads((home / 'speech-check.json').read_text(encoding='utf-8'))
-    assert audio and (home / 'speech-check' / audio[0]).stat().st_size > 44
+    assert audio['backend'] == expected_audio, audio
+    if expected_audio != 'text':
+        assert audio['files'] and (home / 'speech-check' / audio['files'][0]).stat().st_size > 44
+    else:
+        assert not audio['files'], audio
     # The worker must execute generation, not recursively open another app window.
     worker = subprocess.run([str(exe), '--generate', '["refill"]'], env=env, timeout=30)
     assert worker.returncode != 0, 'Missing model should fail cleanly'

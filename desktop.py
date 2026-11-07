@@ -26,10 +26,9 @@ def main():
         return
     if args.speech_check:
         import dialogue
+        import ai_runtime
         files = dialogue.synthesize([{'speaker': 'Momo', 'text': 'Welcome to our cafe.'}], {}, str(home / 'speech-check'))
-        if not files:
-            raise RuntimeError('System speech did not produce audio')
-        (home / 'speech-check.json').write_text(json.dumps(files), encoding='utf-8')
+        (home / 'speech-check.json').write_text(json.dumps({'backend': ai_runtime.audio_backend(), 'files': files}), encoding='utf-8')
         return
     import server
     server.build_words()

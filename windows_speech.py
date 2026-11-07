@@ -19,7 +19,8 @@ def voice_names():
                          if v.Enabled and str(v.VoiceInfo.Culture.Name).startswith('en-'))
         finally:
             speech.Dispose()
-    except Exception:
+    except Exception as error:
+        print('Windows English voices unavailable: %s: %s' % (type(error).__name__, error))
         return ()
 
 
