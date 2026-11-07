@@ -12,7 +12,7 @@
 <header>
   <a class="brand" href="/" title="回主页">maidcafe <span class="cup">☕</span></a>
   <div class="controls">
-    <a href="/" class="tab">← 主页</a>
+    <a href="/" class="tab">← 吧台</a><a href="/?menu=1" class="tab">窗边点单</a>
     <button id="tabList" class="tab active">对话史</button>
     <button id="tabWordbook" class="tab">生词本</button>
   </div>
@@ -23,7 +23,7 @@
   <!-- ============ 列表视图 ============ -->
   <section id="listView">
     <details class="custom-gen">
-      <summary class="hint-line">想自己挑词？</summary>
+      <summary class="hint-line">用自己挑的词写一段</summary>
       <div class="gen-row">
         <button id="genBtn" class="mk">自选生成（最近 6 个生词）</button>
         <input id="customWords" placeholder="或手动输入生词，逗号分隔" />
@@ -76,7 +76,7 @@
       </div>
       <div id="importMsg" class="hint-line"></div>
     </details>
-    <p class="hint-line">机制：只有<b>考试通过</b>才算数 · 每个词的记忆随时间慢慢降，降到一定程度才回到你的学习里 · 考过后能撑一个月就毕业</p>
+    <p class="hint-line">机制：<b>主动回想</b>后更新熟悉程度 · 每个词的记忆随时间慢慢降，降到一定程度才回到你的学习里 · 考过后能撑一个月就毕业</p>
     <h3 class="wb-section">学习中 / 生词池</h3>
     <div id="wordbookList" class="wb-list"></div>
     <details id="gradFold">
@@ -93,7 +93,7 @@
   </div>
 
   <!-- 释义卡弹窗 -->
-  <div id="wordCard" class="word-card hidden">
+  <div id="wordCard" role="dialog" aria-modal="true" aria-label="单词释义" class="word-card hidden">
     <div class="wc-word" id="wcWord"></div>
     <div class="wc-phon" id="wcPhon"></div>
     <div class="wc-def" id="wcDef"></div>
@@ -107,6 +107,8 @@
   </div>
 </main>
 
+<script src="/static/speech.js"></script>
+<script src="/static/keys.js"></script>
 <script src="/static/log.js?v=6"></script>
 <script src="/static/morph.js?v=1"></script>
 <script src="/static/art.js?v=6"></script>

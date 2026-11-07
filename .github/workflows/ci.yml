@@ -1,40 +1,56 @@
-name: ci
+name: checks
 on:
-  push:
-    branches: [main]
-  pull_request:
-
+  workflow_call:
+permissions:
+  contents: read
 jobs:
-  e2e:
+  core:
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        python: ["3.9", "3.12"]
+        include:
+          - {os: ubuntu-latest, python: '3.9'}
+          - {os: ubuntu-latest, python: '3.12'}
+          - {os: macos-15, python: '3.12'}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python }}
-      - name: Unit tests (server core functions)
-        run: python3 tests/test_server.py -v
-      - name: Unit tests (dialogue pipeline)
-        run: python3 tests/test_dialogue.py -v
-      - name: Unit tests (roots and affixes)
-        run: python3 tests/test_morph.py -v
-      - name: Integration tests (HTTP, isolated server)
-        run: python3 tests/test_e2e.py -v
-
+      - run: python packaging/run_checks.py 2>&1 | tee tests.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: checks-${{ matrix.os }}-${{ matrix.python }}
+          path: tests.log
+          retention-days: 14
   ui:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: "3.12"
-      - name: Install Playwright (dev-only; the product stays stdlib-only)
-        run: |
-          pip install playwright
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m pip install -r requirements-dev.txt
           python -m playwright install --with-deps chromium
-      - name: Full-click UI tests (real headless Chromium)
-        run: python3 tests/test_ui.py -v
+      - run: python tests/test_ui.py 2>&1 | tee ui.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ui-log
+          path: ui.log
+          retention-days: 14

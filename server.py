@@ -16,19 +16,30 @@ import os
 import random
 import re
 import shutil
+import signal
 import sqlite3
 import subprocess
 import sys
 import time
+import tempfile
+import threading
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import deckparse  # noqa: E402
 import morph  # noqa: E402
+import ai_runtime
+import portability
+import assistant_setup
+from pathlib import Path
+from app_paths import VERSION
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DECKS_DIR = os.path.join(ROOT, "decks")
+DECKS_DIR = os.environ.get("MAIDCAFE_DECKS", os.path.join(ROOT, "decks"))
+STARTER_PACK = os.path.join(ROOT, "resources", "window-seat.apkg")
+STARTER_WORDS = {}
 CACHE_DIR = os.environ.get("MAIDCAFE_CACHE", os.path.join(ROOT, "cache"))
 STATIC_DIR = os.path.join(ROOT, "static")
 DB_PATH = os.environ.get("MAIDCAFE_DB", os.path.join(ROOT, "progress.db"))
@@ -46,20 +57,37 @@ _OFFDECK_RANK = {}  # 牌组外词 -> 插值难度序（缓存）
 
 
 def build_words():
-    global WORDS, AUDIO
+    global WORDS, AUDIO, STARTER_WORDS
     os.makedirs(CACHE_DIR, exist_ok=True)
-    if os.path.exists(WORDS_CACHE):
-        with open(WORDS_CACHE, "r", encoding="utf-8") as f:
+    starter = deckparse.load_deck(STARTER_PACK, os.path.join(CACHE_DIR, "starter"))
+    STARTER_WORDS = {w["word"].lower(): w for w in starter}
+    packs = sorted(n for n in os.listdir(DECKS_DIR) if n.endswith(".apkg")) if os.path.isdir(DECKS_DIR) else []
+    manifest = os.path.join(CACHE_DIR, "decks.json")
+    stamps = []
+    for name in packs:
+        path = os.path.join(DECKS_DIR, name)
+        st = os.stat(path)
+        stamps.append([os.path.realpath(path), st.st_size, st.st_mtime_ns])
+    cached = None
+    if os.path.isfile(manifest):
+        with open(manifest, encoding="utf-8") as f:
+            cached = json.load(f)
+    # Explicit standalone cache is also a supported source for isolated runs.
+    supplied = "MAIDCAFE_CACHE" in os.environ and not packs and cached is None
+    if os.path.isfile(WORDS_CACHE) and (cached == stamps or supplied):
+        with open(WORDS_CACHE, encoding="utf-8") as f:
             WORDS = json.load(f)
-    else:
-        print("First run: extracting and parsing decks (may take a minute)...")
-        t0 = time.time()
+    elif packs:
         WORDS = deckparse.load_all_decks(DECKS_DIR, CACHE_DIR)
-        with open(WORDS_CACHE, "w", encoding="utf-8") as f:
-            json.dump(WORDS, f, ensure_ascii=False)
-        print("Parsed %d words in %.1fs" % (len(WORDS), time.time() - t0))
-    AUDIO = {w["word"].lower(): w.get("audio_path")
-             for w in WORDS if w.get("audio_path")}
+        for filename, data in [(WORDS_CACHE, WORDS), (manifest, stamps)]:
+            with open(filename + ".tmp", "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False)
+            os.replace(filename + ".tmp", filename)
+    else:
+        WORDS = []
+    if not WORDS:
+        WORDS = [dict(w, sources=["窗边的第一杯"]) for w in starter]
+    AUDIO = {w["word"].lower(): w["audio_path"] for w in starter + WORDS if w.get("audio_path")}
     attach_tiers()
 
 
@@ -148,7 +176,64 @@ def get_morph():
     return _MORPH
 
 
-GEN_MODEL = os.environ.get("MAIDCAFE_MODEL", "qwen3.6:27b-mlx")
+GEN_MODEL = os.environ.get("MAIDCAFE_MODEL", "")
+GEN_PROCESS = None
+GEN_LOCK = threading.Lock()
+IMPORT_LOCK = threading.Lock()
+LOG_DIR = os.environ.get("MAIDCAFE_LOG_DIR", ROOT)
+_SETUP = None
+
+
+def get_setup():
+    global _SETUP
+    home = Path(DB_PATH).resolve().parent / 'assistant'
+    if _SETUP is None or _SETUP.home != home:
+        _SETUP = assistant_setup.SetupManager(home, lambda model: kv_set('model', model))
+    return _SETUP
+
+
+def start_assistant():
+    get_setup().resume_engine()
+
+
+def stop_assistant():
+    if _SETUP:
+        _SETUP.shutdown()
+
+
+def stop_generation():
+    global GEN_PROCESS
+    with GEN_LOCK:
+        if GEN_PROCESS is not None and GEN_PROCESS.poll() is None:
+            if os.name == 'nt':
+                subprocess.run(['taskkill', '/PID', str(GEN_PROCESS.pid), '/T', '/F'],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               creationflags=subprocess.CREATE_NO_WINDOW)
+            else:
+                try:
+                    os.killpg(GEN_PROCESS.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+            try:
+                GEN_PROCESS.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                if os.name != 'nt':
+                    try:
+                        os.killpg(GEN_PROCESS.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                else:
+                    GEN_PROCESS.kill()
+                GEN_PROCESS.wait(timeout=3)
+            con = db()
+            try:
+                con.execute("update dialogues set status='error', report=? where status in ('writing','tts')",
+                            (json.dumps({'error': '上次离店时故事尚未完成，可以重新点单。'}),))
+                con.commit()
+            finally:
+                con.close()
+        GEN_PROCESS = None
+
 ECDICT_PATH = ECDICT_DB
 
 # 权重模型（FLOW §4，2026-10-13 用户确认）：权重 = 记忆程度，打开时现算
@@ -402,6 +487,10 @@ def build_session():
                         if len(candidates) >= quota:
                             break
         fresh = sorted(candidates, key=word_rank)[:quota]
+        if len(fresh) < quota and kv_get("seated") and not has_probe_evidence():
+            marks = get_marks()
+            fresh.extend(w for w in STARTER_WORDS if w not in marks and w not in srs and w not in fresh)
+            fresh = fresh[:quota]
     finally:
         con.close()
     return {"words": ([session_word_out(w, False) for w in due] +
@@ -414,7 +503,7 @@ def get_backlog(con):
     (global band+frequency rank, not just block number)."""
     srs = srs_map(con)
     rows = con.execute(
-        "select word from marks where status in (1,2)").fetchall()
+        "select word from marks where status in (1,2,4,6)").fetchall()
     backlog = [r[0] for r in rows
                if r[0] not in srs or srs[r[0]]["state"] == "lapsed"]
     backlog.sort(key=word_rank)
@@ -433,8 +522,9 @@ def known_set():
     + 显式标记认识的词 − 显式标记不认识的词。边界由探针无状态重放得出。"""
     known = set()
     try:
-        if has_probe_evidence():
-            nxt = probe_next("all", settle=True)
+        hearing_marks = {w: m for w, m in get_marks_src().items() if m[0] not in (5, 6)}
+        if has_probe_evidence(hearing_marks):
+            nxt = probe_next("all", hearing_marks, settle=True)
             if nxt.get("done"):
                 frontier = nxt["bracket"][1]  # 第一个生词侧的块
                 known.update(w["word"].lower() for w in WORDS
@@ -442,9 +532,9 @@ def known_set():
     except Exception:
         pass
     marks = get_marks()
-    known.update(w for w, s in marks.items() if s == 3)
+    known.update(w for w, s in marks.items() if s in (3, 4))
     # 全扫在边界内逐词揪出的漏词：显式标了不认识的，推定失效，从已知集剔除
-    known.difference_update(w for w, s in marks.items() if s in (1, 2))
+    known.difference_update(w for w, s in marks.items() if s in (1, 2, 5, 6))
     return known
 
 
@@ -474,7 +564,7 @@ def resolve_entry(tokens, ec):
     """最长匹配词典：give up 放弃 → give up；abandon v. → abandon。"""
     for k in range(len(tokens), 0, -1):
         cand = " ".join(tokens[:k]).lower()
-        if cand in WORD_INDEX:
+        if cand in WORD_INDEX or cand in STARTER_WORDS:
             return cand
         if ec is not None and ec.execute(
                 "select 1 from stardict where word = ?", (cand,)).fetchone():
@@ -509,7 +599,7 @@ def import_wordlist(text, include_known=False):
             seen.add(w)
             st = srs.get(w, {}).get("state")
             m = marks.get(w)
-            if m in (1, 2) or st in ("learning", "lapsed"):
+            if m in (1, 2, 4, 6) or st in ("learning", "lapsed"):
                 out["already"].append(w)
             elif m == 3 or st == "graduated":
                 out["learned"].append(w)
@@ -533,7 +623,7 @@ def word_info(word):
     """phonetic + definition：牌组词取内存里的牌组数据；牌组外的词（手动加/
     导入）退回 ECDICT——否则它们在生词本和学习卡上是空白释义（10-13 真机抓到）。"""
     lw = word.lower()
-    w = WORD_INDEX.get(lw)
+    w = WORD_INDEX.get(lw) or STARTER_WORDS.get(lw)
     if w:
         return {"word": word, "phonetic": w.get("phonetic", ""),
                 "definition": (w.get("definition") or "")[:200],
@@ -673,12 +763,12 @@ def block_class(ws, marks_src):
     samples, n_all = block_samples(ws, marks_src)
     total = len(ws)
     if total and n_all == total:
-        r = sum(1 for w in ws if marks_src[w["word"].lower()][0] == 3) / total
+        r = sum(1 for w in ws if marks_src[w["word"].lower()][0] in (3, 4, 5)) / total
         return "high" if r >= 0.85 else ("low" if r <= 0.5 else "mid")
     n = len(samples)
     if n < 3:
         return "unsampled"
-    u = sum(1 for s in samples if s != 3)
+    u = sum(1 for s in samples if s not in (3, 4, 5))
     if n < 6:
         if u == 0:
             return "high"
@@ -728,7 +818,7 @@ def probe_next(deck, marks_src=None, settle=False):
             words = None if settle else pick_block_words(by[t], marks_src, deck, t, 3)
             if not words:               # 结算模式/块抽干了：按现有样本硬归类
                 samples, _ = block_samples(by[t], marks_src)
-                u = sum(1 for s in samples if s != 3)
+                u = sum(1 for s in samples if s not in (3, 4, 5))
                 c = "high" if samples and u * 2 < len(samples) else "low"
             else:
                 return {"done": False, "tier": t, "phase": c,
@@ -788,59 +878,44 @@ def vocab_estimate(deck, marks_src=None):
     if marks_src is None:
         marks_src = get_marks_src()
     blocks = []
+    hearing_samples = 0
     for tier, ws in sorted(words_of_deck(deck).items()):
         total = len(ws)
         bands = [w.get("band") for w in ws if w.get("band") is not None]
         samples, n_all = block_samples(ws, marks_src)
+        if n_all == total:
+            samples = [marks_src[w["word"].lower()][0] for w in ws]
         n = len(samples)
-        k_listen = sum(1 for s in samples if s == 3)
-        k_read = sum(1 for s in samples if s in (2, 3))
         b = {"tier": tier, "total": total, "n": n,
              "band": min(bands) if bands else UNTAGGED_TIER,
-             "var_listen": 0.0, "var_read": 0.0}
-        if n_all == total:
-            # census: every word marked — use the true counts, any src
-            k_listen = sum(1 for w in ws if marks_src[w["word"].lower()][0] == 3)
-            k_read = sum(1 for w in ws if marks_src[w["word"].lower()][0] in (2, 3))
-            b["n"] = total
-            b.update(method="exact", est_listen=float(k_listen),
-                     est_read=float(k_read))
-        elif n > 0:
-            b.update(method="probe", est_listen=k_listen / n * total,
-                     est_read=k_read / n * total)
-            # variance of the block estimate (finite population corrected);
-            # +0.5 smoothing so a tiny all-yes/all-no sample doesn't claim
-            # zero uncertainty
-            fpc = (total - n) / max(total - 1, 1)
-            for key, k in (("var_listen", k_listen), ("var_read", k_read)):
-                p = (k + 0.5) / (n + 1)
-                b[key] = total * total * p * (1 - p) / n * fpc
-        else:
-            b.update(method="none", est_listen=None, est_read=None)
+             "method": "exact" if n == total else ("probe" if n else "none")}
+        # 1=neither, 2=eye, 3=both, 4=ear; 5/6=eye yes/no, hearing unobserved.
+        heard = [s in (3, 4) for s in samples if s not in (5, 6)]
+        reading = [s in (2, 3, 5) for s in samples]
+        hearing_samples += len(heard)
+        for key, values in (("listen", heard), ("read", reading)):
+            count = len(values)
+            b["est_" + key] = sum(values) / count * total if count else None
+            b["var_" + key] = 0.0
+            if 0 < count < total:
+                p = (sum(values) + .5) / (count + 1)
+                fpc = (total - count) / max(total - 1, 1)
+                b["var_" + key] = total * total * p * (1 - p) / count * fpc
         blocks.append(b)
-
-    # unmeasured blocks: interpolate the knowledge-rate curve from the
-    # nearest measured neighbours (difficulty is monotonic-ish across tiers)
-    measured = [i for i, b in enumerate(blocks) if b["method"] != "none"]
-    for i, b in enumerate(blocks):
-        if b["method"] != "none":
-            continue
-        lo = max((j for j in measured if j < i), default=None)
-        hi = min((j for j in measured if j > i), default=None)
-        def ratio(j, key):
-            return blocks[j]["est_" + key] / blocks[j]["total"]
-        for key in ("listen", "read"):
+    for key in ("est_listen", "est_read"):
+        measured = [i for i, b in enumerate(blocks) if b[key] is not None]
+        for i, b in enumerate(blocks):
+            if b[key] is not None:
+                continue
+            lo = max((j for j in measured if j < i), default=None)
+            hi = min((j for j in measured if j > i), default=None)
+            left = blocks[lo][key] / blocks[lo]["total"] if lo is not None else 0
+            right = blocks[hi][key] / blocks[hi]["total"] if hi is not None else left
             if lo is not None and hi is not None:
-                t = (i - lo) / (hi - lo)
-                r = ratio(lo, key) * (1 - t) + ratio(hi, key) * t
-            elif lo is not None:
-                r = ratio(lo, key)
-            elif hi is not None:
-                r = ratio(hi, key)
+                ratio = left + (right - left) * (i - lo) / (hi - lo)
             else:
-                r = 0.0
-            b["est_" + key] = r * b["total"]
-
+                ratio = right
+            b[key] = ratio * b["total"]
     band_agg = {}
     for b in blocks:
         d = band_agg.setdefault(b["band"], {"band": b["band"], "total": 0,
@@ -849,6 +924,7 @@ def vocab_estimate(deck, marks_src=None):
         d["listen"] += b["est_listen"]
         d["read"] += b["est_read"]
     return {
+        "hearing_samples": hearing_samples,
         "listening": round(sum(b["est_listen"] for b in blocks)),
         "reading": round(sum(b["est_read"] for b in blocks)),
         "ci95_listen": round(1.96 * math.sqrt(sum(b["var_listen"] for b in blocks))),
@@ -881,6 +957,8 @@ CONTENT_TYPES = {
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
     ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".m4a": "audio/mp4",
     ".json": "application/json; charset=utf-8",
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -923,13 +1001,48 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _local_request(self):
+        host = self.headers.get('Host', '')
+        origin = self.headers.get('Origin')
+        if not (host.startswith('127.0.0.1:') or host.startswith('localhost:')):
+            self._send(403, {'error': '仅限本机使用'})
+            return False
+        if origin and origin not in ('http://' + host, 'https://' + host):
+            self._send(403, {'error': '请求来源不匹配'})
+            return False
+        return True
+
     def do_GET(self):
+        if not self._local_request():
+            return
         parsed = urlparse(self.path)
         path = parsed.path
         qs = parse_qs(parsed.query)
 
+        if path == "/api/setup":
+            setup = get_setup()
+            return self._send(200, dict(ai_runtime.inspect(kv_get('model', '')), version=VERSION,
+                                       install=setup.snapshot(), options=setup.options()))
+
+        if path == "/api/backup":
+            con = db()
+            try:
+                body = json.dumps(portability.export_records(con), ensure_ascii=False).encode('utf-8')
+            finally:
+                con.close()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Disposition', 'attachment; filename="maidcafe-records-%s.json"' % time.strftime('%Y%m%d'))
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
         if path == "/":
             return self._send_file(os.path.join(STATIC_DIR, "home.html"))
+
+        if path == "/window-seat.apkg":
+            return self._send_file(STARTER_PACK)
 
         if path == "/calibrate":
             return self._send_file(os.path.join(STATIC_DIR, "calibrate.html"))
@@ -985,7 +1098,7 @@ class Handler(BaseHTTPRequestHandler):
             deck = qs.get("deck", ["all"])[0]
             tier = qs.get("tier", ["all"])[0]
             words = [w for w in WORDS if word_match(w, deck, tier)]
-            counts = {1: 0, 2: 0, 3: 0}
+            counts = dict.fromkeys(range(1, 7), 0)
             marked = 0
             for w in words:
                 s = marks.get(w["word"].lower())
@@ -1006,9 +1119,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {
                 "total": len(words),
                 "marked": marked,
-                "unknown": counts[1],
-                "eye_only": counts[2],
-                "ear_known": counts[3],
+                "unknown": counts[1] + counts[6],
+                "eye_only": counts[2], "reading_unheard": counts[5],
+                "ear_only": counts[4], "ear_known": counts[3] + counts[4],
                 "pace": pace,
                 "overall_total": len(WORDS),
                 "overall_marked": overall_marked,
@@ -1057,7 +1170,7 @@ class Handler(BaseHTTPRequestHandler):
                 s = marks.get(w["word"].lower())
                 if s is not None:
                     d["marked"] += 1
-                    if s in (1, 2):  # any J = 生词
+                    if s in (1, 2, 4, 6):  # any J = 生词
                         d["unknown"] += 1
             return self._send(200, [tiers[t] for t in sorted(tiers)])
 
@@ -1123,7 +1236,7 @@ class Handler(BaseHTTPRequestHandler):
             con = db()
             try:
                 words = con.execute(
-                    "select word, status from marks where status in (1,2)"
+                    "select word, status from marks where status in (1,2,4,6)"
                     " order by ts desc").fetchall()
                 drows = con.execute(
                     "select id, target_words, scene from dialogues").fetchall()
@@ -1174,7 +1287,7 @@ class Handler(BaseHTTPRequestHandler):
                 con.close()
             # 身份以 marks ∪ word_srs 合并判定：毕业记录在梯上，
             # marks 可能无行（边界外推定词直接学会的场景）
-            info["in_wordbook"] = bool(m and m[0] in (1, 2)) or \
+            info["in_wordbook"] = bool(m and m[0] in (1, 2, 4, 6)) or \
                 bool(s and s[0] == "learning")
             info["known"] = bool(m and m[0] == 3) or \
                 bool(s and s[0] == "graduated")
@@ -1197,6 +1310,7 @@ class Handler(BaseHTTPRequestHandler):
             probe_done = bool(probe_next("all").get("done"))
             return self._send(200, {
                 "calibrated": probe_done or n_all >= 50 or n_sessions > 0,
+                "seated": bool(kv_get("seated")),
                 "new_quota": int(kv_get("new_quota", 20))})
 
         if path == "/api/session":
@@ -1230,18 +1344,112 @@ class Handler(BaseHTTPRequestHandler):
 
         return self._send(404, {"error": "not found"})
 
+    def _import_deck(self, parsed, length):
+        if not 0 < length <= 512 * 1024 * 1024:
+            return self._send(413, {'error': '请选择 512 MB 以内的 Anki 词包。'})
+        name = os.path.basename(parse_qs(parsed.query).get('name', [''])[0])
+        if not name.lower().endswith('.apkg'):
+            return self._send(400, {'error': '请选择 .apkg 格式的 Anki 词包。'})
+        os.makedirs(DECKS_DIR, exist_ok=True)
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with IMPORT_LOCK, tempfile.TemporaryDirectory(dir=CACHE_DIR) as tmp:
+            path = os.path.join(tmp, 'incoming.apkg')
+            with open(path, 'wb') as f:
+                left = length
+                while left:
+                    block = self.rfile.read(min(left, 1024 * 1024))
+                    if not block:
+                        return self._send(400, {'error': '文件没有传完，请重新选择。'})
+                    f.write(block)
+                    left -= len(block)
+            try:
+                with zipfile.ZipFile(path) as z:
+                    entries = z.infolist()
+                    if 'collection.anki2' not in z.namelist():
+                        raise ValueError('请在 Anki 导出时开启兼容旧版格式，再导入。')
+                    if sum(x.file_size for x in entries) > 2 * 1024 ** 3 or any('..' in x.filename.replace('\\', '/').split('/') or x.filename.startswith(('/', '\\')) or ':' in x.filename for x in entries):
+                        raise ValueError('这个词包无法安全读取，请换一个文件。')
+                words = deckparse.load_deck(path, os.path.join(tmp, 'check'))
+                if not words:
+                    raise ValueError('这个词包没有找到可用的英文词条。')
+            except (ValueError, OSError, sqlite3.Error, zipfile.BadZipFile, KeyError) as error:
+                return self._send(400, {'error': str(error) if isinstance(error, ValueError) else '无法读取词包，请检查文件是否完整。'})
+            safe = re.sub(r'[^\w. -]', '_', name, flags=re.UNICODE)
+            target = os.path.join(DECKS_DIR, safe)
+            if os.path.exists(target):
+                target = os.path.join(DECKS_DIR, '%s-%d.apkg' % (os.path.splitext(safe)[0], time.time_ns()))
+            shutil.move(path, target)
+            build_words()
+            global _MORPH
+            _MORPH = None
+        return self._send(200, {'ok': True, 'words': len(words), 'name': os.path.basename(target)})
+
     def do_POST(self):
+        global GEN_PROCESS
+        if not self._local_request():
+            return
         parsed = urlparse(self.path)
-        length = int(self.headers.get("Content-Length", 0))
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except ValueError:
+            return self._send(400, {"error": "无效的文件大小"})
+        if parsed.path == "/api/decks/import":
+            return self._import_deck(parsed, length)
+        if length < 0 or length > 32 * 1024 * 1024:
+            return self._send(413, {"error": "文件太大，请选择 32 MB 以内的记录备份。"})
         try:
             payload = json.loads(self.rfile.read(length) or b"{}")
         except json.JSONDecodeError:
             return self._send(400, {"error": "bad json"})
 
+        if not isinstance(payload, dict):
+            return self._send(400, {"error": "请求格式无效"})
+
+        if parsed.path == '/api/setup/prepare':
+            if os.environ.get('MAIDCAFE_MODEL'):
+                return self._send(409, {'error': '当前模型由启动配置指定，请先移除 MAIDCAFE_MODEL 后再使用自动准备。'})
+            if GEN_PROCESS is not None and GEN_PROCESS.poll() is None:
+                return self._send(409, {'error': '故事还在准备，请等它完成后再更换助手。'})
+            try:
+                get_setup().start(payload.get('profile', 'standard'))
+            except ValueError as error:
+                return self._send(400, {'error': str(error)})
+            return self._send(202, {'ok': True})
+
+        if parsed.path == '/api/setup/cancel':
+            get_setup().cancel()
+            return self._send(200, {'ok': True})
+
+        if parsed.path == "/api/setup":
+            if get_setup().active:
+                return self._send(409, {'error': '助手正在准备，请完成或暂停后再更换。'})
+            model = payload.get('model')
+            state = ai_runtime.inspect(kv_get('model', ''))
+            if state['locked']:
+                return self._send(409, {'error': '模型已由启动配置指定。移除 MAIDCAFE_MODEL 后可在这里选择。'})
+            if not isinstance(model, str) or model not in state['models']:
+                return self._send(400, {'error': '这个模型当前不可用，请重新检测。'})
+            kv_set('model', model)
+            return self._send(200, {'ok': True, 'model': model})
+
+        if parsed.path == "/api/restore":
+            con = db()
+            try:
+                count = portability.restore_records(con, payload)
+            except (ValueError, sqlite3.Error) as error:
+                return self._send(400, {'error': str(error) if isinstance(error, ValueError) else '备份内容无法恢复，原有记录未改变。'})
+            finally:
+                con.close()
+            return self._send(200, {'ok': True, 'records': count})
+
+        if parsed.path == "/api/visit":
+            kv_set("seated", "1")
+            return self._send(200, {"ok": True})
+
         if parsed.path == "/api/mark":
             word = (payload.get("word") or "").lower()
             status = payload.get("status")  # 1 / 2 / 3 / None(=undo)
-            if not word or status not in (1, 2, 3, None):
+            if not word or status not in (1, 2, 3, 4, 5, 6, None):
                 return self._send(400, {"error": "bad params"})
             session = payload.get("session")
             if session:  # 盲测档案：写独立表，不碰主记录
@@ -1287,6 +1495,7 @@ class Handler(BaseHTTPRequestHandler):
                 "listening": est["listening"], "reading": est["reading"],
                 "ci95_listen": est["ci95_listen"], "ci95_read": est["ci95_read"],
                 "sampled": est["sampled"],
+                "hearing_samples": est["hearing_samples"],
                 "unmeasured_blocks": est["unmeasured_blocks"],
                 "boundary": nxt.get("boundary") if nxt.get("done") else None,
                 "boundary_band": nxt.get("boundary_band") if nxt.get("done") else None,
@@ -1335,18 +1544,38 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"ok": True})
 
         if parsed.path == "/api/generate":
+            if get_setup().active:
+                return self._send(409, {'error': '助手正在准备，你可以先试听或翻词卡。'})
             words = payload.get("words") or []
-            write_known_snapshot()
-            cmd = [sys.executable, os.path.join(ROOT, "dialogue.py")]
-            if words:
-                cmd += ["--words", ",".join(words)]
-            else:
-                cmd += ["--auto", str(payload.get("auto", 6))]
-            env = dict(os.environ, MAIDCAFE_MODEL=GEN_MODEL)
-            log = open(os.path.join(ROOT, "generate.log"), "a")
-            subprocess.Popen(cmd, env=env, stdout=log, stderr=log,
-                             start_new_session=True)
-            return self._send(200, {"started": True})
+            if (not isinstance(words, list) or len(words) > 5 or any(not isinstance(w, str) or len(w) > 80 or
+                    not re.fullmatch(r"[A-Za-z][A-Za-z0-9]*(?:[ '-][A-Za-z0-9]+){0,3}", w) for w in words)):
+                return self._send(400, {'error': '请用逗号分开 1–5 个英文词或短语。'})
+            # Existing automatic caller support stays, with the same five-word cap.
+            if not words:
+                con = db()
+                try:
+                    words = get_backlog(con)[:5]
+                finally:
+                    con.close()
+            if not words:
+                return self._send(400, {'error': '先选一个想学的词。'})
+            state = ai_runtime.inspect(kv_get('model', ''))
+            if not state['ready']:
+                return self._send(503, {'error': state['message'], 'code': 'setup_required'})
+            with GEN_LOCK:
+                if GEN_PROCESS is not None and GEN_PROCESS.poll() is None:
+                    return self._send(409, {'error': '上一段故事还在准备，请稍后再点。'})
+                write_known_snapshot()
+                if getattr(sys, 'frozen', False):
+                    cmd = [sys.executable, '--generate', json.dumps(words)]
+                else:
+                    cmd = [sys.executable, os.path.join(ROOT, 'dialogue.py'), '--words', ','.join(words)]
+                env = dict(os.environ, MAIDCAFE_MODEL=state['model'], MAIDCAFE_OLLAMA_BASE=ai_runtime.OLLAMA_BASE)
+                os.makedirs(LOG_DIR, exist_ok=True)
+                opts = {'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
+                with open(os.path.join(LOG_DIR, 'generate.log'), 'a') as log:
+                    GEN_PROCESS = subprocess.Popen(cmd, env=env, stdout=log, stderr=log, **opts)
+            return self._send(200, {'started': True})
 
         if parsed.path == "/api/log":
             events = payload.get("events") or []
@@ -1469,7 +1698,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/wordbook_add":
             word = (payload.get("word") or "").strip().lower()
-            if not word or not word.replace("-", "").replace("'", "").isalpha():
+            if not word or not re.fullmatch(r"[a-z]+(?:[ '-][a-z]+){0,3}", word):
                 return self._send(400, {"error": "bad word"})
             info = word_info(word)
             if not info["definition"] and not ecdict_lookup(word):
@@ -1512,10 +1741,16 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     build_words()
+    start_assistant()
     print("maidcafe ready: %d words, %d with audio" % (len(WORDS), len(AUDIO)))
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print("Serving on http://localhost:%d" % PORT)
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    finally:
+        stop_generation()
+        stop_assistant()
+        server.server_close()
 
 
 if __name__ == "__main__":

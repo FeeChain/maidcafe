@@ -1,0 +1,37 @@
+maidcafe · {VERSION}
+
+Mac 安装
+打开 DMG，将 maidcafe 拖进 Applications，然后从应用程序打开。
+无需安装 Python。首次打开即可听店内招待、翻 24 个入门词卡。
+
+本预览尚未经过 Apple Developer ID 签名与公证。
+若 macOS 阻止打开，请先确认来源，再在系统设置的「隐私与安全性」中按系统提示处理。
+不需要关闭系统安全功能。正式公开发布前应由维护者完成签名与公证。
+
+Windows 安装
+运行 Windows-x64-Setup.exe，按向导安装；从开始菜单打开 maidcafe。
+无需 Python，也不需要管理员权限。卸载应用会保留学习记录。
+需 Windows 10 1809 或更新版本、Microsoft Edge WebView2 Runtime。
+若提示缺少 WebView2，可从微软官方网站安装：https://developer.microsoft.com/microsoft-edge/webview2/
+当前预览安装包尚未代码签名；正式分发前需要完成签名。
+
+想用自己的词生成故事
+在「窗边点单」点「故事设置」→「一键准备」。软件会下载引擎和模型、校验、试运行并自动配置。
+无需自己安装 Ollama，无需密钥或命令行。下载可暂停或中断，下次点「继续准备」。
+轻量模型约 1.4 GB，标准模型约 2.5 GB；首次引擎下载 Mac 约 186 MB、Windows 约 1.6 GB。
+自动准备需 macOS 14+ 或 Windows 10 22H2+，建议至少 8 GB 内存；小内存电脑选轻量助手。
+已安装的本地 Ollama 会自动复用；有模型的用户可在进阶设置直接选择。
+准备期间可以先试听和翻词卡。下载后本地运行，不需要联网；电脑性能会影响写故事的等待时间。
+Mac 和 Windows 可使用系统英语语音配音。高质量 Kokoro 配音是可选进阶设置。
+
+词库与记录
+设置内可以导入 Anki .apkg 词包、导出学习记录、在全新安装中恢复记录。
+记录备份不含词库、模型或对话录音，请另行保留这些文件。
+Mac 桌面版的数据位于 ~/Library/Application Support/maidcafe/。
+Windows 桌面版的数据位于 %LOCALAPPDATA%\maidcafe\。
+替换或移动应用不会覆盖这里的学习记录。
+
+遇到问题
+准备失败可点「继续准备」；空间不足时先腾出磁盘空间，试运行失败可换轻量助手。
+离线试听和词卡不依赖 Ollama。应用日志在数据目录的 logs 文件夹，助手日志在 assistant 文件夹。
+源代码和问题反馈：https://github.com/FeeChain/maidcafe

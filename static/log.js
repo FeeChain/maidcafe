@@ -50,7 +50,7 @@
 
   addEventListener("keydown", (e) => {
     if (e.repeat) return;
-    if (e.key === " " || /^[jJkKrR]$/.test(e.key)) {
+    if (e.key === " " || /^[fFjJkKrR]$/.test(e.key)) {
       mclog("key", e.key === " " ? "Space" : e.key.toUpperCase());
     }
   }, true);

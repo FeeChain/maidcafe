@@ -71,6 +71,7 @@ class TestMaidcafe(unittest.TestCase):
         env = dict(os.environ,
                    MAIDCAFE_DB=cls.db_path,
                    MAIDCAFE_CACHE=cache,
+                   MAIDCAFE_DECKS=os.path.join(cls.tmp, "no-decks"),
                    MAIDCAFE_PORT=str(PORT),
                    MAIDCAFE_MODEL="no-such-model-for-error-path",
                    # 开发机上真 ECDICT 会命中合成词、扰动排序——指向空路径隔离
@@ -256,31 +257,16 @@ class TestMaidcafe(unittest.TestCase):
         # 边界内被全扫揪出的漏词：显式标不认识 -> 必须被剔出已知集
         call("/api/mark", {"word": "w010", "status": 1, "src": "scan"})
         words = [w["word"] for w in call("/api/session")["words"][:3]]
-        r = call("/api/generate", {"words": words})
-        self.assertTrue(r["started"])
-        # 已知集快照：边界块之内的全部单词推定已知（用户定稿的核心定义）
-        snap = os.path.join(os.path.dirname(self.db_path), "cache",
-                            "known_words.json")
-        self.assertTrue(os.path.exists(snap), "generate must write the snapshot")
-        with open(snap) as f:
-            known = set(json.load(f))
-        self.assertIn("w050", known, "known-side block words are all known")
-        self.assertNotIn("w250", known, "unknown-side words are not")
-        self.assertNotIn("w010", known,
-                         "full-scan-found gaps inside the boundary beat the presumption")
-        ws = [w["word"] for w in call("/api/session")["words"]]
-        self.assertEqual(ws[0], "w010",
-                         "boundary-inside gaps must be served first (lowest rank)")
-        for _ in range(30):  # bogus model -> pipeline must fail fast & visibly
-            ds = call("/api/dialogues")
-            if ds and ds[0]["status"] == "error":
-                self.assertTrue(ds[0]["error"], "error rows must carry a reason")
-                return
-            time.sleep(1)
-        if ds:
-            self.fail("dialogue stuck in status %r" % ds[0]["status"])
-        # no row at all = generator crashed before the placeholder insert
-        self.fail("no dialogue row appeared; check generate.log handling")
+        before = call('/api/dialogues')
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            call('/api/generate', {'words': words})
+        self.assertEqual(error.exception.code, 503)
+        result = json.load(error.exception)
+        self.assertEqual(result['code'], 'setup_required')
+        self.assertIn('Ollama', result['error'])
+        self.assertEqual(call('/api/dialogues'), before, 'failed setup must not create a broken story')
+        ws = [w['word'] for w in call('/api/session')['words']]
+        self.assertEqual(ws[0], 'w010')
 
 
     def test_12_word_actions_and_legacy_noop(self):

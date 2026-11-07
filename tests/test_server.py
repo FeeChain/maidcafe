@@ -32,6 +32,7 @@ with open(os.path.join(CACHE, "words_cache.json"), "w") as f:
 
 os.environ["MAIDCAFE_DB"] = os.path.join(TMP, "unit.db")
 os.environ["MAIDCAFE_CACHE"] = CACHE
+os.environ["MAIDCAFE_DECKS"] = os.path.join(TMP, "no-decks")
 os.environ["MAIDCAFE_ECDICT"] = os.path.join(TMP, "no-ecdict.db")
 os.environ["MAIDCAFE_AUDIO_OUT"] = os.path.join(TMP, "audio_out")
 os.environ["MAIDCAFE_WORDROOT"] = os.path.join(TMP, "no-wordroot.json")
@@ -171,6 +172,26 @@ class TestVocabEstimate(unittest.TestCase):
         v = server.vocab_estimate("all")
         self.assertEqual(v["sampled"], 0)
 
+    def test_hearing_and_reading_are_independent(self):
+        for i, status in enumerate((1, 2, 3, 4)):
+            server.set_mark("w%03d" % i, status, "probe")
+        v = server.vocab_estimate("all")
+        self.assertEqual(v["listening"], 150)
+        self.assertEqual(v["reading"], 150)
+        self.assertEqual(v["hearing_samples"], 4)
+
+    def test_silent_words_do_not_measure_hearing(self):
+        for i, status in enumerate((5, 5, 6)):
+            server.set_mark("w%03d" % i, status, "probe")
+        v = server.vocab_estimate("all")
+        self.assertEqual(v["reading"], 200)
+        self.assertEqual(v["hearing_samples"], 0)
+        self.assertEqual(server.known_set(), set())
+        server.set_mark("w003", 4, "probe")
+        v = server.vocab_estimate("all")
+        self.assertEqual(v["listening"], 300)
+        self.assertEqual(v["hearing_samples"], 1)
+
 
 class TestSessionRecipe(unittest.TestCase):
     def setUp(self):
@@ -179,6 +200,21 @@ class TestSessionRecipe(unittest.TestCase):
     def test_evidence_gate(self):
         self.assertEqual(server.build_session()["words"], [],
                          "no calibration evidence -> serve nothing")
+
+    def test_seated_guest_can_learn_without_calibration(self):
+        server.kv_set("seated", 1)
+        ws = server.build_session()["words"]
+        self.assertEqual(len(ws), 20)
+        self.assertTrue(all(w["definition"] and w["has_audio"] for w in ws))
+        self.assertTrue({w["word"] for w in ws} <= set(server.STARTER_WORDS))
+
+    def test_hearing_only_and_silent_unknown_enter_backlog(self):
+        server.set_mark("w010", 4, "scan")
+        server.set_mark("w011", 6, "scan")
+        server.set_mark("w012", 5, "scan")
+        ws = [w["word"] for w in server.build_session()["words"]]
+        self.assertEqual(ws[:2], ["w010", "w011"])
+        self.assertNotIn("w012", ws)
 
     def test_fill_from_frontier_in_rank_order(self):
         sim_probe(known_below=100)
