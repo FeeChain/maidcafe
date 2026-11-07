@@ -25,7 +25,7 @@ document.addEventListener("keydown", (e) => {
     dlg.querySelector('[id$="Close"]').click();
     e.stopImmediatePropagation();
   } else if (e.key === "Tab") {
-    const items = [...dlg.querySelectorAll("button,input,a[href],select")].filter(el => el.offsetWidth && !el.disabled);
+    const items = [...dlg.querySelectorAll("button,input,a[href],select,summary")].filter(el => el.offsetWidth && !el.disabled);
     if (!items.length) return;
     const index = items.indexOf(document.activeElement);
     if (index < 0 || (e.shiftKey && index === 0) || (!e.shiftKey && index === items.length - 1)) {
