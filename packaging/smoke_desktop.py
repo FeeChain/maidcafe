@@ -42,4 +42,4 @@ with tempfile.TemporaryDirectory(prefix='maidcafe-package-') as tmp:
     assert worker.returncode != 0, 'Missing model should fail cleanly'
     with closing(sqlite3.connect(home / 'progress.db')) as con:
         assert con.execute('select status from dialogues').fetchone()[0] == 'error'
-    print(json.dumps({'self_check': result, 'native': native, 'speech': audio, 'worker': 'error recorded'}, ensure_ascii=False))
+    print(json.dumps({'self_check': result, 'native': native, 'speech': audio, 'worker': 'error recorded'}))

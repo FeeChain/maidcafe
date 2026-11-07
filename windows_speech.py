@@ -1,11 +1,16 @@
 """Optional Windows voices through the same .NET runtime as the desktop window."""
 from functools import lru_cache
+import os
 from pathlib import Path
 
 
 def synthesizer():
     import clr
-    clr.AddReference('System.Speech')
+    # Python is not a managed executable: its assembly search path may omit the
+    # Windows shared .NET assembly cache even when system speech is installed.
+    cache = Path(os.environ.get('WINDIR', r'C:\Windows')) / 'Microsoft.NET/assembly/GAC_MSIL/System.Speech'
+    assemblies = sorted(cache.glob('*/System.Speech.dll'))
+    clr.AddReference(str(assemblies[-1]) if assemblies else 'System.Speech')
     from System.Speech.Synthesis import SpeechSynthesizer
     return SpeechSynthesizer()
 
