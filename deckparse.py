@@ -26,7 +26,8 @@ def strip_html(text):
 def extract_apkg(apkg_path, cache_dir):
     """Unzip an .apkg into cache_dir/<basename> if not already done. Returns that dir."""
     name = os.path.splitext(os.path.basename(apkg_path))[0]
-    out_dir = os.path.join(cache_dir, name)
+    st = os.stat(apkg_path)
+    out_dir = os.path.join(cache_dir, "%s-%x-%x" % (name, st.st_size, st.st_mtime_ns))
     marker = os.path.join(out_dir, "collection.anki2")
     if not os.path.exists(marker):
         os.makedirs(out_dir, exist_ok=True)

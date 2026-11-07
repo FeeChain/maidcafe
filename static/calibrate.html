@@ -34,17 +34,17 @@
       <h1>欢迎回来，客人 ☕</h1>
       <p>听音优先的词汇校准：先凭耳朵判断，再看词形确认。</p>
       <p class="rhythm">每个词两下：<b>第一下</b>凭耳朵——听出来了吗？<br>
-      <b>第二下</b>凭眼睛——会读吗？两下都"会" = 认识；有一个"不会" = 进生词本。</p>
+      <b>第二下</b>凭眼睛——看词能想起意思吗？两下都"会" = 认识；有一个"不会" = 进生词本。</p>
       <p class="hint-line">用鼠标点按钮和用键盘完全一样，不影响统计。</p>
       <details class="keys-fold">
         <summary>键盘玩家看这里</summary>
         <table class="keys">
-          <tr><td>听发音后</td><td><kbd>Space</kbd> 听出来了 · <kbd>J</kbd> 没听出来</td></tr>
-          <tr><td>显示词后</td><td><kbd>Space</kbd> 我会读 · <kbd>J</kbd> 我不会读</td></tr>
+          <tr><td>听发音后</td><td><kbd>F</kbd> 听出来了 · <kbd>J</kbd> 没听出来</td></tr>
+          <tr><td>显示词后</td><td><kbd>F</kbd> 能想起 · <kbd>J</kbd> 还不熟</td></tr>
           <tr><td>任何时候</td><td><kbd>K</kbd> 重听发音</td></tr>
         </table>
       </details>
-      <button id="startBtn">开始（按任意键）</button>
+      <button id="startBtn">开始（按 Enter）</button>
       <div class="probe-entry">
         <button id="probeBtn" class="mk">🔍 探针测词汇量</button>
         <div class="hint-line">折半找到你的词汇边界，通常 2-3 分钟 · 全扫过的块自动用精确值</div>
@@ -79,25 +79,26 @@
         <div class="sources" id="srcText"></div>
       </div>
       <div id="judgeBtns" class="mark-btns">
-        <button id="btnKnow" class="mk mk3">听出来了 <kbd>Space</kbd></button>
+        <button id="btnKnow" class="mk mk3">听出来了 <kbd>F</kbd></button>
         <button id="btnShow" class="mk mk1">没听出来 <kbd>J</kbd></button>
       </div>
       <div id="nextBtns" class="mark-btns hidden">
-        <div class="ask-line hint-line" style="width:100%;text-align:center;">那么这个词，你会读吗？</div>
-        <button id="btnNext" class="mk mk3">我会读 <kbd>Space</kbd></button>
-        <button id="btnOops" class="mk mk1">我不会读 <kbd>J</kbd></button>
+        <div class="ask-line hint-line" style="width:100%;text-align:center;">只看拼写，你能想起词义吗？</div>
+        <button id="btnNext" class="mk mk3">能想起 <kbd>F</kbd></button>
+        <button id="btnOops" class="mk mk1">还不熟 <kbd>J</kbd></button>
       </div>
+      <p id="saveError" role="status" class="hint-line"></p>
     </div>
     <div id="hintBar" class="hint-bar">
-      <span>听后：<kbd>Space</kbd> 听出来了 · <kbd>J</kbd> 没听出来</span>
-      <span>看后：<kbd>Space</kbd> 会读 · <kbd>J</kbd> 不会读</span>
+      <span>听后：<kbd>F</kbd> 听出来了 · <kbd>J</kbd> 没听出来</span>
+      <span>看后：<kbd>F</kbd> 能想起 · <kbd>J</kbd> 还不熟</span>
       <span><kbd>K</kbd> 重听</span>
       <button id="hintClose" title="关闭提示">×</button>
     </div>
   </div>
 
   <div id="doneCard" class="card done hidden">
-    <img id="doneArt" class="art-banner hidden" src="/static/art/C4_celebrate.png" alt="" onerror="this.remove()">
+    <img id="doneArt" class="art-banner hidden" src="/static/cafe/window-seat.jpg" alt="" onerror="this.remove()">
     <h2 id="doneTitle">这一轮结束 🎉</h2>
     <div id="doneStats"></div>
     <p>进度已自动保存，随时回来继续。</p>
@@ -107,11 +108,12 @@
 
   <div id="probeCard" class="card done hidden">
     <h2>测定完成 ☕</h2>
-    <div id="probeBoundary" class="hint-line hidden" style="margin-bottom:10px;"></div>
+    <p>下次进店，我们会按这次的结果准备词卡。</p>
+    <details class="measure-details"><summary>查看估计与词段详情</summary><div id="probeBoundary" class="hint-line hidden" style="margin-bottom:10px;"></div>
     <div id="probeNums" class="vocab-nums"></div>
     <div id="probeBands" class="probe-bands"></div>
     <p class="hint-line">精确块用真实计数，抽样块按比例推定；之后任何一块被全扫完成，
-    数字会自动替换为精确值。</p>
+    数字会自动替换为精确值。</p></details>
     <a href="/?fresh=1" class="mk mknext" style="text-decoration:none;">去主页开始学习 →</a>
     <button id="adoptBtn" class="mk mknext hidden">采用为主记录</button>
     <button id="discardBtn" class="mk hidden">删除本次</button>
@@ -120,6 +122,7 @@
   </div>
 </main>
 
+<script src="/static/keys.js"></script>
 <script src="/static/log.js?v=2"></script>
 <script src="/static/art.js?v=3"></script>
 <script src="/static/app.js?v=4"></script>

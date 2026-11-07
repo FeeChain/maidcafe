@@ -1,10 +1,12 @@
-/* maidcafe home — 产品主流程状态机。
- * 新客人 → 测词汇量；老客人 → 今日计划：
- * 词卡随机循环学习 ⇄ 按需 5 词一场对话 ⇄ 用户主动考试（两键自评）
- * → 全过=完成；点「今天到这」后没考过的词照旧到期，明天回炉。 */
+/* Arrival → window-seat menu → word cards / a requested story.
+ * Recall is optional, only covers seen words, and saves each answer. */
 
 const $ = (id) => document.getElementById(id);
-async function fetchJSON(url, opts) { const r = await fetch(url, opts); return r.json(); }
+async function fetchJSON(url, opts) {
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
 const POST = (url, body) => fetchJSON(url, {
   method: "POST", headers: { "Content-Type": "application/json" },
   body: JSON.stringify(body || {}),
@@ -25,12 +27,15 @@ let sceneWatch = null;
 let exQueue = [];        // 本轮考试队列
 let exIdx = 0;
 let exPhase = "listen";
-let exHeard = false;
+let examSaving = false;
 let exPassed = 0; let exFailed = 0;
 
 function show(v) {
-  ["vNew", "vIntro", "vEmpty", "vLearn", "vListen", "vExam", "vExamDone",
+  ["vNew", "vSeat", "vIntro", "vEmpty", "vLearn", "vListen", "vExam", "vExamDone",
    "vDone"].forEach((id) => $(id).classList.toggle("hidden", id !== v));
+  if (v !== "vSeat") $("sampleAudio").pause();
+  if (audioEl) audioEl.pause();
+  lsPlaying = false;
   view = v;
   window.__mcview = v;
   mclog("view", v);
@@ -68,7 +73,10 @@ function playWord(w) {
 async function boot() {
   const s = await fetchJSON("/api/home_status");
   resumeScene();   // 煮着的对话在任何视图都继续盯（不在学习页就 toast 通知）
-  if (!s.calibrated) { show("vNew"); return; }
+  const params = new URLSearchParams(location.search);
+  if (params.has("welcome")) { show("vNew"); return; }
+  if (params.has("menu")) { show("vSeat"); return; }
+  if (!s.calibrated && !s.seated) { show("vNew"); return; }
   await loadSession();
   if (!pool.length) { show("vEmpty"); return; }  // 生词池和复习都空：去攒词
   // 刚测完过来的那一次：先给个「开始这一轮」的确认卡，别太突兀
@@ -139,9 +147,11 @@ function renderBrew() {
 }
 
 function renderLearnTop() {
-  $("learnProgress").innerHTML =
-    `这一份 <b>${passed.size}</b>/${sessionTotal} 已拿下 · 在学 ${pool.length} 个`;
-  $("examBtn").textContent = `✍ 我准备好了，考试（${pool.length} 词）`;
+  const n = pool.filter(w => viewed.has(w.word)).length;
+  $("learnProgress").textContent = "窗边 · 自由翻阅";
+  $("examBtn").textContent = n ? `回想刚看的 ${n} 个词` : "翻一张卡就可以回想";
+  $("examBtn").disabled = !n;
+  $("lsExamBtn").disabled = !n;
   $("restLine").classList.toggle("hidden", !sessionRest);
 }
 
@@ -160,6 +170,8 @@ function showLearnCard() {
   $("lMorph").innerHTML = "";               // 遮着时不显示（盲听不剧透）
   $("lRevealBtn").classList.remove("hidden");
   $("lNextBtn").classList.add("hidden");
+  $("lPlayBtn").disabled = !w.has_audio;
+  $("lHint").textContent = w.has_audio ? "先听听，想起词义后再翻卡。K 可以重听。" : "这个词暂时没有录音，翻卡看看它的意思。";
   playWord(w);
 }
 
@@ -170,6 +182,7 @@ function revealLearn() {
   lRevealed = true;
   if (!viewed.has(w.word)) viewedOrder.push(w.word);
   viewed.add(w.word);
+  renderLearnTop();
   renderBrew();
   $("lWord").textContent = w.word;
   $("lWord").classList.remove("veiled-word");
@@ -178,6 +191,7 @@ function revealLearn() {
   $("lDef").classList.remove("hidden");
   $("lRevealBtn").classList.add("hidden");
   $("lNextBtn").classList.remove("hidden");
+  $("lHint").textContent = "可以在故事里听它，也可以接着翻。";
   fillLearnMorph(w.word);
 }
 
@@ -214,7 +228,7 @@ function getPending() {
 
 function enterListen(genWords) {
   show("vListen");
-  $("lsInfo").innerHTML = `词源：当前在学的 <b>${pool.length}</b> 个词`;
+  $("lsInfo").textContent = "吧台来信 · 为你现做的对话";
   loadTodayDialogues();
   const p = getPending();
   if (p) genWatch(p.words, p.t0);
@@ -234,8 +248,14 @@ async function startGen(words) {
   sceneGroup = words;
   const t0 = Date.now() / 1000;
   try { localStorage.setItem("mc_home_gen", JSON.stringify({ words, t0 })); } catch (_) {}
-  await POST("/api/generate", { words });
-  genWatch(words, t0);
+  try {
+    const r = await POST("/api/generate", { words });
+    if (!r.started) throw Error();
+    genWatch(words, t0);
+  } catch (_) {
+    localStorage.removeItem("mc_home_gen");
+    genIdle("这段还没开始。可以再试一次，或回窗边听离线招待。");
+  }
 }
 
 /* 进度条：①写稿(第N/4稿) ②配音 ③上桌；超时/报错说人话 */
@@ -304,8 +324,7 @@ function genWatch(words, t0) {
       line = `⑤ 拉花中 · 就快好了 · ${clock}`;
     } else if (hit && hit.status === "error") {
       mclog("gen_error", hit.error || "");
-      $("lsGenLine").innerHTML =
-        `<span class="s1">✗ 这一杯翻了：${hit.error || "未知原因"} · 详见 generate.log</span>`;
+      $("lsGenLine").textContent = "这段还没煮好。请检查本机 Ollama 和模型，或回窗边点单听离线招待。";
       $("lsGenFill").style.width = "0%";
       $("lsAgainBtn").classList.remove("hidden");
       stop(true);
@@ -508,7 +527,7 @@ async function showWordCard(word) {
   $("wcDef").textContent = "…";
   $("wcMorph").innerHTML = "";
   $("wcAdd").classList.add("hidden");
-  $("wordCard").classList.remove("hidden");
+  openCafeDialog("wordCard", "wcClose");
   const r = await fetchJSON("/api/lookup?word=" + encodeURIComponent(word));
   $("wcPhon").textContent = r.phonetic || "";
   $("wcDef").textContent = r.definition || "词典里查不到这个词";
@@ -518,7 +537,7 @@ async function showWordCard(word) {
   $("wcAdd").dataset.word = word;
 }
 $("wcClose").addEventListener("click", () => {
-  $("wordCard").classList.add("hidden");
+  closeCafeDialog("wordCard");
   if (wcPaused && lsCur) lsPlayTurn(Math.max(0, lsTurnIdx));
 });
 $("wcPlay").addEventListener("click", () => {
@@ -533,10 +552,8 @@ $("wcAdd").addEventListener("click", async (e) => {
 
 /* ---------------- 考试（两键自评，主动权在用户） ---------------- */
 function enterExam() {
-  // 考试=一轮的分界：清空篮子，考完回来重新攒（用户裁决）
-  viewed = new Set();
-  viewedOrder = [];
-  exQueue = shuffle(pool.slice());
+  exQueue = shuffle(pool.filter(w => viewed.has(w.word)));
+  if (!exQueue.length) return;
   exIdx = 0;
   exPassed = 0;
   exFailed = 0;
@@ -551,7 +568,7 @@ function showExamCard() {
   const w = curExam();
   exPhase = "listen";
   $("examProgress").innerHTML =
-    `考试 <b>${exIdx}</b>/${exQueue.length} · 过 ${exPassed} · 挂 ${exFailed}`;
+    `回想片刻 · 第 ${exIdx + 1} 个，共 ${exQueue.length} 个`;
   $("exListen").classList.remove("hidden");
   $("exAnswer").classList.add("hidden");
   $("exJudge").classList.remove("hidden");
@@ -567,10 +584,10 @@ function showExamCard() {
   }
 }
 
-function examJudge(didHear) {
+function examJudge() {
   if (exPhase !== "listen") return;
   exPhase = "final";
-  exHeard = didHear;
+
   const w = curExam();
   $("exListen").classList.add("hidden");
   $("exAnswer").classList.remove("hidden");
@@ -581,42 +598,67 @@ function examJudge(didHear) {
   $("exDef").textContent = w.definition || "";
 }
 
-async function examFinalize(canRead) {
-  if (exPhase !== "final") return;
+async function examFinalize(pass) {
+  if (exPhase !== "final" || examSaving) return;
   const w = curExam();
-  const pass = exHeard && canRead;
-  exIdx += 1;
-  mclog("exam", `${w.word} ${pass ? "过" : "挂"}`);
-  if (pass) {
-    exPassed += 1;
-    passed.add(w.word);
-    rebuildPool();
-    POST("/api/word_pass", { word: w.word });
-  } else {
-    exFailed += 1;
-    // 在学词静默降权、新词零记录——服务端判定，界面零提示（FLOW §4）
-    POST("/api/word_fail", { word: w.word });
+  examSaving = true;
+  ["examQuitBtn", "exYes2", "exNo2"].forEach(id => $(id).disabled = true);
+  try {
+    const r = await POST(pass ? "/api/word_pass" : "/api/word_fail", { word: w.word });
+    if (!r.ok) throw Error();
+    exIdx++;
+    if (pass) { exPassed++; passed.add(w.word); rebuildPool(); }
+    else exFailed++;
+    mclog("exam", w.word + (pass ? " recalled" : " revisit"));
+    showExamCard();
+  } catch (_) { toast("这次回想还没保存，请再按一次。"); }
+  finally {
+    examSaving = false;
+    ["examQuitBtn", "exYes2", "exNo2"].forEach(id => $(id).disabled = false);
   }
-  showExamCard();
 }
 
 function examDone() {
   renderLearnTop();
   if (!pool.length) { renderDone(); return; }   // 全过 -> S5a
-  $("exDoneTitle").textContent = exFailed ? "差一点点 ☕" : "这一轮全过 🎉";
+  $("exDoneTitle").textContent = "这一段，先到这里 ☕";
   $("exDoneStats").innerHTML =
-    `通过 <b>${exPassed}</b> · 还剩 <b>${pool.length}</b> 个没拿下`;
+    `刚才回想了 ${exIdx} 个词。下次来，再换个故事。`;
   show("vExamDone");
 }
 
 /* ---------------- S5a 这一份全拿下 ---------------- */
 function renderDone() {
   $("doneLine").innerHTML =
-    `${sessionTotal} 个词全部通过考试`;
+    `这次和 ${sessionTotal} 个词见了面。`;
   show("vDone");
 }
 
 /* ---------------- 事件 ---------------- */
+$("sitBtn").addEventListener("click", () => show("vSeat"));
+async function takeSeat() {
+  const result = await POST("/api/visit", {});
+  if (!result.ok) throw Error();
+  history.replaceState(null, "", "/");
+  await loadSession();
+}
+$("starterBtn").addEventListener("click", async () => {
+  try { await takeSeat(); pool.length ? enterLearn() : show("vEmpty"); }
+  catch (_) { toast("没能打开词卡，请再试一次。"); }
+});
+$("orderForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const words = [...new Set($("orderWords").value.trim().toLowerCase().split(/[,，;；\n]+/).map(s => s.trim()).filter(Boolean))];
+  if (!words.length || words.length > 5 || words.some(w => !/^[a-z]+(?:[ '-][a-z]+){0,3}$/.test(w))) {
+    $("orderMsg").textContent = "写 1–5 个英文词或短语，词与词用逗号隔开。"; return;
+  }
+  if (getPending()) { $("orderMsg").textContent = "上一段故事还在准备，稍后再点这一段。"; return; }
+  const button = e.currentTarget.querySelector("button");
+  button.disabled = true;
+  try { await takeSeat(); enterListen(words); }
+  catch (_) { $("orderMsg").textContent = "没有连到店内服务，请再试一次。"; }
+  finally { button.disabled = false; }
+});
 $("goProbeBtn").addEventListener("click", () => location.href = "/calibrate?probe=1");
 $("lPlayBtn").addEventListener("click", (e) => { e.currentTarget.blur(); playWord(curLearn()); });
 $("lRevealBtn").addEventListener("click", (e) => { e.currentTarget.blur(); revealLearn(); });
@@ -645,24 +687,22 @@ $("moreBtn").addEventListener("click", async () => {
 });
 $("exPlayBtn").addEventListener("click", (e) => { e.currentTarget.blur(); playWord(curExam()); });
 $("exYes").addEventListener("click", (e) => { e.currentTarget.blur(); examJudge(true); });
-$("exNo").addEventListener("click", (e) => { e.currentTarget.blur(); examJudge(false); });
+
 $("exYes2").addEventListener("click", (e) => { e.currentTarget.blur(); examFinalize(true); });
 $("exNo2").addEventListener("click", (e) => { e.currentTarget.blur(); examFinalize(false); });
 
 document.addEventListener("keydown", (e) => {
-  if (e.repeat) return;
-  if (e.target.tagName === "INPUT") return;
+  if (!cafeShortcut(e)) return;
   if (view === "vLearn") {
     if (e.key === " ") { e.preventDefault(); lRevealed ? nextLearn() : revealLearn(); }
     if (e.key === "k" || e.key === "K") playWord(curLearn());
   } else if (view === "vExam") {
     if (e.key === " ") {
       e.preventDefault();
-      exPhase === "listen" ? examJudge(true) : examFinalize(true);
+      if (exPhase === "listen") examJudge();
     }
-    if (e.key === "j" || e.key === "J") {
-      exPhase === "listen" ? examJudge(false) : examFinalize(false);
-    }
+    if (e.key.toLowerCase() === "f") examFinalize(true);
+    if (e.key.toLowerCase() === "j") examFinalize(false);
     if (e.key === "k" || e.key === "K") playWord(curExam());
   } else if (view === "vListen") {
     if (e.key === " " && lsCur && lsExpanded !== null) {
@@ -678,13 +718,13 @@ $("cfgBtn").addEventListener("click", async () => {
   $("quotaInput").value = c.new_quota;
   try {
     const v = await fetchJSON("/api/vocab_estimate");
-    $("cfgVocab").innerHTML = v.unmeasured_blocks === 0 && v.sampled > 0
+    $("cfgVocab").innerHTML = v.unmeasured_blocks === 0 && v.hearing_samples > 0
       ? `当前测定：听得出 ≈ <b>${fmtN(v.listening)}</b> · 看得懂 ≈ <b>${fmtN(v.reading)}</b> 词`
       : "";
   } catch (_) {}
-  $("cfgModal").classList.remove("hidden");
+  openCafeDialog("cfgModal", "cfgClose");
 });
-$("cfgClose").addEventListener("click", () => $("cfgModal").classList.add("hidden"));
+$("cfgClose").addEventListener("click", () => closeCafeDialog("cfgModal"));
 $("quotaSave").addEventListener("click", async () => {
   const q = parseInt($("quotaInput").value, 10);
   const r = await POST("/api/config", { new_quota: q });

@@ -29,7 +29,7 @@ AUDIO_OUT = os.environ.get("MAIDCAFE_AUDIO_OUT",
                            os.path.join(ROOT, "audio_out"))
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL = os.environ.get("MAIDCAFE_MODEL", "qwen3.5:9b-mlx")
+MODEL = os.environ.get("MAIDCAFE_MODEL", "qwen3.6:27b-mlx")
 KNOWN_RATIO_TARGET = 0.92
 MAX_REPAIR = 3
 # 单句生词上限（2026-10-14 用户裁决；目标词不算）：整段 92% 会把一句里扎堆的
@@ -117,7 +117,7 @@ class Lemma:
 def get_known_set(con):
     """已知集 = 边界块之内的全部单词（server 生成的快照）+ 显式标记认识的词。
     快照缺席时退回纯标记（老档案/离线 CLI 也能跑，但新人会偏严）。"""
-    rows = con.execute("select word from marks where status = 3").fetchall()
+    rows = con.execute("select word from marks where status in (3,4)").fetchall()
     known = {r[0] for r in rows}
     snap = os.path.join(
         os.environ.get("MAIDCAFE_CACHE", os.path.join(ROOT, "cache")),
@@ -144,7 +144,7 @@ def get_auto_targets(con, n):
         return due[:n]
     picked = set(due)
     rows = con.execute(
-        "select word from marks where status in (1,2) order by ts desc"
+        "select word from marks where status in (1,2,4,6) order by ts desc"
     ).fetchall()
     for (w,) in rows:
         if w not in picked:
@@ -160,6 +160,8 @@ def verify(turns, targets, known, lemmatizer, char_names):
     target_set = {t.lower() for t in targets}
     target_lemmas = {lemmatizer.lemma(t) for t in target_set}
 
+    phrases = {t: [lemmatizer.lemma(x) for x in tokenize(t)] for t in target_set
+               if len(tokenize(t)) > 1}
     found_targets = set()
     unknown = {}
     banned = set()
@@ -168,7 +170,17 @@ def verify(turns, targets, known, lemmatizer, char_names):
     per_turn = []          # 每句的生词（去重，不含目标词），单句上限用
     for t in turns:
         turn_unknown = []
-        for tok in tokenize(t.get("text", "")):
+        tokens = tokenize(t.get("text", ""))
+        lemmas = [lemmatizer.lemma(tok) for tok in tokens]
+        phrase_indices = set()
+        for phrase, parts in phrases.items():
+            for i in range(len(tokens) - len(parts) + 1):
+                if lemmas[i:i + len(parts)] == parts:
+                    found_targets.add(phrase)
+                    phrase_indices.update(range(i, i + len(parts)))
+        for i, tok in enumerate(tokens):
+            if i in phrase_indices:
+                continue
             lem = lemmatizer.lemma(tok)
             if tok in target_set or lem in target_lemmas:
                 found_targets.add(lem if lem in target_lemmas else tok)
@@ -466,7 +478,7 @@ def generate(targets, seed=None):
                   and report["known_ratio"] >= KNOWN_RATIO_TARGET)
             # 达标稿无条件采用；分数只在不达标的稿之间比（每句 2 个生词的轻扣分
             # 可能让达标稿分数低于不达标稿——10-14 读码时发现）
-            if ok or best is None or score(report) > score(best[1]):
+            if ok or best is None or (not report["missing_targets"], score(report)) > (not best[1]["missing_targets"], score(best[1])):
                 best = (turns, report)
             if ok:
                 break
@@ -475,6 +487,8 @@ def generate(targets, seed=None):
             messages.append(repair_message(report))
 
         turns, report = best
+        if not turns or report["missing_targets"]:
+            raise ValueError("这几稿没有完整用到点的词，请换一组或重试。")
         con.execute(
             "update dialogues set turns=?, report=?, status='tts' where id=?",
             (json.dumps(turns, ensure_ascii=False), json.dumps(report), did))

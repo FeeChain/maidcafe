@@ -13,6 +13,7 @@
 <header>
   <a class="brand" href="/" title="回主页">maidcafe <span class="cup">☕</span></a>
   <div class="controls corner-nav">
+    <a href="/?menu=1" class="tab">窗边点单</a>
     <a href="/listen#wordbook" class="tab">生词本</a>
     <a href="/listen" class="tab">对话史</a>
     <button id="cfgBtn" class="tab" title="设置">⚙</button>
@@ -20,15 +21,32 @@
 </header>
 
 <main>
-  <!-- 新客人：先测词汇量 -->
-  <section id="vNew" class="overlay hidden">
-    <div class="overlay-card">
-      <img class="art-banner" src="/static/art/C1_welcome.png" alt="" onerror="this.remove()">
-      <h1>欢迎光临，客人 ☕</h1>
-      <p>这家店会记住你认识哪些词，然后把你该学的词，<br>现做成女仆们的日常对话给你听。</p>
-      <p class="hint-line">先花 2-3 分钟，让女仆们认识你的耳朵。</p>
-      <button id="goProbeBtn" class="mknext big" style="border:none;cursor:pointer;border-radius:12px;">测词汇量（2-3 分钟）</button>
+  <section id="vNew" class="hidden arrival">
+    <div class="arrival-cover"><img src="/static/cafe/window-seat.jpg" alt="从窗边的客席望过去，Momo 正递来茶杯，Shizuku 在吧台冲咖啡。"><span class="scene-stamp">窓ぎわの席</span></div>
+    <div class="arrival-letter">
+      <p class="folio">MAIDCAFE <span>／</span> 第一话</p>
+      <h1>窗边的位置，<br>给你留着。</h1>
+      <p class="host"><img src="/static/art/V2_momo.png" alt="">Momo <span>· 今日接待</span></p>
+      <p>“欢迎光临！坐这边吧。先听我们聊两句，咖啡马上就好。”</p>
+      <p class="quiet">带一个想学的英文词来，店员会把它编进一段日常对话。听不清可以重听，想走随时收工。</p>
+      <button id="sitBtn" class="cafe-primary">推门入座 <span aria-hidden="true">→</span></button>
     </div>
+  </section>
+  <section id="vSeat" class="hidden table-menu">
+    <div class="table-heading"><p class="folio">TABLE 01 <span>／</span> 窓辺</p><h1>今天想听点什么？</h1><p>可以先尝尝店里的招待，也可以点自己的词。</p></div>
+    <article class="sample-ticket">
+      <img class="sample-scene" src="/static/art/C2_empty.png" alt="窗边的小桌和热咖啡">
+      <div><p class="folio">店内招待 · 离线试听</p><h2>窗边的第一杯</h2>
+      <p>Momo 带你入座，Haruka 来续杯。</p>
+      <audio id="sampleAudio" controls preload="metadata" aria-label="播放窗边的第一杯" src="/static/cafe/window-seat.mp3"></audio>
+      <details><summary>看看她们说了什么</summary><p><b>Momo</b>　You found the window seat! Can I get you a refill?<br><b>Haruka</b>　Leave your cup on the counter. I will fill it for you.<br><b>Momo</b>　Here you go. Two hands this time!<br><b>Haruka</b>　And a napkin, just in case.</p><p>refill · 续杯　 counter · 柜台　 napkin · 餐巾</p></details></div>
+    </article>
+    <form id="orderForm" class="order-card"><label for="orderWords">用我的词，听一段新故事</label><p id="orderHelp">写 1–5 个英文词或短语，用逗号分开。由本机 Ollama 现写并配音。</p>
+      <div class="order-row"><input id="orderWords" maxlength="180" placeholder="例如 refill, give up" aria-describedby="orderHelp" required><button class="cafe-primary">点这段故事 →</button></div>
+      <p id="orderMsg" role="status"></p>
+    </form>
+    <div class="menu-links"><button id="starterBtn" class="mk">翻翻店里的词卡 →</button><button id="goProbeBtn" class="mk">调一调听力难度</button><a href="/window-seat.apkg" download>带走入门词包 ↓</a></div>
+    <details class="cast-notes"><summary>翻开当班名册</summary><div class="cast-grid"><figure><img loading="lazy" src="/static/art/V1_haruka.png" alt=""><figcaption>Haruka<small>店长</small></figcaption></figure><figure><img loading="lazy" src="/static/art/V2_momo.png" alt=""><figcaption>Momo<small>看板娘</small></figcaption></figure><figure><img loading="lazy" src="/static/art/V3_shizuku.png" alt=""><figcaption>Shizuku<small>后厨</small></figcaption></figure><figure><img loading="lazy" src="/static/art/V4_suzu.png" alt=""><figcaption>Suzu<small>大厅接待</small></figcaption></figure><figure><img loading="lazy" src="/static/art/V5_aoi.png" alt=""><figcaption>Aoi<small>实习店员</small></figcaption></figure></div></details>
   </section>
 
   <!-- 校准完成 → 开学确认卡（只在测完那一次出现） -->
@@ -48,13 +66,14 @@
     <div class="overlay-card">
       <img class="art-banner" src="/static/art/C2_empty.png" alt="" onerror="this.remove()">
       <h1>词池空了 ☕</h1>
-      <p class="hint-line">没有到期的复习，生词池也见底了——先去攒一点生词。</p>
-      <a href="/calibrate" class="mknext big" style="text-decoration:none;border-radius:12px;display:inline-block;border:none;">去校准工具攒生词 →</a>
+      <p class="hint-line">没有到期的复习，生词池也见底了——可以自己点一段故事，或去校准工具找词。</p>
+      <a href="/?menu=1" class="mk">回到窗边点单</a> <a href="/calibrate" class="mknext big" style="text-decoration:none;border-radius:12px;display:inline-block;border:none;">去校准工具攒生词 →</a>
     </div>
   </section>
 
   <!-- 学习会话 -->
   <section id="vLearn" class="hidden">
+    <div class="counter-head"><p class="folio">AT THE COUNTER <span>／</span> 单词手帖</p><h1>在吧台听一个词</h1></div>
     <div class="learn-top">
       <span id="learnProgress" class="hint-line"></span>
       <span style="flex:1"></span>
@@ -75,16 +94,16 @@
           <div class="hint" id="lHint">Space 显示 · 再按下一个 · K 重听 · 翻开的词会攒进下一杯对话</div>
         </div>
       </div>
-      <div class="mark-btns" style="padding:0 0 26px;">
+    <div class="group-head">
+      <button id="brewBtn" class="cafe-primary" disabled>☕ 翻开的词会攒进下一杯（最多 5 个）</button>
+      <span id="sceneHint" class="hint-line" style="margin-left:auto;"></span>
+    </div>
+      <div class="mark-btns card-nav">
         <button id="lRevealBtn" class="mk mk3">显示 <kbd>Space</kbd></button>
         <button id="lNextBtn" class="mk hidden">下一个 <kbd>Space</kbd></button>
       </div>
     </div>
 
-    <div class="group-head">
-      <button id="brewBtn" class="mk" disabled>☕ 翻开的词会攒进下一杯（最多 5 个）</button>
-      <span id="sceneHint" class="hint-line" style="margin-left:auto;"></span>
-    </div>
   </section>
 
   <!-- S6 听对话（会话内子页：词源=当前 S2 词池） -->
@@ -93,8 +112,9 @@
       <span id="lsInfo" class="hint-line"></span>
       <span style="flex:1"></span>
       <button id="lsBackBtn" class="mk">← 回去学</button>
-      <button id="lsExamBtn" class="mk">✍ 直接考试</button>
+      <button id="lsExamBtn" class="mk">回想刚才的词</button>
     </div>
+    <div class="brew-illustration" role="img" aria-label="从客席看着女仆在吧台准备咖啡"></div>
     <div id="lsGenCard" class="card" style="padding:16px 20px;">
       <div id="lsGenLine" class="hint-line">☕</div>
       <div class="progress" style="margin-top:10px;border-radius:99px;overflow:hidden;">
@@ -111,7 +131,7 @@
   </section>
 
   <!-- 释义卡（S6 点词用） -->
-  <div id="wordCard" class="word-card hidden">
+  <div aria-label="单词释义" id="wordCard" class="word-card hidden" role="dialog" aria-modal="true">
     <div class="wc-word" id="wcWord"></div>
     <div class="wc-phon" id="wcPhon"></div>
     <div class="wc-def" id="wcDef"></div>
@@ -128,14 +148,14 @@
     <div class="learn-top">
       <span id="examProgress" class="hint-line"></span>
       <span style="flex:1"></span>
-      <button id="examQuitBtn" class="mk small">先不考了，回去学</button>
+      <button id="examQuitBtn" class="mk small">先到这里，回吧台</button>
     </div>
     <div class="card learn-card">
       <div class="card-body">
         <div id="exListen" class="listen-state">
           <div class="step-dots"><i class="on"></i><i></i></div>
           <button id="exPlayBtn" class="play-btn" title="播放发音">🔊</button>
-          <div class="hint">刚才这个音，你听出来了吗？</div>
+          <div class="hint">先在心里想想，这个词是什么意思？</div>
           <div id="exWordPreview" class="word-preview hidden"></div>
         </div>
         <div id="exAnswer" class="answer-state hidden">
@@ -145,13 +165,13 @@
           <div class="definition" id="exDef"></div>
         </div>
         <div id="exJudge" class="mark-btns">
-          <button id="exYes" class="mk mk3">听出来了 <kbd>Space</kbd></button>
-          <button id="exNo" class="mk mk1">没听出来 <kbd>J</kbd></button>
+          <button id="exYes" class="mk mknext">想好了，看释义 <kbd>Space</kbd></button>
+
         </div>
         <div id="exFinal" class="mark-btns hidden">
-          <div class="ask-line hint-line" style="width:100%;text-align:center;">那么这个词，你会读吗？</div>
-          <button id="exYes2" class="mk mk3">我会读 <kbd>Space</kbd></button>
-          <button id="exNo2" class="mk mk1">我不会读 <kbd>J</kbd></button>
+          <div class="ask-line hint-line" style="width:100%;text-align:center;">和你刚才想到的意思一样吗？</div>
+          <button id="exYes2" class="mk mk3">想起来了 <kbd>F</kbd></button>
+          <button id="exNo2" class="mk mk1">还想再听 <kbd>J</kbd></button>
         </div>
       </div>
     </div>
@@ -162,23 +182,23 @@
     <div class="overlay-card">
       <h1 id="exDoneTitle"></h1>
       <div id="exDoneStats" class="menu-line"></div>
-      <button id="backToLearnBtn" class="mk mknext" style="border:none;">继续学剩下的</button>
+      <button id="backToLearnBtn" class="mk mknext" style="border:none;">回吧台</button>
     </div>
   </section>
 
   <!-- 今日完成 -->
   <section id="vDone" class="overlay hidden">
     <div class="overlay-card">
-      <img class="art-banner" src="/static/art/C4_celebrate.png" alt="" onerror="this.remove()">
-      <h1>这一份全部拿下 🎉</h1>
+      <img class="art-banner" src="/static/cafe/window-seat.jpg" alt="" onerror="this.remove()">
+      <h1>这一杯，慢慢回味。</h1>
       <div id="doneLine" class="menu-line"></div>
-      <p class="hint-line">背完就是背完——关掉就行。想多学：</p>
+      <p class="hint-line">可以关店休息，想再坐一会儿也行。</p>
       <button id="moreBtn" class="mk">☕ 再来一份</button>
     </div>
   </section>
 
   <!-- 设置 -->
-  <div id="cfgModal" class="word-card hidden" style="width:380px;">
+  <div aria-label="设置" id="cfgModal" class="word-card hidden" role="dialog" aria-modal="true" style="width:380px;">
     <div class="wc-word" style="font-family:var(--font-display);font-size:20px;">设置</div>
     <div class="cfg-body">
       <label>每份词数（复习+新词）
@@ -188,7 +208,7 @@
       <div class="hint-line">先放要复习的，再用新词补满。断几天也没关系：每次打开都是这么多，不累计。</div>
       <div id="cfgVocab" class="hint-line"></div>
       <div class="cfg-links hint-line">
-        校准工具：<a href="/calibrate">全扫词库</a> ·
+        <a href="/?welcome=1">重看迎宾</a> · <a href="/window-seat.apkg" download>下载入门词包</a><br>校准工具：<a href="/calibrate">全扫词库</a> ·
         <a href="/calibrate?probe=1">探针测词汇量</a> ·
         <a href="/calibrate?blind=1">重新盲测</a>
       </div>
@@ -202,6 +222,7 @@
   </div>
 </main>
 
+<script src="/static/keys.js"></script>
 <script src="/static/log.js?v=5"></script>
 <script src="/static/morph.js?v=1"></script>
 <script src="/static/art.js?v=5"></script>

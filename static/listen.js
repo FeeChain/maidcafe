@@ -64,6 +64,12 @@ async function loadList() {
     } else {
       el.addEventListener("click", () => openDialogue(d.id));
     }
+    if (d.status === "done" || d.status === "error") {
+      el.tabIndex = 0; el.setAttribute("role", "button");
+      el.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.click(); }
+      });
+    }
     box.appendChild(el);
   });
 }
@@ -280,11 +286,11 @@ async function showWordCard(word, opts) {
   };
   $("wcPlay").onclick = () => new Audio("/audio/" + encodeURIComponent(word))
     .play().catch(() => {});
-  $("wordCard").classList.remove("hidden");
+  openCafeDialog("wordCard", "wcClose");
 }
 
 $("wcClose").addEventListener("click", () => {
-  $("wordCard").classList.add("hidden");
+  closeCafeDialog("wordCard");
   if (pausedByCard && current) {
     pausedByCard = false;
     playing = true;
@@ -528,8 +534,7 @@ $("tabWordbook").addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === " " && !$("playerView").classList.contains("hidden") &&
-      e.target.tagName !== "INPUT") {
+  if (cafeShortcut(e) && e.key === " " && !$("playerView").classList.contains("hidden")) {
     e.preventDefault();
     togglePlay();
   }

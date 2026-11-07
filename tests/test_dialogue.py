@@ -16,6 +16,7 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TMP = tempfile.mkdtemp(prefix="maidcafe-dlg-")
@@ -90,6 +91,14 @@ class TestVerifier(unittest.TestCase):
     def test_missing_target_detected(self):
         r = self._v(turns("nothing to see"), ["seldom"], {"see"})
         self.assertEqual(r["missing_targets"], ["seldom"])
+
+    def test_phrase_must_occur_together_in_one_turn(self):
+        r = self._v(turns("Please do not give up."), ["give up"], set())
+        self.assertEqual(r["missing_targets"], [])
+        self.assertEqual(r["known_ratio"], 1.0)
+        for ts in (turns("give it up"), turns("give", "up")):
+            self.assertEqual(self._v(ts, ["give up"], set())["missing_targets"],
+                             ["give up"])
 
     def test_function_words_and_names_skipped(self):
         r = self._v(turns("Momo said thanks guest okay the"), [], set())
@@ -498,6 +507,21 @@ class TestCastDiscipline(unittest.TestCase):
         self.assertIsInstance(out, str)
         self.assertIn("seldom", out)
         self.assertIn("praise", out)
+
+
+class TestGenerationGate(unittest.TestCase):
+    def test_missing_targets_never_reach_tts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(dialogue, "DB_PATH", os.path.join(tmp, "dialogue.db")), \
+                 patch.object(dialogue, "get_known_set", return_value=set()), \
+                 patch.object(dialogue, "call_ollama", return_value=turns("Hello!")), \
+                 patch.object(dialogue, "synthesize") as tts:
+                with self.assertRaisesRegex(ValueError, "没有完整"):
+                    dialogue.generate(["refill"], seed=1)
+                tts.assert_not_called()
+                con = dialogue.db()
+                self.assertEqual(con.execute("select status from dialogues").fetchone()[0], "error")
+                con.close()
 
 
 class TestKnownSetUnion(unittest.TestCase):

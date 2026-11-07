@@ -1,11 +1,5 @@
-/* maidcafe calibration UI — listen-first, two-key rhythm.
- *
- * Flow per word:
- *   audio plays (no text)
- *     Space = recognized by ear  -> mark 3, reveal word to confirm
- *     J     = need to see it     -> mark 1 (= unknown), reveal word
- *   then Space = clear, advance, next audio.
- */
+/* Calibration: F=yes, J=not yet. Hearing and reading are independent.
+ * Without audio, record only reading. Advance only after a successful save. */
 
 let queue = [];
 let idx = 0;
@@ -24,6 +18,7 @@ const $ = (id) => document.getElementById(id);
 
 async function fetchJSON(url, opts) {
   const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
 
@@ -147,7 +142,11 @@ function showDone() {
 }
 
 function showCurrent() {
+  $("saveError").textContent = "";
   if (!queue.length || idx >= queue.length) {
+    phase = "loading";
+    $("judgeBtns").classList.add("hidden");
+    $("nextBtns").classList.add("hidden");
     if (probeMode) {
       probeKind === "dyn" ? probeNext() : showProbeResult(null);
       return;
@@ -175,15 +174,12 @@ function showCurrent() {
     $("wordPreview").classList.add("hidden");
     playAudio();
   } else {
-    // no audio: judge by sight instead
-    $("playBtn").classList.add("hidden");
-    $("noAudioNote").classList.remove("hidden");
-    $("wordPreview").textContent = w.word;
-    $("wordPreview").classList.remove("hidden");
+    // No sound is available, so collect only a reading observation.
+    judge(null);
   }
 }
 
-/* Stage 1 (listen): Space = heard it, J = missed it. Either way, reveal. */
+/* Reveal spelling only, so reading recall is still independent. */
 function judge(didHear) {
   const w = cur();
   if (!w || phase !== "listen") return;
@@ -193,36 +189,43 @@ function judge(didHear) {
   $("answerState").classList.remove("hidden");
   $("judgeBtns").classList.add("hidden");
   $("nextBtns").classList.remove("hidden");
-  $("markTag").textContent = didHear ? "听出来了" : "没听出来 → 生词";
+  $("markTag").textContent = didHear === null ? "无录音 · 只看词形" : didHear ? "听出来了" : "还想再听";
   $("markTag").className = "mark-tag " + (didHear ? "mt3" : "mt1");
   $("wordText").textContent = w.word;
-  $("phoneticText").textContent = w.phonetic || "";
-  $("defText").textContent = w.definition || "";
-  $("exEn").textContent = w.example_en || "";
-  $("exCn").textContent = w.example_cn || "";
-  $("srcText").textContent = (w.sources || []).join(" · ");
+  $("phoneticText").textContent = "";
+  $("defText").textContent = "";
+  $("exEn").textContent = "";
+  $("exCn").textContent = "";
+  $("srcText").textContent = "";
 }
 
-/* Stage 2 (revealed): Space = know it by sight, J = don't. Writes the final
- * status and advances. Space+Space=3 known; J+Space=2 (eye-only, counts as
- * 生词 in the UI but kept distinct in the DB); any ending in J = 1 unknown. */
+/* 1=neither, 2=reading, 3=both, 4=hearing, 5/6=reading yes/no without audio. */
 async function finalize(canRead) {
   const w = cur();
   if (!w || phase !== "revealed") return;
-  const status = heard && canRead ? 3 : (!heard && canRead ? 2 : 1);
+  const status = heard === null ? (canRead ? 5 : 6)
+    : heard ? (canRead ? 3 : 4) : (canRead ? 2 : 1);
   mclog("mark", `${w.word}=${status}`);
-  idx += 1;
-  const saved = fetchJSON("/api/mark", {
+  phase = "saving";
+  ["btnNext", "btnOops", "endBtn"].forEach(id => $(id).disabled = true);
+  $("saveError").textContent = "";
+  try {
+    const result = await fetchJSON("/api/mark", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ word: w.word, status,
                            src: probeMode ? "probe" : "scan",
                            session: probeSession || undefined }),
-  });
-  if (probeMode) markSaves.push(saved);   // 登记：probeNext 要等它落库
-  showCurrent();
-  await saved;
-  if (!probeMode) loadStats();
+    });
+    if (!result.ok) throw new Error("save failed");
+    idx += 1;
+    showCurrent();
+  } catch (_) {
+    phase = "revealed";
+    $("saveError").textContent = "这一题还没保存，请再选一次。";
+  } finally {
+    ["btnNext", "btnOops", "endBtn"].forEach(id => $(id).disabled = false);
+  }
 }
 
 /* ---------------- 探针式词汇量测定 ---------------- */
@@ -263,15 +266,7 @@ async function startProbe(kind, fresh) {
 
 /* 动态折半：向服务端要下一批 3 词；服务端每次从全部标记重放搜索，
  * 所以中途退出、明天再来都严格接着走 */
-/* 尚未落库的标记请求。要下一批前必须全部落库——否则服务端少看到样本，把同一块
-   再问一遍。10-13 真机冒烟抓到（每轮翻倍），当时只等了批末那一个；10-14 CI 偶发
-   失败证明不够：服务器多线程并发写，先发的标记可能后落库，所以等整批。 */
-let markSaves = [];
-
 async function probeNext() {
-  const pending = markSaves;
-  markSaves = [];
-  await Promise.allSettled(pending);
   const r = await fetchJSON(`/api/probe_next?deck=${encodeURIComponent(currentDeck())}${sessParam()}`);
   if (r.done) { showProbeResult(r); return; }
   probeInfo = r;
@@ -283,10 +278,9 @@ async function probeNext() {
 function renderProbeStats() {
   const tag = probeSession ? `盲测#${probeSession} · ` : "";
   if (probeKind === "dyn" && probeInfo) {
-    const [lo, hi] = probeInfo.bracket;
+
     $("statsBar").innerHTML =
-      `🔍 ${tag}折半试探第 <b>${probeInfo.tier}</b> 块 · 边界区间 (${lo}, ${hi}) · ` +
-      `本轮 ${idx}/${queue.length}`;
+      `${tag}调一调难度 · 本轮 ${idx + 1}/${queue.length}`;
     $("progressFill").style.width = "0%";
     return;
   }
@@ -336,7 +330,7 @@ async function showProbeResult(r) {
   // 有未测块时数字是外推，标 ± 会假装精确——测满一轮才显示置信区间
   const ci = v.unmeasured_blocks === 0;
   $("probeNums").innerHTML =
-    `听得出 ≈ <b>${fmtN(v.listening)}</b>${ci ? `<small>±${v.ci95_listen}</small>` : ""} · ` +
+    (v.hearing_samples ? `听得出 ≈ <b>${fmtN(v.listening)}</b> · ` : "听音待测 · " ) +
     `看得懂 ≈ <b>${fmtN(v.reading)}</b>${ci ? `<small>±${v.ci95_read}</small>` : ""} 词` +
     `<div class="hint-line">样本 ${fmtN(v.sampled)}/${fmtN(v.total_words)} · ` +
     `精确 ${v.exact_blocks} 块 · 推定 ${v.probe_blocks} 块` +
@@ -346,7 +340,7 @@ async function showProbeResult(r) {
     `<div class="row"><span class="bname">${BAND_NAMES[b.band] || "其他"}</span>` +
     `<span class="bbar"><i style="width:${(b.read / b.total * 100).toFixed(1)}%"></i>` +
     `<i class="lst" style="width:${(b.listen / b.total * 100).toFixed(1)}%"></i></span>` +
-    `<span class="bnum">听 ${fmtN(b.listen)} · 读 ${fmtN(b.read)} / ${fmtN(b.total)}</span></div>`
+    `<span class="bnum">听 ${v.hearing_samples ? fmtN(b.listen) : "—"} · 读 ${fmtN(b.read)} / ${fmtN(b.total)}</span></div>`
   ).join("");
   loadVocabLine();
 }
@@ -357,14 +351,14 @@ async function loadVocabLine() {
     const v = await fetchJSON(`/api/vocab_estimate?deck=${encodeURIComponent(currentDeck())}`);
     if (v.unmeasured_blocks === 0 && v.sampled > 0) {
       $("vocabLine").innerHTML =
-        `当前测定：听得出 ≈ <b>${fmtN(v.listening)}</b> · 看得懂 ≈ <b>${fmtN(v.reading)}</b> 词`;
+        `${v.hearing_samples ? `听得出 ≈ <b>${fmtN(v.listening)}</b>` : "听音待测"} · 看得懂 ≈ <b>${fmtN(v.reading)}</b> 词`;
       $("vocabLine").classList.remove("hidden");
     }
   } catch (_) {}
 }
 
 function endRound() {
-  if (!started) return;
+  if (!started || phase === "saving") return;
   if (probeMode) { showProbeResult(null); return; }  // 中止探针，直接看结果
   idx = queue.length;
   showCurrent();
@@ -387,11 +381,14 @@ function gotoNextTier() {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (!started) { start(); e.preventDefault(); return; }
-  if (e.repeat) return;
+  if (!cafeShortcut(e)) return;
+  if (!started) {
+    if (e.key === "Enter") { e.preventDefault(); start(); }
+    return;
+  }
+  if ($("card").classList.contains("hidden")) return;
   switch (e.key) {
-    case " ":
-      e.preventDefault();
+    case "f": case "F":
       phase === "listen" ? judge(true) : finalize(true);
       break;
     case "j": case "J":
@@ -459,7 +456,7 @@ async function loadProbeHist() {
         { month: "numeric", day: "numeric" });
       const r = s.result || {};
       const nums = r.listening != null
-        ? `听 ${fmtN(r.listening)} · 读 ${fmtN(r.reading)}` +
+        ? `${r.hearing_samples === 0 ? "听音待测" : `听 ${fmtN(r.listening)}`} · 读 ${fmtN(r.reading)}` +
           (r.boundary ? ` · 边界 第${r.boundary}块` : "")
         : "无结果";
       const act = s.status === "adopted"

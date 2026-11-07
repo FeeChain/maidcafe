@@ -14,9 +14,9 @@ const ART = {
   logo:      "/static/art/A1_logo.png",
   welcome:   "/static/art/C1_welcome.png",
   empty:     "/static/art/C2_empty.png",
-  cooking:   "/static/art/C3_cooking.png",
-  celebrate: "/static/art/C4_celebrate.png",
-  error:     "/static/art/C5_error.png",
+  cooking:   "/static/cafe/window-seat.jpg",
+  celebrate: "/static/cafe/window-seat.jpg",
+  error:     "/static/art/C2_empty.png",
   avatars: {
     haruka:  "/static/art/V1_haruka.png",
     momo:    "/static/art/V2_momo.png",

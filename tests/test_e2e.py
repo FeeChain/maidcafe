@@ -71,6 +71,7 @@ class TestMaidcafe(unittest.TestCase):
         env = dict(os.environ,
                    MAIDCAFE_DB=cls.db_path,
                    MAIDCAFE_CACHE=cache,
+                   MAIDCAFE_DECKS=os.path.join(cls.tmp, "no-decks"),
                    MAIDCAFE_PORT=str(PORT),
                    MAIDCAFE_MODEL="no-such-model-for-error-path",
                    # 开发机上真 ECDICT 会命中合成词、扰动排序——指向空路径隔离

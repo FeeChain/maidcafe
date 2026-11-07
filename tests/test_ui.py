@@ -55,6 +55,7 @@ def make_env(tmp, port, with_audio=False):
                 MAIDCAFE_WORDROOT=wordroot,
                 MAIDCAFE_DB=os.path.join(tmp, "ui.db"),
                 MAIDCAFE_CACHE=cache,
+                MAIDCAFE_DECKS=os.path.join(tmp, "no-decks"),
                 MAIDCAFE_PORT=str(port),
                 MAIDCAFE_MODEL="no-such-model",
                 MAIDCAFE_ECDICT=os.path.join(tmp, "none.db"),
@@ -119,16 +120,16 @@ class UIBase(unittest.TestCase):
         批次切换/收尾瞬间两个元素都不可见，故用二选一等待。"""
         either = ("(!document.getElementById('probeCard').classList"
                   ".contains('hidden')) || "
-                  "(document.getElementById('wordPreview').offsetParent"
+                  "(document.getElementById('btnNext').offsetParent"
                   " !== null)")
         for _ in range(limit):
             self.page.wait_for_function(either, timeout=8000)
             if self.page.is_visible("#probeCard"):
                 return
-            w = self.page.text_content("#wordPreview").strip()
+            w = self.page.text_content("#wordText").strip()
             know = int(w[1:]) < known_below
-            self.page.click("#btnKnow" if know else "#btnShow")
             self.page.click("#btnNext" if know else "#btnOops")
+            self.page.wait_for_function("phase !== 'saving'")
         raise AssertionError("probe did not finish")
 
 
@@ -141,6 +142,8 @@ class TestMainJourney(UIBase):
         self.assertEqual(self.view(), "vNew")
         btns = self.page.locator("#vNew button").all_text_contents()
         self.assertEqual(len(btns), 1, "S0 must offer exactly one action")
+        self.page.click("#sitBtn")
+        self.page.wait_for_selector("#vSeat", state="visible")
         self.page.click("#goProbeBtn")
         self.page.wait_for_url("**/calibrate?probe=1")
         self.page.wait_for_selector("#card", state="visible")
@@ -217,7 +220,7 @@ class TestMainJourney(UIBase):
         self.page.click("#brewBtn")
         self.page.wait_for_selector("#vListen", state="visible")
         self.page.wait_for_function(
-            "document.getElementById('lsGenLine').textContent.includes('翻')",
+            "document.getElementById('lsGenLine').textContent.includes('Ollama')",
             timeout=20000)
         self.assertTrue(self.visible("#lsAgainBtn"),
                         "retry button appears after a failed brew")
@@ -261,13 +264,11 @@ class TestMainJourney(UIBase):
                 self.page.text_content("#exWordPreview").strip())
             self.page.click("#exYes")
             self.page.click("#exYes2")
+            self.page.wait_for_function("!examSaving")
         self.page.click("#examQuitBtn")
         self.page.wait_for_selector("#vLearn", state="visible")
-        self.assertIn("2/20", self.page.text_content("#learnProgress"))
-        # 考试=一轮的分界：回来篮子清空重新攒（用户裁决）
-        self.assertEqual(self.page.evaluate("brewQueue()"), [],
-                         "an exam resets the basket")
-        self.assertTrue(self.page.locator("#brewBtn").is_disabled())
+        self.assertEqual(self.page.evaluate("passed.size"), 2)
+        self.assertLessEqual(len(self.page.evaluate("brewQueue()")), 1)
         ps = self.page.evaluate("Array.from(passed)")
         self.assertEqual(sorted(ps), sorted(passed_words))
         session = [w["word"] for w in self.api("/api/session")["words"]]
@@ -292,10 +293,14 @@ class TestMainJourney(UIBase):
         self.assertEqual(len(pot), 5, "the first brew claimed five words")
         self.assertFalse(set(q) & set(pot),
                          "brewed words don't come back to the basket")
-        self.assertIn("2/20", self.page.text_content("#learnProgress"),
-                      "portion counter keeps the full denominator")
+        self.assertEqual(self.page.evaluate("sessionTotal"), 20)
 
     def test_u09_exam_all_pass_then_seconds(self):
+        # Only revealed words are eligible; visit all remaining cards before recalling them.
+        for _ in range(self.page.evaluate("pool.length")):
+            if self.visible("#lRevealBtn"):
+                self.page.click("#lRevealBtn")
+            self.page.click("#lNextBtn")
         self.page.click("#examBtn")
         self.page.wait_for_selector("#vExam", state="visible")
         for _ in range(18):
@@ -305,7 +310,7 @@ class TestMainJourney(UIBase):
         self.assertIn("20", self.page.text_content("#doneLine"))
         self.page.click("#moreBtn")
         self.page.wait_for_selector("#vLearn", state="visible")
-        self.assertIn("0/20", self.page.text_content("#learnProgress"))
+        self.assertEqual(self.page.evaluate("passed.size"), 0)
         # 新一份：篮子清零变灰；翻 1 张就能煮（不足 5 不硬凑）
         self.assertTrue(self.page.locator("#brewBtn").is_disabled(),
                         "a fresh portion starts with an empty basket")
@@ -320,6 +325,7 @@ class TestMainJourney(UIBase):
         self.assertEqual(self.view(), "vLearn")
 
     def test_u10b_brand_escapes_any_state(self):
+        self.page.click("#lRevealBtn")
         # 品牌逃生口：考试半途点 maidcafe ☕ = 关掉重开，直落 S2
         self.page.click("#examBtn")
         self.page.wait_for_selector("#vExam", state="visible")
@@ -349,7 +355,7 @@ class TestMainJourney(UIBase):
         self.page.fill("#quotaInput", "20")
         self.page.click("#quotaSave")
         links = self.page.locator(".cfg-links a").count()
-        self.assertEqual(links, 3)
+        self.assertEqual(links, 5)
         self.page.click("#cfgClose")
         self.assertFalse(self.visible("#cfgModal"))
 
@@ -386,6 +392,8 @@ class TestSecondaryFlows(UIBase):
 
     def test_v01_all_known_user_lands_on_empty(self):
         self.page.goto(self.base + "/")
+        self.page.click("#sitBtn")
+        self.page.wait_for_selector("#vSeat", state="visible")
         self.page.click("#goProbeBtn")
         self.page.wait_for_selector("#card", state="visible")
         self.click_probe_through(known_below=10 ** 6)
@@ -440,6 +448,81 @@ class TestSecondaryFlows(UIBase):
         # 品牌逃生口：对话史/生词本页 → 主页
         self.page.click(".brand")
         self.page.wait_for_selector("#vEmpty", state="visible")
+
+
+class TestComfortInteractions(UIBase):
+    PORT = 8803
+    WITH_AUDIO = True
+
+    def test_x01_welcome_tab_does_not_start(self):
+        self.page.goto(self.base + "/calibrate")
+        self.page.wait_for_selector("#startOverlay", state="visible")
+        self.page.keyboard.press("Tab")
+        self.assertTrue(self.visible("#startOverlay"))
+        self.assertFalse(self.page.evaluate("started"))
+
+    def test_x02_focused_negative_space_preserves_hearing_only(self):
+        self.page.goto(self.base + "/calibrate?probe=1")
+        self.page.wait_for_selector("#btnKnow", state="visible")
+        word = self.page.evaluate("cur().word")
+        self.page.click("#btnKnow")
+        self.assertEqual(self.page.text_content("#defText"), "")
+        self.page.focus("#btnOops")
+        self.page.keyboard.press("Space")
+        self.page.wait_for_function("phase !== 'saving'")
+        con = sqlite3.connect(os.path.join(self.tmp, "ui.db"))
+        self.assertEqual(con.execute("select status from marks where word=?", (word,)).fetchone()[0], 4)
+        con.close()
+
+    def test_x03_calibration_save_failure_stays_on_word(self):
+        self.page.goto(self.base + "/calibrate?probe=1")
+        self.page.wait_for_selector("#btnKnow", state="visible")
+        word = self.page.evaluate("cur().word")
+        self.page.click("#btnShow")
+        self.page.route("**/api/mark", lambda r: r.fulfill(status=503, json={"error": "offline"}))
+        self.page.click("#btnOops")
+        self.page.wait_for_function("document.getElementById('saveError').textContent.includes('保存')")
+        self.assertEqual(self.page.evaluate("cur().word"), word)
+        self.assertEqual(self.page.evaluate("phase"), "revealed")
+        self.page.unroute("**/api/mark")
+        self.page.click("#btnOops")
+        self.page.wait_for_function("cur().word !== " + json.dumps(word))
+
+    def test_x04_only_seen_words_recall_and_failed_save_retries(self):
+        self.page.goto(self.base + "/?menu=1")
+        self.page.click("#starterBtn")
+        self.page.wait_for_selector("#vLearn", state="visible")
+        self.assertTrue(self.page.locator("#examBtn").is_disabled())
+        self.page.click("#lRevealBtn")
+        word = self.page.text_content("#lWord")
+        self.page.click("#examBtn")
+        self.assertEqual(self.page.evaluate("exQueue.map(w => w.word)"), [word])
+        self.page.click("#exYes")
+        self.page.route("**/api/word_pass", lambda r: r.fulfill(status=503, json={"error": "offline"}))
+        self.page.click("#exYes2")
+        self.page.wait_for_function("document.getElementById('toastMsg').textContent.includes('保存')")
+        self.assertEqual(self.page.evaluate("passed.size"), 0)
+        self.assertEqual(self.page.evaluate("curExam().word"), word)
+        self.page.unroute("**/api/word_pass")
+        self.page.click("#exYes2")
+        self.page.wait_for_function("passed.size === 1")
+
+    def test_x05_modal_traps_focus_and_blocks_background(self):
+        self.page.goto(self.base + "/?menu=1")
+        self.page.click("#starterBtn")
+        self.page.wait_for_selector("#vLearn", state="visible")
+        self.page.click("#cfgBtn")
+        self.page.wait_for_selector("#cfgModal", state="visible")
+        before = self.page.text_content("#lWord")
+        self.page.focus("#quotaInput")
+        self.page.keyboard.press("Space")
+        self.assertEqual(self.page.text_content("#lWord"), before)
+        for _ in range(10):
+            self.page.keyboard.press("Tab")
+            self.assertTrue(self.page.evaluate("!!document.activeElement.closest('#cfgModal')"))
+        self.page.keyboard.press("Escape")
+        self.assertFalse(self.visible("#cfgModal"))
+        self.assertEqual(self.page.evaluate("document.activeElement.id"), "cfgBtn")
 
 
 class TestImportUI(UIBase):
@@ -524,10 +607,11 @@ class TestWeightModelUI(UIBase):
         self.assertTrue(self.visible("#restLine"))
         self.assertIn("偶尔也要休息一下", self.page.text_content("#restLine"))
         self.assertEqual(self.page.text_content("#newTag").strip(), "复习")
+        self.page.click("#lRevealBtn")
         # A13/G05：考挂 → 界面零提示，服务端静默减半（65.2 → 32.6，仍在学）
         self.page.click("#examBtn")
         self.page.wait_for_selector("#vExam", state="visible")
-        self.page.click("#exNo")
+        self.page.click("#exYes")
         self.page.click("#exNo2")
         self.page.wait_for_selector("#vExamDone", state="visible")
         self.assertNotIn("记忆", self.page.text_content("#vExamDone"),
@@ -598,10 +682,9 @@ class TestProbeRace(UIBase):
             tiers.append(self.page.evaluate("probeInfo.tier"))
             self.page.evaluate("window.__lastProbe = probeInfo")
             for _ in range(3):
-                self.page.wait_for_selector("#wordPreview", state="visible")
-                w = self.page.text_content("#wordPreview").strip()
+                self.page.wait_for_selector("#btnNext", state="visible")
+                w = self.page.text_content("#wordText").strip()
                 know = int(w[1:]) < KNOWN_BELOW
-                self.page.click("#btnKnow" if know else "#btnShow")
                 self.page.click("#btnNext" if know else "#btnOops")
             self.page.wait_for_function(
                 "window.__mcview === 'probeResult' || probeInfo !== window.__lastProbe",

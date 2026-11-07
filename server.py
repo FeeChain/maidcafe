@@ -28,7 +28,9 @@ import deckparse  # noqa: E402
 import morph  # noqa: E402
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DECKS_DIR = os.path.join(ROOT, "decks")
+DECKS_DIR = os.environ.get("MAIDCAFE_DECKS", os.path.join(ROOT, "decks"))
+STARTER_PACK = os.path.join(ROOT, "resources", "window-seat.apkg")
+STARTER_WORDS = {}
 CACHE_DIR = os.environ.get("MAIDCAFE_CACHE", os.path.join(ROOT, "cache"))
 STATIC_DIR = os.path.join(ROOT, "static")
 DB_PATH = os.environ.get("MAIDCAFE_DB", os.path.join(ROOT, "progress.db"))
@@ -46,20 +48,37 @@ _OFFDECK_RANK = {}  # 牌组外词 -> 插值难度序（缓存）
 
 
 def build_words():
-    global WORDS, AUDIO
+    global WORDS, AUDIO, STARTER_WORDS
     os.makedirs(CACHE_DIR, exist_ok=True)
-    if os.path.exists(WORDS_CACHE):
-        with open(WORDS_CACHE, "r", encoding="utf-8") as f:
+    starter = deckparse.load_deck(STARTER_PACK, os.path.join(CACHE_DIR, "starter"))
+    STARTER_WORDS = {w["word"].lower(): w for w in starter}
+    packs = sorted(n for n in os.listdir(DECKS_DIR) if n.endswith(".apkg")) if os.path.isdir(DECKS_DIR) else []
+    manifest = os.path.join(CACHE_DIR, "decks.json")
+    stamps = []
+    for name in packs:
+        path = os.path.join(DECKS_DIR, name)
+        st = os.stat(path)
+        stamps.append([os.path.realpath(path), st.st_size, st.st_mtime_ns])
+    cached = None
+    if os.path.isfile(manifest):
+        with open(manifest, encoding="utf-8") as f:
+            cached = json.load(f)
+    # Explicit standalone cache is also a supported source for isolated runs.
+    supplied = "MAIDCAFE_CACHE" in os.environ and not packs and cached is None
+    if os.path.isfile(WORDS_CACHE) and (cached == stamps or supplied):
+        with open(WORDS_CACHE, encoding="utf-8") as f:
             WORDS = json.load(f)
-    else:
-        print("First run: extracting and parsing decks (may take a minute)...")
-        t0 = time.time()
+    elif packs:
         WORDS = deckparse.load_all_decks(DECKS_DIR, CACHE_DIR)
-        with open(WORDS_CACHE, "w", encoding="utf-8") as f:
-            json.dump(WORDS, f, ensure_ascii=False)
-        print("Parsed %d words in %.1fs" % (len(WORDS), time.time() - t0))
-    AUDIO = {w["word"].lower(): w.get("audio_path")
-             for w in WORDS if w.get("audio_path")}
+        for filename, data in [(WORDS_CACHE, WORDS), (manifest, stamps)]:
+            with open(filename + ".tmp", "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False)
+            os.replace(filename + ".tmp", filename)
+    else:
+        WORDS = []
+    if not WORDS:
+        WORDS = [dict(w, sources=["窗边的第一杯"]) for w in starter]
+    AUDIO = {w["word"].lower(): w["audio_path"] for w in starter + WORDS if w.get("audio_path")}
     attach_tiers()
 
 
@@ -402,6 +421,10 @@ def build_session():
                         if len(candidates) >= quota:
                             break
         fresh = sorted(candidates, key=word_rank)[:quota]
+        if len(fresh) < quota and kv_get("seated") and not has_probe_evidence():
+            marks = get_marks()
+            fresh.extend(w for w in STARTER_WORDS if w not in marks and w not in srs and w not in fresh)
+            fresh = fresh[:quota]
     finally:
         con.close()
     return {"words": ([session_word_out(w, False) for w in due] +
@@ -414,7 +437,7 @@ def get_backlog(con):
     (global band+frequency rank, not just block number)."""
     srs = srs_map(con)
     rows = con.execute(
-        "select word from marks where status in (1,2)").fetchall()
+        "select word from marks where status in (1,2,4,6)").fetchall()
     backlog = [r[0] for r in rows
                if r[0] not in srs or srs[r[0]]["state"] == "lapsed"]
     backlog.sort(key=word_rank)
@@ -433,8 +456,9 @@ def known_set():
     + 显式标记认识的词 − 显式标记不认识的词。边界由探针无状态重放得出。"""
     known = set()
     try:
-        if has_probe_evidence():
-            nxt = probe_next("all", settle=True)
+        hearing_marks = {w: m for w, m in get_marks_src().items() if m[0] not in (5, 6)}
+        if has_probe_evidence(hearing_marks):
+            nxt = probe_next("all", hearing_marks, settle=True)
             if nxt.get("done"):
                 frontier = nxt["bracket"][1]  # 第一个生词侧的块
                 known.update(w["word"].lower() for w in WORDS
@@ -442,9 +466,9 @@ def known_set():
     except Exception:
         pass
     marks = get_marks()
-    known.update(w for w, s in marks.items() if s == 3)
+    known.update(w for w, s in marks.items() if s in (3, 4))
     # 全扫在边界内逐词揪出的漏词：显式标了不认识的，推定失效，从已知集剔除
-    known.difference_update(w for w, s in marks.items() if s in (1, 2))
+    known.difference_update(w for w, s in marks.items() if s in (1, 2, 5, 6))
     return known
 
 
@@ -474,7 +498,7 @@ def resolve_entry(tokens, ec):
     """最长匹配词典：give up 放弃 → give up；abandon v. → abandon。"""
     for k in range(len(tokens), 0, -1):
         cand = " ".join(tokens[:k]).lower()
-        if cand in WORD_INDEX:
+        if cand in WORD_INDEX or cand in STARTER_WORDS:
             return cand
         if ec is not None and ec.execute(
                 "select 1 from stardict where word = ?", (cand,)).fetchone():
@@ -509,7 +533,7 @@ def import_wordlist(text, include_known=False):
             seen.add(w)
             st = srs.get(w, {}).get("state")
             m = marks.get(w)
-            if m in (1, 2) or st in ("learning", "lapsed"):
+            if m in (1, 2, 4, 6) or st in ("learning", "lapsed"):
                 out["already"].append(w)
             elif m == 3 or st == "graduated":
                 out["learned"].append(w)
@@ -533,7 +557,7 @@ def word_info(word):
     """phonetic + definition：牌组词取内存里的牌组数据；牌组外的词（手动加/
     导入）退回 ECDICT——否则它们在生词本和学习卡上是空白释义（10-13 真机抓到）。"""
     lw = word.lower()
-    w = WORD_INDEX.get(lw)
+    w = WORD_INDEX.get(lw) or STARTER_WORDS.get(lw)
     if w:
         return {"word": word, "phonetic": w.get("phonetic", ""),
                 "definition": (w.get("definition") or "")[:200],
@@ -673,12 +697,12 @@ def block_class(ws, marks_src):
     samples, n_all = block_samples(ws, marks_src)
     total = len(ws)
     if total and n_all == total:
-        r = sum(1 for w in ws if marks_src[w["word"].lower()][0] == 3) / total
+        r = sum(1 for w in ws if marks_src[w["word"].lower()][0] in (3, 4, 5)) / total
         return "high" if r >= 0.85 else ("low" if r <= 0.5 else "mid")
     n = len(samples)
     if n < 3:
         return "unsampled"
-    u = sum(1 for s in samples if s != 3)
+    u = sum(1 for s in samples if s not in (3, 4, 5))
     if n < 6:
         if u == 0:
             return "high"
@@ -728,7 +752,7 @@ def probe_next(deck, marks_src=None, settle=False):
             words = None if settle else pick_block_words(by[t], marks_src, deck, t, 3)
             if not words:               # 结算模式/块抽干了：按现有样本硬归类
                 samples, _ = block_samples(by[t], marks_src)
-                u = sum(1 for s in samples if s != 3)
+                u = sum(1 for s in samples if s not in (3, 4, 5))
                 c = "high" if samples and u * 2 < len(samples) else "low"
             else:
                 return {"done": False, "tier": t, "phase": c,
@@ -788,59 +812,44 @@ def vocab_estimate(deck, marks_src=None):
     if marks_src is None:
         marks_src = get_marks_src()
     blocks = []
+    hearing_samples = 0
     for tier, ws in sorted(words_of_deck(deck).items()):
         total = len(ws)
         bands = [w.get("band") for w in ws if w.get("band") is not None]
         samples, n_all = block_samples(ws, marks_src)
+        if n_all == total:
+            samples = [marks_src[w["word"].lower()][0] for w in ws]
         n = len(samples)
-        k_listen = sum(1 for s in samples if s == 3)
-        k_read = sum(1 for s in samples if s in (2, 3))
         b = {"tier": tier, "total": total, "n": n,
              "band": min(bands) if bands else UNTAGGED_TIER,
-             "var_listen": 0.0, "var_read": 0.0}
-        if n_all == total:
-            # census: every word marked — use the true counts, any src
-            k_listen = sum(1 for w in ws if marks_src[w["word"].lower()][0] == 3)
-            k_read = sum(1 for w in ws if marks_src[w["word"].lower()][0] in (2, 3))
-            b["n"] = total
-            b.update(method="exact", est_listen=float(k_listen),
-                     est_read=float(k_read))
-        elif n > 0:
-            b.update(method="probe", est_listen=k_listen / n * total,
-                     est_read=k_read / n * total)
-            # variance of the block estimate (finite population corrected);
-            # +0.5 smoothing so a tiny all-yes/all-no sample doesn't claim
-            # zero uncertainty
-            fpc = (total - n) / max(total - 1, 1)
-            for key, k in (("var_listen", k_listen), ("var_read", k_read)):
-                p = (k + 0.5) / (n + 1)
-                b[key] = total * total * p * (1 - p) / n * fpc
-        else:
-            b.update(method="none", est_listen=None, est_read=None)
+             "method": "exact" if n == total else ("probe" if n else "none")}
+        # 1=neither, 2=eye, 3=both, 4=ear; 5/6=eye yes/no, hearing unobserved.
+        heard = [s in (3, 4) for s in samples if s not in (5, 6)]
+        reading = [s in (2, 3, 5) for s in samples]
+        hearing_samples += len(heard)
+        for key, values in (("listen", heard), ("read", reading)):
+            count = len(values)
+            b["est_" + key] = sum(values) / count * total if count else None
+            b["var_" + key] = 0.0
+            if 0 < count < total:
+                p = (sum(values) + .5) / (count + 1)
+                fpc = (total - count) / max(total - 1, 1)
+                b["var_" + key] = total * total * p * (1 - p) / count * fpc
         blocks.append(b)
-
-    # unmeasured blocks: interpolate the knowledge-rate curve from the
-    # nearest measured neighbours (difficulty is monotonic-ish across tiers)
-    measured = [i for i, b in enumerate(blocks) if b["method"] != "none"]
-    for i, b in enumerate(blocks):
-        if b["method"] != "none":
-            continue
-        lo = max((j for j in measured if j < i), default=None)
-        hi = min((j for j in measured if j > i), default=None)
-        def ratio(j, key):
-            return blocks[j]["est_" + key] / blocks[j]["total"]
-        for key in ("listen", "read"):
+    for key in ("est_listen", "est_read"):
+        measured = [i for i, b in enumerate(blocks) if b[key] is not None]
+        for i, b in enumerate(blocks):
+            if b[key] is not None:
+                continue
+            lo = max((j for j in measured if j < i), default=None)
+            hi = min((j for j in measured if j > i), default=None)
+            left = blocks[lo][key] / blocks[lo]["total"] if lo is not None else 0
+            right = blocks[hi][key] / blocks[hi]["total"] if hi is not None else left
             if lo is not None and hi is not None:
-                t = (i - lo) / (hi - lo)
-                r = ratio(lo, key) * (1 - t) + ratio(hi, key) * t
-            elif lo is not None:
-                r = ratio(lo, key)
-            elif hi is not None:
-                r = ratio(hi, key)
+                ratio = left + (right - left) * (i - lo) / (hi - lo)
             else:
-                r = 0.0
-            b["est_" + key] = r * b["total"]
-
+                ratio = right
+            b[key] = ratio * b["total"]
     band_agg = {}
     for b in blocks:
         d = band_agg.setdefault(b["band"], {"band": b["band"], "total": 0,
@@ -849,6 +858,7 @@ def vocab_estimate(deck, marks_src=None):
         d["listen"] += b["est_listen"]
         d["read"] += b["est_read"]
     return {
+        "hearing_samples": hearing_samples,
         "listening": round(sum(b["est_listen"] for b in blocks)),
         "reading": round(sum(b["est_read"] for b in blocks)),
         "ci95_listen": round(1.96 * math.sqrt(sum(b["var_listen"] for b in blocks))),
@@ -931,6 +941,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/":
             return self._send_file(os.path.join(STATIC_DIR, "home.html"))
 
+        if path == "/window-seat.apkg":
+            return self._send_file(STARTER_PACK)
+
         if path == "/calibrate":
             return self._send_file(os.path.join(STATIC_DIR, "calibrate.html"))
 
@@ -985,7 +998,7 @@ class Handler(BaseHTTPRequestHandler):
             deck = qs.get("deck", ["all"])[0]
             tier = qs.get("tier", ["all"])[0]
             words = [w for w in WORDS if word_match(w, deck, tier)]
-            counts = {1: 0, 2: 0, 3: 0}
+            counts = dict.fromkeys(range(1, 7), 0)
             marked = 0
             for w in words:
                 s = marks.get(w["word"].lower())
@@ -1006,9 +1019,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {
                 "total": len(words),
                 "marked": marked,
-                "unknown": counts[1],
-                "eye_only": counts[2],
-                "ear_known": counts[3],
+                "unknown": counts[1] + counts[6],
+                "eye_only": counts[2], "reading_unheard": counts[5],
+                "ear_only": counts[4], "ear_known": counts[3] + counts[4],
                 "pace": pace,
                 "overall_total": len(WORDS),
                 "overall_marked": overall_marked,
@@ -1057,7 +1070,7 @@ class Handler(BaseHTTPRequestHandler):
                 s = marks.get(w["word"].lower())
                 if s is not None:
                     d["marked"] += 1
-                    if s in (1, 2):  # any J = 生词
+                    if s in (1, 2, 4, 6):  # any J = 生词
                         d["unknown"] += 1
             return self._send(200, [tiers[t] for t in sorted(tiers)])
 
@@ -1123,7 +1136,7 @@ class Handler(BaseHTTPRequestHandler):
             con = db()
             try:
                 words = con.execute(
-                    "select word, status from marks where status in (1,2)"
+                    "select word, status from marks where status in (1,2,4,6)"
                     " order by ts desc").fetchall()
                 drows = con.execute(
                     "select id, target_words, scene from dialogues").fetchall()
@@ -1174,7 +1187,7 @@ class Handler(BaseHTTPRequestHandler):
                 con.close()
             # 身份以 marks ∪ word_srs 合并判定：毕业记录在梯上，
             # marks 可能无行（边界外推定词直接学会的场景）
-            info["in_wordbook"] = bool(m and m[0] in (1, 2)) or \
+            info["in_wordbook"] = bool(m and m[0] in (1, 2, 4, 6)) or \
                 bool(s and s[0] == "learning")
             info["known"] = bool(m and m[0] == 3) or \
                 bool(s and s[0] == "graduated")
@@ -1197,6 +1210,7 @@ class Handler(BaseHTTPRequestHandler):
             probe_done = bool(probe_next("all").get("done"))
             return self._send(200, {
                 "calibrated": probe_done or n_all >= 50 or n_sessions > 0,
+                "seated": bool(kv_get("seated")),
                 "new_quota": int(kv_get("new_quota", 20))})
 
         if path == "/api/session":
@@ -1238,10 +1252,14 @@ class Handler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             return self._send(400, {"error": "bad json"})
 
+        if parsed.path == "/api/visit":
+            kv_set("seated", "1")
+            return self._send(200, {"ok": True})
+
         if parsed.path == "/api/mark":
             word = (payload.get("word") or "").lower()
             status = payload.get("status")  # 1 / 2 / 3 / None(=undo)
-            if not word or status not in (1, 2, 3, None):
+            if not word or status not in (1, 2, 3, 4, 5, 6, None):
                 return self._send(400, {"error": "bad params"})
             session = payload.get("session")
             if session:  # 盲测档案：写独立表，不碰主记录
@@ -1287,6 +1305,7 @@ class Handler(BaseHTTPRequestHandler):
                 "listening": est["listening"], "reading": est["reading"],
                 "ci95_listen": est["ci95_listen"], "ci95_read": est["ci95_read"],
                 "sampled": est["sampled"],
+                "hearing_samples": est["hearing_samples"],
                 "unmeasured_blocks": est["unmeasured_blocks"],
                 "boundary": nxt.get("boundary") if nxt.get("done") else None,
                 "boundary_band": nxt.get("boundary_band") if nxt.get("done") else None,
