@@ -31,7 +31,7 @@ SCENES = json.load(open(os.path.join(ROOT, "scenes.json"), encoding="utf-8"))
 AUDIO_OUT = os.environ.get("MAIDCAFE_AUDIO_OUT",
                            os.path.join(ROOT, "audio_out"))
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
+OLLAMA_URL = os.environ.get('MAIDCAFE_OLLAMA_BASE', 'http://127.0.0.1:11434').rstrip('/') + '/api/chat'
 MODEL = os.environ.get("MAIDCAFE_MODEL", "qwen3.6:27b-mlx")
 KNOWN_RATIO_TARGET = 0.92
 MAX_REPAIR = 3
@@ -361,7 +361,7 @@ def call_ollama(messages):
     payload = json.dumps({
         "model": MODEL, "messages": messages, "stream": False,
         "format": "json", "think": False,
-        "options": {"temperature": 0.9, "num_predict": 1200},
+        "options": {"temperature": 0.9, "num_predict": 1200, "num_ctx": 4096},
     }).encode("utf-8")
     req = urllib.request.Request(
         OLLAMA_URL, data=payload, headers={"Content-Type": "application/json"})

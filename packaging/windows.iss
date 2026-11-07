@@ -4,7 +4,7 @@
 [Setup]
 AppId=com.feechain.maidcafe
 AppName=maidcafe
-AppVersion=0.2.0-preview
+AppVersion=0.3.0-preview
 AppPublisher=FeeChain
 AppPublisherURL=https://github.com/FeeChain/maidcafe
 DefaultDirName={localappdata}\Programs\maidcafe
@@ -15,7 +15,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
 OutputDir={#BuildRoot}
-OutputBaseFilename=maidcafe-0.2.0-preview-Windows-x64-Setup
+OutputBaseFilename=maidcafe-0.3.0-preview-Windows-x64-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

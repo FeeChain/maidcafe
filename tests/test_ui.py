@@ -843,6 +843,43 @@ class TestDesktopSetup(UIBase):
         self.assertEqual(result['targets'], ['give up', 'serve'])
         self.assertIn('<img src=x onerror="alert(1)">', result['text'])
 
+    def test_d04_one_click_progress_pause_resume_and_close(self):
+        state = {'ready':False,'models':[],'model':'','locked':False,'audio':'system','message':'一键准备即可',
+                 'install':{'active':False,'phase':'idle'},
+                 'options':{'supported':True,'recommended':'light','engine_bytes':186000000,
+                            'catalog':{'light':{'bytes':1400000000},'standard':{'bytes':2500000000}}}}
+        requests = []
+        def route(request):
+            url = request.request.url
+            if url.endswith('/prepare'):
+                requests.append(request.request.post_data_json)
+                state['install'] = {'active':True,'phase':'model_download','message':'正在下载故事模型','completed':500000000,'total':1400000000}
+            elif url.endswith('/cancel'):
+                state['install'].update(active=False,phase='paused',message='已暂停，下载内容会保留')
+            request.fulfill(json=state)
+        self.page.route('**/api/setup**', route)
+        try:
+            self.page.goto(self.base)
+            self.page.click('#cfgBtn'); self.page.click('#cfgModal [data-story-setup]')
+            self.page.wait_for_function("document.getElementById('setupProfile').value === 'light'")
+            self.assertIn('1.40 GB', self.page.text_content('#setupDownloadSize'))
+            self.page.click('#setupPrepare')
+            self.page.wait_for_selector('#setupCancel', state='visible')
+            self.assertEqual(requests, [{'profile':'light'}])
+            self.assertTrue(self.page.is_disabled('#setupPrepare'))
+            self.assertIn('500 MB', self.page.text_content('#setupProgressText'))
+            self.page.click('#setupCancel')
+            self.page.wait_for_function("document.getElementById('setupPrepare').textContent === '继续准备'")
+            self.page.click('#setupPrepare')
+            self.page.click('#setupClose')
+            self.assertFalse(self.visible('#setupModal'))
+            state['ready'] = True
+            state['install'] = {'active':False,'phase':'done','message':'准备好了！'}
+            self.page.wait_for_function("document.getElementById('storyStatus').textContent === '故事助手已准备好'")
+            self.assertEqual(len(requests), 2)
+        finally:
+            self.page.unroute('**/api/setup**', route)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

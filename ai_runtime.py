@@ -9,7 +9,7 @@ import urllib.request
 
 from app_paths import ROOT
 
-OLLAMA_BASE = 'http://127.0.0.1:11434'
+OLLAMA_BASE = os.environ.get('MAIDCAFE_OLLAMA_BASE', 'http://127.0.0.1:11434').rstrip('/')
 DEFAULT_MODEL = 'qwen3.6:27b-mlx'
 
 
@@ -47,9 +47,9 @@ def inspect(saved_model=''):
     except (OSError, ValueError, KeyError, TypeError):
         pass
     if not result['connected']:
-        result.update(code='offline', message='本地 AI 还没打开。先打开 Ollama，再点重新检测。你仍然可以试听和翻词卡。')
+        result.update(code='offline', message='故事助手还没准备好，点一键准备即可。已有 Ollama 也会自动复用。试听和词卡随时可用。')
     elif not result['models']:
-        result.update(code='no_models', message='已连接 Ollama，还需要一个本地聊天模型。下载好后，回这里重新检测。')
+        result.update(code='no_models', message='已找到 Ollama 引擎，点一键准备即可下载故事模型并配置好。')
     elif selected and selected not in result['models']:
         result.update(code='missing_model', message='Ollama 中找不到当前选择的模型，请在故事设置中重新选择。')
     elif not result['ready']:

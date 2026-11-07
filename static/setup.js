@@ -1,5 +1,7 @@
 /* First-run preparation and portable data, shared by the home settings surfaces. */
 let storySetupState = null;
+let setupPoll = null;
+let setupChoiceSet = false;
 const setupEl = id => document.getElementById(id);
 async function setupRequest(url, options) {
   const response = await fetch(url, options);
@@ -8,13 +10,36 @@ async function setupRequest(url, options) {
   return data;
 }
 async function refreshStorySetup() {
-  setupEl('setupStatus').textContent = '正在检测本机的故事助手…';
+  clearTimeout(setupPoll);
+  if (!storySetupState) setupEl('setupStatus').textContent = '正在检测本机的故事助手…';
   setupEl('setupRefresh').disabled = true;
   try {
     const state = await setupRequest('/api/setup');
     storySetupState = state;
-    setupEl('setupStatus').textContent = state.message;
-    setupEl('storyStatus').textContent = state.ready ? '故事助手已准备好' : '新故事需要先准备故事助手，试听与词卡随时可用';
+    const install = state.install || {active:false, phase:'idle'};
+    const options = state.options || {supported:false, catalog:{}, engine_bytes:0};
+    setupEl('setupStatus').textContent = install.message || state.message;
+    setupEl('storyStatus').textContent = install.active ? '故事助手正在准备，你可以先试听或翻词卡' : state.ready ? '故事助手已准备好' : '点故事设置，一键准备你的助手';
+    if (!setupChoiceSet) {
+      setupEl('setupProfile').value = ['paused','error'].includes(install.phase) ? install.profile : options.recommended || 'standard';
+      setupChoiceSet = true;
+    }
+    setupEl('setupProfile').disabled = install.active || state.locked;
+    setupEl('setupPrepare').disabled = install.active || state.locked || !options.supported;
+    setupEl('setupPrepare').textContent = install.active ? '正在准备…' : ['paused','error'].includes(install.phase) ? '继续准备' : state.ready ? '换用所选助手' : '一键准备';
+    setupEl('setupCancel').classList.toggle('hidden', !install.active);
+    setupEl('setupCancel').disabled = false;
+    setupEl('setupCancel').textContent = install.phase === 'checking' ? '取消准备' : '暂停下载';
+    setupEl('setupProgressBox').classList.toggle('hidden', !install.active && !['paused','error'].includes(install.phase));
+    if (install.total > 0) {
+      setupEl('setupProgress').max = install.total;
+      setupEl('setupProgress').value = Math.min(install.completed, install.total);
+      setupEl('setupProgressText').textContent = `${formatBytes(install.completed)} / ${formatBytes(install.total)}`;
+    } else {
+      setupEl('setupProgress').removeAttribute('value');
+      setupEl('setupProgressText').textContent = install.active ? '你可以先回店里，准备会继续进行。' : '';
+    }
+    updateSetupSize();
     const select = setupEl('modelSelect');
     select.replaceChildren();
     const blank = document.createElement('option');
@@ -26,18 +51,47 @@ async function refreshStorySetup() {
       select.append(option);
     }
     select.value = state.model;
-    select.disabled = state.locked || !state.models.length;
-    setupEl('modelSave').disabled = state.locked || !state.models.length;
+    select.disabled = state.locked || install.active || !state.models.length;
+    setupEl('modelSave').disabled = state.locked || install.active || !state.models.length;
     setupEl('modelLocked').classList.toggle('hidden', !state.locked);
-    setupEl('setupSteps').open = !state.ready;
     setupEl('voiceStatus').textContent = state.audio === 'kokoro' ? '配音已就绪 · Kokoro' : state.audio === 'system'
       ? '配音已就绪 · 系统语音，无需额外下载' : '目前生成文字故事，离线招待仍可播放。可以安装系统英语语音或配置 Kokoro 后再生成有声故事。';
   } catch (error) {
     storySetupState = null;
     setupEl('setupStatus').textContent = error.message;
     setupEl('storyStatus').textContent = '暂时无法检测助手，你可以先试听或翻词卡';
-  } finally { setupEl('setupRefresh').disabled = false; }
+  } finally {
+    setupEl('setupRefresh').disabled = false;
+    if (storySetupState?.install?.active) setupPoll = setTimeout(refreshStorySetup, 1000);
+  }
 }
+function formatBytes(bytes) { return bytes >= 1e9 ? (bytes / 1e9).toFixed(2) + ' GB' : Math.round(bytes / 1e6) + ' MB'; }
+function updateSetupSize() {
+  const options = storySetupState?.options;
+  if (!options) return;
+  const profile = options.catalog[setupEl('setupProfile').value];
+  setupEl('setupDownloadSize').textContent = !options.supported ? options.reason : profile
+    ? `模型约 ${formatBytes(profile.bytes)}` + (options.engine_bytes ? `，助手引擎约 ${formatBytes(options.engine_bytes)}` : '；已有引擎会自动复用') + '。已下载的内容会复用。'
+    : '';
+}
+setupEl('setupProfile').addEventListener('change', updateSetupSize);
+setupEl('setupPrepare').addEventListener('click', async () => {
+  setupEl('setupPrepare').disabled = true;
+  try {
+    await setupRequest('/api/setup/prepare', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({profile:setupEl('setupProfile').value})});
+    await refreshStorySetup();
+  } catch (error) {
+    setupEl('setupStatus').textContent = error.message;
+    setupEl('setupPrepare').disabled = false;
+  }
+});
+setupEl('setupCancel').addEventListener('click', async () => {
+  setupEl('setupCancel').disabled = true;
+  try {
+    await setupRequest('/api/setup/cancel', {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    await refreshStorySetup();
+  } catch (error) { setupEl('setupStatus').textContent = error.message; setupEl('setupCancel').disabled = false; }
+});
 function openStorySetup() {
   if (!setupEl('cfgModal').classList.contains('hidden')) closeCafeDialog('cfgModal');
   openCafeDialog('setupModal', 'setupClose');

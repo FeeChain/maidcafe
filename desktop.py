@@ -18,8 +18,31 @@ def main():
     parser.add_argument('--headless', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--smoke-test', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--speech-check', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--prepare-check', choices=['engine', 'light', 'standard'], help=argparse.SUPPRESS)
     args = parser.parse_args()
     home = configure_desktop()
+    if args.prepare_check:
+        import time
+        import assistant_setup
+        saved = []
+        manager = assistant_setup.SetupManager(home / 'assistant', saved.append, reuse_existing=False)
+        try:
+            if args.prepare_check == 'engine':
+                manager.ensure_engine()
+            else:
+                manager.start(args.prepare_check)
+                deadline = time.monotonic() + 1200
+                while manager.active and time.monotonic() < deadline:
+                    (home / 'prepare-progress.json').write_text(json.dumps(manager.snapshot()), encoding='utf-8')
+                    time.sleep(1)
+                if manager.active or manager.snapshot()['phase'] != 'done':
+                    raise RuntimeError(str(manager.snapshot()))
+            result = {'ready': assistant_setup.engine_alive(manager.base), 'model': saved,
+                      'base': manager.base, 'phase': manager.snapshot()['phase']}
+            (home / 'prepare-check.json').write_text(json.dumps(result), encoding='utf-8')
+        finally:
+            manager.shutdown()
+        return
     if args.generate:
         import dialogue
         dialogue.generate(json.loads(args.generate))
@@ -39,6 +62,7 @@ def main():
         (home / 'self-check.json').write_text(result, encoding='utf-8')
         print(result)
         return
+    server.start_assistant()
     # A free loopback port avoids collisions with the source edition or another app.
     httpd = server.ThreadingHTTPServer(('127.0.0.1', 0), server.Handler)
     address = 'http://127.0.0.1:%d/' % httpd.server_port
@@ -49,6 +73,7 @@ def main():
             httpd.serve_forever()
         finally:
             server.stop_generation()
+            server.stop_assistant()
             httpd.server_close()
         return
     import webview
@@ -70,6 +95,7 @@ def main():
                       private_mode=False, storage_path=str(home / 'webview'))
     finally:
         server.stop_generation()
+        server.stop_assistant()
         httpd.shutdown()
         httpd.server_close()
 

@@ -35,7 +35,7 @@ if sys.platform == 'darwin':
     import plistlib
     plist = OUT / 'maidcafe.app/Contents/Info.plist'
     data = plistlib.loads(plist.read_bytes())
-    data.update(CFBundleShortVersionString='0.2.0', CFBundleVersion='2',
+    data.update(CFBundleShortVersionString='0.3.0', CFBundleVersion='3',
                 NSHighResolutionCapable=True, NSAppTransportSecurity={'NSAllowsLocalNetworking': True})
     plist.write_bytes(plistlib.dumps(data))
     subprocess.run(['codesign', '--force', '--deep', '--sign', '-', str(OUT / 'maidcafe.app')], check=True)
@@ -48,13 +48,13 @@ if sys.platform == 'darwin':
     if not applications.exists():
         applications.symlink_to('/Applications')
     shutil.copyfile(ROOT / 'packaging/开始使用.txt', image / '开始使用.txt')
-    dmg = OUT / ('maidcafe-0.2.0-preview-macOS-%s.dmg' % platform.machine())
+    dmg = OUT / ('maidcafe-0.3.0-preview-macOS-%s.dmg' % platform.machine())
     subprocess.run(['hdiutil', 'create', '-ov', '-volname', 'maidcafe', '-srcfolder', str(image),
                     '-format', 'UDZO', str(dmg)], check=True)
     print(dmg)
 else:
     shutil.copyfile(ROOT / 'packaging/开始使用.txt', OUT / 'maidcafe/开始使用.txt')
-    print(shutil.make_archive(str(OUT / ('maidcafe-0.2.0-preview-' + platform.system())), 'zip', OUT, 'maidcafe'))
+    print(shutil.make_archive(str(OUT / ('maidcafe-0.3.0-preview-' + platform.system())), 'zip', OUT, 'maidcafe'))
     if sys.platform == 'win32':
         compiler = shutil.which('ISCC') or r'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
         subprocess.run([compiler, '/DBuildRoot=' + str(OUT), str(ROOT / 'packaging/windows.iss')], check=True)

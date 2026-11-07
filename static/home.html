@@ -227,18 +227,25 @@
 
   <div id="setupModal" class="word-card hidden setup-dialog" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
     <h2 id="setupTitle">准备你的故事助手</h2>
-    <p class="hint-line">只需设置一次。故事由电脑上的 AI 创作，试听和词卡随时可用。</p>
+    <p class="hint-line">点一次，剩下的交给店里。准备好后，故事会在你的电脑上创作。</p>
     <p id="setupStatus" role="status" class="setup-status"></p>
-    <details id="setupSteps"><summary>第一次使用，从这里开始</summary>
-      <ol><li><a href="https://ollama.com/download" target="_blank" rel="noopener">下载并打开 Ollama</a>，让本地助手运行起来。</li>
-      <li>在 Ollama 中下载一个适合电脑内存的本地聊天模型。首次下载需要联网，模型通常占几 GB。</li>
-      <li>回到这里点「重新检测」，选择模型并保存。之后可以断网使用。</li></ol>
+    <div class="assistant-install">
+      <label for="setupProfile" class="model-label">选一位故事助手</label>
+      <select id="setupProfile"><option value="standard">标准助手 · 约 2.5 GB</option><option value="light">轻量助手 · 约 1.4 GB</option></select>
+      <p id="setupDownloadSize" class="hint-line"></p>
+      <p class="hint-line">首次需要联网下载，完成后可离线使用。可以暂停再继续，也可以先回店里试听、翻词卡。</p>
+      <div id="setupProgressBox" class="hidden"><progress id="setupProgress" aria-label="助手准备进度"></progress><p id="setupProgressText" class="hint-line"></p></div>
+      <div class="setup-actions"><button id="setupPrepare" class="cafe-primary">一键准备</button><button id="setupCancel" class="mk hidden">暂停下载</button></div>
+    </div>
+    <details id="setupSteps" class="setup-advanced"><summary>我已经有模型 / 进阶设置</summary>
+      <label class="model-label" for="modelSelect">使用本机已有模型</label>
+      <select id="modelSelect"><option value="">正在检测…</option></select>
+      <p id="modelLocked" class="hint-line hidden">本次由启动配置指定模型，应用内选择已锁定。</p>
+      <div class="setup-actions"><button id="setupRefresh" class="mk">重新检测</button><button id="modelSave" class="mk">保存选择</button></div>
+      <p class="hint-line">自动准备使用 Ollama 官方引擎，已有安装会自动复用。<a href="https://ollama.com/download" target="_blank" rel="noopener">也可手动安装</a>。</p>
     </details>
-    <label class="model-label" for="modelSelect">用来写故事的模型</label>
-    <select id="modelSelect"><option value="">正在检测…</option></select>
-    <p id="modelLocked" class="hint-line hidden">本次由启动配置指定模型，应用内选择已锁定。</p>
     <p id="voiceStatus" class="hint-line"></p>
-    <div class="setup-actions"><button id="setupRefresh" class="mk">重新检测</button><button id="modelSave" class="cafe-primary">保存选择</button><button id="setupClose" class="mk">回到店里</button></div>
+    <div class="setup-actions"><button id="setupClose" class="mk">回到店里</button></div>
   </div>
 
   <div id="toast" class="toast hidden"

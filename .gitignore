@@ -31,3 +31,4 @@ build/
 dist/
 .venv-desktop/
 *.spec
+assistant/

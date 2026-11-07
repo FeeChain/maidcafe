@@ -123,8 +123,28 @@ class DesktopAPITests(unittest.TestCase):
             args, kwargs = spawn.call_args
             self.assertEqual(args[0][1:], ['--generate', '["give up"]'])
             self.assertEqual(kwargs['env']['MAIDCAFE_MODEL'], 'local')
+            self.assertEqual(kwargs['env']['MAIDCAFE_OLLAMA_BASE'], ai_runtime.OLLAMA_BASE)
             self.assertEqual(self.call('/api/generate', {'words': ['refill']})[0], 409)
             self.assertEqual(spawn.call_count, 1)
+
+    def test_one_click_endpoint_starts_only_allowed_local_task(self):
+        manager = Mock(active=False)
+        with patch.dict(os.environ, {}, clear=True), patch('server.get_setup', return_value=manager):
+            self.assertEqual(self.call('/api/setup/prepare', {'profile': 'light'})[0], 202)
+            manager.start.assert_called_once_with('light')
+            self.assertEqual(self.call('/api/setup/cancel', {})[0], 200)
+            manager.cancel.assert_called_once()
+            self.assertEqual(self.call('/api/setup/prepare', {'profile': 'light'}, {'Origin':'https://example.org'})[0], 403)
+            self.assertEqual(manager.start.call_count, 1)
+        with patch.dict(os.environ, {'MAIDCAFE_MODEL':'locked'}), patch('server.get_setup', return_value=manager):
+            self.assertEqual(self.call('/api/setup/prepare', {'profile': 'light'})[0], 409)
+            self.assertEqual(manager.start.call_count, 1)
+
+    def test_preparing_blocks_model_change_and_story_generation(self):
+        with patch('server.get_setup', return_value=Mock(active=True)), patch('server.subprocess.Popen') as spawn:
+            self.assertEqual(self.call('/api/setup', {'model':'local'})[0], 409)
+            self.assertEqual(self.call('/api/generate', {'words':['refill']})[0], 409)
+            spawn.assert_not_called()
 
     def test_import_valid_pack_and_preserve_progress(self):
         self.call('/api/word_pass', {'word': 'refill'})

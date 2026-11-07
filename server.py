@@ -32,6 +32,8 @@ import deckparse  # noqa: E402
 import morph  # noqa: E402
 import ai_runtime
 import portability
+import assistant_setup
+from pathlib import Path
 from app_paths import VERSION
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -179,6 +181,24 @@ GEN_PROCESS = None
 GEN_LOCK = threading.Lock()
 IMPORT_LOCK = threading.Lock()
 LOG_DIR = os.environ.get("MAIDCAFE_LOG_DIR", ROOT)
+_SETUP = None
+
+
+def get_setup():
+    global _SETUP
+    home = Path(DB_PATH).resolve().parent / 'assistant'
+    if _SETUP is None or _SETUP.home != home:
+        _SETUP = assistant_setup.SetupManager(home, lambda model: kv_set('model', model))
+    return _SETUP
+
+
+def start_assistant():
+    get_setup().resume_engine()
+
+
+def stop_assistant():
+    if _SETUP:
+        _SETUP.shutdown()
 
 
 def stop_generation():
@@ -1000,7 +1020,9 @@ class Handler(BaseHTTPRequestHandler):
         qs = parse_qs(parsed.query)
 
         if path == "/api/setup":
-            return self._send(200, dict(ai_runtime.inspect(kv_get('model', '')), version=VERSION))
+            setup = get_setup()
+            return self._send(200, dict(ai_runtime.inspect(kv_get('model', '')), version=VERSION,
+                                       install=setup.snapshot(), options=setup.options()))
 
         if path == "/api/backup":
             con = db()
@@ -1383,7 +1405,24 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(payload, dict):
             return self._send(400, {"error": "请求格式无效"})
 
+        if parsed.path == '/api/setup/prepare':
+            if os.environ.get('MAIDCAFE_MODEL'):
+                return self._send(409, {'error': '当前模型由启动配置指定，请先移除 MAIDCAFE_MODEL 后再使用自动准备。'})
+            if GEN_PROCESS is not None and GEN_PROCESS.poll() is None:
+                return self._send(409, {'error': '故事还在准备，请等它完成后再更换助手。'})
+            try:
+                get_setup().start(payload.get('profile', 'standard'))
+            except ValueError as error:
+                return self._send(400, {'error': str(error)})
+            return self._send(202, {'ok': True})
+
+        if parsed.path == '/api/setup/cancel':
+            get_setup().cancel()
+            return self._send(200, {'ok': True})
+
         if parsed.path == "/api/setup":
+            if get_setup().active:
+                return self._send(409, {'error': '助手正在准备，请完成或暂停后再更换。'})
             model = payload.get('model')
             state = ai_runtime.inspect(kv_get('model', ''))
             if state['locked']:
@@ -1505,6 +1544,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"ok": True})
 
         if parsed.path == "/api/generate":
+            if get_setup().active:
+                return self._send(409, {'error': '助手正在准备，你可以先试听或翻词卡。'})
             words = payload.get("words") or []
             if (not isinstance(words, list) or len(words) > 5 or any(not isinstance(w, str) or len(w) > 80 or
                     not re.fullmatch(r"[A-Za-z][A-Za-z0-9]*(?:[ '-][A-Za-z0-9]+){0,3}", w) for w in words)):
@@ -1529,7 +1570,7 @@ class Handler(BaseHTTPRequestHandler):
                     cmd = [sys.executable, '--generate', json.dumps(words)]
                 else:
                     cmd = [sys.executable, os.path.join(ROOT, 'dialogue.py'), '--words', ','.join(words)]
-                env = dict(os.environ, MAIDCAFE_MODEL=state['model'])
+                env = dict(os.environ, MAIDCAFE_MODEL=state['model'], MAIDCAFE_OLLAMA_BASE=ai_runtime.OLLAMA_BASE)
                 os.makedirs(LOG_DIR, exist_ok=True)
                 opts = {'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {'start_new_session': True}
                 with open(os.path.join(LOG_DIR, 'generate.log'), 'a') as log:
@@ -1700,10 +1741,16 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     build_words()
+    start_assistant()
     print("maidcafe ready: %d words, %d with audio" % (len(WORDS), len(AUDIO)))
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print("Serving on http://localhost:%d" % PORT)
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    finally:
+        stop_generation()
+        stop_assistant()
+        server.server_close()
 
 
 if __name__ == "__main__":

@@ -21,6 +21,20 @@ maidcafe 把你想学的词，<br>
 
 ---
 
+<!-- desktop-downloads:start -->
+## 下载桌面版
+
+**[点击这里下载 Mac / Windows 安装包](https://github.com/FeeChain/maidcafe/releases/tag/v0.2.0-preview)**
+
+| 你的电脑 | 直接下载 |
+|---|---|
+| Mac M 系列 | [下载 DMG · 20.1 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.2.0-preview/maidcafe-0.2.0-preview-macOS-arm64.dmg) |
+| Intel Mac | [下载 DMG · 20.8 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.2.0-preview/maidcafe-0.2.0-preview-macOS-x86_64.dmg) |
+| Windows 64 位 | [下载安装程序 · 18.4 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.2.0-preview/maidcafe-0.2.0-preview-Windows-x64-Setup.exe) |
+
+无需 Python 或命令行。先体验内置词卡和试听，再按软件里的「故事设置」准备本地 AI。当前为未完成发行签名的预览版，首次打开可能出现系统来源提示；[安装说明与更新记录](https://github.com/FeeChain/maidcafe/releases)。
+<!-- desktop-downloads:end -->
+
 ## 它解决什么问题
 
 大多数背单词软件在**考你**；maidcafe 在**陪你听**。
@@ -79,9 +93,13 @@ maidcafe 把你想学的词，<br>
 
 桌面版使用独立窗口，内置 Python、界面、入门词库和试听录音。Mac 打开 `.dmg` 后拖入 Applications；Windows 运行 `Windows-x64-Setup.exe` 按向导安装。从开始菜单/应用程序打开即可，无需终端。
 
-安装包由 [desktop-preview 构建](https://github.com/FeeChain/maidcafe/actions/workflows/desktop.yml)产出（Mac Apple Silicon、Mac Intel、Windows x64）。当前是未签名/未公证的测试版本，尚不是正式发行；Actions 附件需要登录且有保留期限。正式公开下载将通过 GitHub Releases 提供，Drive 可以作词包镜像。
+安装包在 [GitHub Releases](https://github.com/FeeChain/maidcafe/releases) 公开下载，无需 GitHub 账号。提供 Mac Apple Silicon、Mac Intel、Windows x64。当前为未完成签名/公证的预览版。
 
-第一次可以直接听招待、翻词卡。想生成自己的故事，在「故事设置」中下载并打开 Ollama，选择已下载到本机的聊天模型，再保存；不需要填写环境变量或密钥。Mac/Windows 优先使用已配置的 Kokoro，否则使用系统英语语音；没有可用配音时仍可阅读故事。
+第一次可以直接听招待、翻词卡。想生成自己的故事，在「故事设置」点「一键准备」：软件下载官方 Ollama 引擎、校验文件、下载模型、试运行，成功后自动配置。可暂停并续传，已有本地 Ollama 会复用；进阶设置仍可选择自己的模型。不需要自己装引擎、敲命令或填写密钥。
+
+轻量模型约 **1.4 GB**，标准模型约 **2.5 GB**；引擎首次下载 Mac 约 **186 MB**、Windows 约 **1.6 GB**。自动准备需要 macOS 14+ 或 Windows 10 22H2+，建议至少 8 GB 内存；低于 16 GB 默认推荐轻量助手。下载前显示大小并检查磁盘空间。下载后可离线使用，首次写故事及 CPU 运行可能较慢。引擎来自 [Ollama 官方发行](https://github.com/ollama/ollama/releases)，模型来自官方模型库。
+
+Mac/Windows 优先使用已配置的 Kokoro，否则使用系统英语语音；没有可用配音时仍可阅读故事。
 
 设置中的「词库与学习记录」支持导入 Anki 词包、导出记录，在没有学习记录的安装中恢复备份。备份包含进度和故事文字，不含词库、模型或录音。Mac 数据目录是 `~/Library/Application Support/maidcafe/`，Windows 是 `%LOCALAPPDATA%\maidcafe\`；替换应用不会覆盖记录。Windows 需要 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。
 
