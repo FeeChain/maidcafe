@@ -21,6 +21,20 @@ maidcafe 先摸清你的真实听力词汇量，再把你正在学的词，<br>
 
 ---
 
+<!-- desktop-downloads:start -->
+## 下载桌面版
+
+**[点击这里下载 Mac / Windows 安装包](https://github.com/FeeChain/maidcafe/releases/tag/v0.2.0-preview)**
+
+| 你的电脑 | 直接下载 |
+|---|---|
+| Mac M 系列 | [下载 DMG · 20.1 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.2.0-preview/maidcafe-0.2.0-preview-macOS-arm64.dmg) |
+| Intel Mac | [下载 DMG · 20.8 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.2.0-preview/maidcafe-0.2.0-preview-macOS-x86_64.dmg) |
+| Windows 64 位 | [下载安装程序 · 18.4 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.2.0-preview/maidcafe-0.2.0-preview-Windows-x64-Setup.exe) |
+
+无需 Python 或命令行。先体验内置词卡和试听，再按软件里的「故事设置」准备本地 AI。当前为未完成发行签名的预览版，首次打开可能出现系统来源提示；[安装说明与更新记录](https://github.com/FeeChain/maidcafe/releases)。
+<!-- desktop-downloads:end -->
+
 ## 它解决什么问题
 
 大多数背单词软件在**考你**；maidcafe 在**陪你听**。
