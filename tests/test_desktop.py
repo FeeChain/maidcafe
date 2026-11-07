@@ -1,5 +1,6 @@
 """First installation, local setup, importing and portable records; no real user data."""
 import io
+from contextlib import closing
 import json
 import os
 from pathlib import Path
@@ -103,7 +104,7 @@ class DesktopAPITests(unittest.TestCase):
         self.assertEqual(code, 503)
         self.assertEqual(data['code'], 'setup_required')
         spawn.assert_not_called()
-        with server.db() as con:
+        with closing(server.db()) as con:
             self.assertEqual(con.execute('select count(*) from dialogues').fetchone()[0], 0)
 
     def test_model_selection_saved_and_invalid_rejected(self):

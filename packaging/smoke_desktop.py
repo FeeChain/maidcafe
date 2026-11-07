@@ -1,5 +1,6 @@
 """Exercise the frozen app in disposable storage, including its actual native window."""
 import json
+from contextlib import closing
 import os
 from pathlib import Path
 import sqlite3
@@ -29,6 +30,6 @@ with tempfile.TemporaryDirectory(prefix='maidcafe-package-') as tmp:
     # The worker must execute generation, not recursively open another app window.
     worker = subprocess.run([str(exe), '--generate', '["refill"]'], env=env, timeout=30)
     assert worker.returncode != 0, 'Missing model should fail cleanly'
-    with sqlite3.connect(home / 'progress.db') as con:
+    with closing(sqlite3.connect(home / 'progress.db')) as con:
         assert con.execute('select status from dialogues').fetchone()[0] == 'error'
     print(json.dumps({'self_check': result, 'native': native, 'speech': audio, 'worker': 'error recorded'}, ensure_ascii=False))

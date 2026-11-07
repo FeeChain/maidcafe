@@ -380,6 +380,7 @@ class TestBestDraftSelection(unittest.TestCase):
         db_path = os.path.join(TMP, "best.db")
         con = sqlite3.connect(db_path)
         con.execute("create table marks(word text primary key, status integer, ts real)")
+        con.execute("insert into marks values('tea', 3, 1)")
         con.commit()
         con.close()
         orig = (dialogue.call_ollama, dialogue.verify, dialogue.synthesize, dialogue.DB_PATH)
@@ -510,6 +511,20 @@ class TestCastDiscipline(unittest.TestCase):
 
 
 class TestGenerationGate(unittest.TestCase):
+    def test_unmeasured_guest_is_not_treated_as_knowing_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(dialogue, 'DB_PATH', os.path.join(tmp, 'dialogue.db')), \
+                 patch.object(dialogue, 'get_known_set', return_value=set()), \
+                 patch.object(dialogue, 'call_ollama', return_value=turns('A warm refill of coffee awaits.')) as write, \
+                 patch.object(dialogue, 'synthesize', return_value=[]):
+                dialogue.generate(['refill'], seed=1)
+                self.assertEqual(write.call_count, 1)
+                con = dialogue.db()
+                report, status = con.execute('select report,status from dialogues').fetchone()
+                con.close()
+                self.assertEqual(status, 'done')
+                self.assertFalse(json.loads(report)['personalized'])
+
     def test_missing_targets_never_reach_tts(self):
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(dialogue, "DB_PATH", os.path.join(tmp, "dialogue.db")), \

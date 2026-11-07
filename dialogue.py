@@ -336,11 +336,11 @@ def repair_message(report):
     if report["missing_targets"]:
         parts.append("These required words are MISSING, work them in naturally: %s."
                      % ", ".join(report["missing_targets"]))
-    if report["unknown_words"]:
+    if report.get('personalized', True) and report["unknown_words"]:
         parts.append("These words are too difficult, replace them with very "
                      "simple everyday words or rephrase: %s."
                      % ", ".join(report["unknown_words"][:15]))
-    if report.get("dense_turns"):
+    if report.get('personalized', True) and report.get("dense_turns"):
         parts.append("These lines have too many difficult words (at most %d per "
                      "line, ideally 1), simplify them: %s."
                      % (MAX_UNKNOWN_PER_TURN, "; ".join(
@@ -488,6 +488,9 @@ def generate(targets, seed=None):
             t0 = time.time()
             turns = call_ollama(messages)
             report = verify(turns, targets, known, lem, char_names)
+            # No hearing evidence yet: an unmeasured word is not a proven unknown.
+            # Use the plain-English prompt until the guest chooses to calibrate.
+            report['personalized'] = bool(known)
             report["attempt"] = attempt + 1
             report["gen_seconds"] = round(time.time() - t0, 1)
             print("attempt %d: ratio=%.3f missing=%s unknown=%s banned=%s "
@@ -497,8 +500,8 @@ def generate(targets, seed=None):
                       [(d["turn"], d["words"]) for d in report["dense_turns"]],
                       report["gen_seconds"]))
             ok = (not report["missing_targets"] and not report["banned_address"]
-                  and not report["dense_turns"]
-                  and report["known_ratio"] >= KNOWN_RATIO_TARGET)
+                  and (not known or (not report["dense_turns"]
+                       and report["known_ratio"] >= KNOWN_RATIO_TARGET)))
             # 达标稿无条件采用；分数只在不达标的稿之间比（每句 2 个生词的轻扣分
             # 可能让达标稿分数低于不达标稿——10-14 读码时发现）
             if ok or best is None or (not report["missing_targets"], score(report)) > (not best[1]["missing_targets"], score(best[1])):

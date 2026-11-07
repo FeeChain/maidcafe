@@ -96,7 +96,7 @@ async function openDialogue(id) {
   $("playerView").classList.remove("hidden");
   $("sceneLine").textContent = `#${current.id} · ${current.scene}`;
   const ratio = current.report.known_ratio;
-  $("ratioBadge").textContent = ratio != null
+  $("ratioBadge").textContent = current.report.personalized === false ? '先用简单日常英语陪你听，听力难度可以随时调整' : ratio != null
     ? `周边词汇 ${(ratio * 100).toFixed(0)}% 在你的已知范围内` : "";
   renderTurns();
   updatePlayBtn();
