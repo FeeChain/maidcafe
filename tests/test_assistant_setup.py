@@ -163,6 +163,11 @@ class SetupTests(unittest.TestCase):
             self.manager.ensure_engine(); self.manager.shutdown()
         spawn.assert_not_called(); stop.assert_not_called()
 
+    def test_ready_relaunch_does_not_turn_into_a_paused_install(self):
+        self.manager.update('idle')
+        reopened = setup.SetupManager(self.home, reuse_existing=False)
+        self.assertEqual(reopened.snapshot()['phase'], 'idle')
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

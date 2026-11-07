@@ -128,7 +128,7 @@ class SetupManager:
         try:
             saved = json.loads((self.home / 'setup.json').read_text(encoding='utf-8'))
             if saved.get('profile') in CATALOG:
-                self.state.update(saved, phase='paused' if saved.get('phase') != 'done' else 'idle', message='')
+                self.state.update(saved, phase='idle' if saved.get('phase') in ('done', 'idle') else 'paused', message='')
         except (OSError, ValueError):
             pass
 

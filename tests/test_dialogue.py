@@ -509,6 +509,13 @@ class TestCastDiscipline(unittest.TestCase):
         self.assertIn("seldom", out)
         self.assertIn("praise", out)
 
+    def test_desktop_without_external_dictionary_keeps_starter_usage(self):
+        with patch.object(dialogue, 'ECDICT_DB', '/does-not-exist/stardict.db'):
+            out = dialogue.target_briefs(['refill', 'cozy'])
+        self.assertIn('Would you like a refill before you leave?', out)
+        self.assertIn('cozy', out)
+        self.assertIn('e.g.', out)
+
 
 class TestGenerationGate(unittest.TestCase):
     def test_unmeasured_guest_is_not_treated_as_knowing_nothing(self):

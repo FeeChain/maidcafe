@@ -11,6 +11,7 @@ CLI:  python3 dialogue.py --words seldom,praise,pale
 """
 
 import argparse
+import csv
 import json
 import os
 import random
@@ -267,6 +268,13 @@ def target_briefs(targets):
     （例句帮模型用对词）；中文取前 3 行、
     跳过 [计][医] 等领域义——只取第一行时 secular 拿到的是冷僻义"修道院外的教士"，
     常用的"世俗的"在第二行（10-15 读码发现）。"""
+    # The desktop edition includes usage examples even without the optional ECDICT.
+    starter = {}
+    try:
+        with open(os.path.join(ROOT, 'resources', 'window-seat.tsv'), encoding='utf-8') as source:
+            starter = {row[0].lower(): row[1:3] for row in csv.reader(source, delimiter='\t') if len(row) >= 3}
+    except OSError:
+        pass
     briefs = []
     con = sqlite3.connect(ECDICT_DB) if os.path.exists(ECDICT_DB) else None
     for w in targets:
@@ -287,6 +295,9 @@ def target_briefs(targets):
                 bits = [b for b in (en, cn) if b]
                 if bits:
                     line = "%s — %s" % (w, " / ".join(bits[:2]))
+        if line == w and w.lower() in starter:
+            meaning, example = starter[w.lower()]
+            line = '%s — %s; e.g. "%s"' % (w, meaning, example)
         briefs.append("- " + line)
     if con:
         con.close()
@@ -323,6 +334,8 @@ def build_messages(cast, guest, hidden, scene, targets):
         "REQUIREMENTS:\n"
         "1. Each of these words MUST appear at least once, used CORRECTLY "
         "with its real meaning (do not force poetic or wrong usages):\n%s\n"
+        "Keep each target's meaning clear from the situation. Use concrete, "
+        "natural word combinations and clear nouns, not ambiguous pronouns.\n"
         "2. All OTHER words must be simple, common everyday English, with at "
         "most ONE less common word in any single line.\n"
         "3. Reply as JSON only: {\"turns\": [{\"speaker\": \"Name\", \"text\": \"...\"}]}\n"
