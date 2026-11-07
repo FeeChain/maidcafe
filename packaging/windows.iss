@@ -1,10 +1,13 @@
 #ifndef BuildRoot
   #define BuildRoot "..\dist"
 #endif
+#ifndef AppVersion
+  #error AppVersion must be supplied by packaging/build_desktop.py
+#endif
 [Setup]
 AppId=com.feechain.maidcafe
 AppName=maidcafe
-AppVersion=0.3.0-preview
+AppVersion={#AppVersion}
 AppPublisher=FeeChain
 AppPublisherURL=https://github.com/FeeChain/maidcafe
 DefaultDirName={localappdata}\Programs\maidcafe
@@ -15,7 +18,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
 OutputDir={#BuildRoot}
-OutputBaseFilename=maidcafe-0.3.0-preview-Windows-x64-Setup
+OutputBaseFilename=maidcafe-{#AppVersion}-Windows-x64-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

@@ -34,4 +34,6 @@ with tempfile.TemporaryDirectory(prefix='maidcafe-assistant-') as tmp:
     assert check['ready'] and check['base'].startswith('http://127.0.0.1:')
     if sys.argv[2] != 'engine':
         assert check['phase'] == 'done' and len(check['model']) == 1
+    if len(sys.argv) > 3:
+        Path(sys.argv[3]).write_text(json.dumps(check), encoding='utf-8')
     print(json.dumps(check), flush=True)

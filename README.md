@@ -4,7 +4,7 @@
 
 # maidcafe ☕
 
-**[下载 Mac / Windows 桌面版](https://github.com/FeeChain/maidcafe/releases/tag/v0.3.0-preview)** <!-- desktop-download-cta -->
+**[下载 Mac / Windows 桌面版](https://github.com/FeeChain/maidcafe/releases)** <!-- desktop-download-cta -->
 
 **一间记得你认识哪些单词的女仆咖啡厅。**
 
@@ -12,7 +12,7 @@
 maidcafe 把你想学的词，<br>
 现场编成一段只属于你的咖啡厅日常对话——全部在你自己的电脑上完成。
 
-[![CI](https://github.com/FeeChain/maidcafe/actions/workflows/ci.yml/badge.svg)](https://github.com/FeeChain/maidcafe/actions/workflows/ci.yml)
+[![构建与发布](https://github.com/FeeChain/maidcafe/actions/workflows/pipeline.yml/badge.svg)](https://github.com/FeeChain/maidcafe/actions/workflows/pipeline.yml)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![Local First](https://img.shields.io/badge/data-100%25%20local-brightgreen)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-orange)
@@ -26,15 +26,15 @@ maidcafe 把你想学的词，<br>
 <!-- desktop-downloads:start -->
 ## 下载桌面版
 
-**[点击这里下载 Mac / Windows 安装包](https://github.com/FeeChain/maidcafe/releases/tag/v0.3.0-preview)**
+**[点击这里下载最新 Mac / Windows 安装包](https://github.com/FeeChain/maidcafe/releases)**
 
-| 你的电脑 | 直接下载 |
+| 你的电脑 | 在最新发布页选择的文件 |
 |---|---|
-| Mac M 系列 | [下载 · 20.1 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.3.0-preview/maidcafe-0.3.0-preview-macOS-arm64.dmg) |
-| Intel Mac | [下载 · 20.8 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.3.0-preview/maidcafe-0.3.0-preview-macOS-x86_64.dmg) |
-| Windows 64 位 | [下载 · 18.4 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.3.0-preview/maidcafe-0.3.0-preview-Windows-x64-Setup.exe) |
+| Mac M 系列 | 文件名以 `macOS-arm64.dmg` 结尾 |
+| Intel Mac | 文件名以 `macOS-x86_64.dmg` 结尾 |
+| Windows 64 位 | 文件名以 `Windows-x64-Setup.exe` 结尾 |
 
-无需 Python 或命令行。先体验内置词卡和试听，生成自己的故事只需在软件内点「故事设置 → 一键准备」；引擎和模型会自动下载、校验和配置，支持暂停续传。轻量模型约 1.4 GB、标准约 2.5 GB，首次还需下载引擎；自动准备需要 macOS 14+ / Windows 10 22H2+。当前为未完成发行签名的预览版，首次打开可能出现系统来源提示；[安装说明与更新记录](https://github.com/FeeChain/maidcafe/releases/tag/v0.3.0-preview)。
+安装包约 20 MB，发布页顶部有各系统的直接下载按钮。无需 Python 或命令行。先体验内置词卡和试听，生成自己的故事只需在软件内点「故事设置 → 一键准备」；引擎和模型会自动下载、校验和配置，支持暂停续传。轻量模型约 1.4 GB、标准约 2.5 GB，首次还需下载引擎；自动准备需要 macOS 14+ / Windows 10 22H2+。当前为未完成发行签名的预览版，首次打开可能出现系统来源提示；[安装说明与更新记录](https://github.com/FeeChain/maidcafe/releases)。
 <!-- desktop-downloads:end -->
 
 ## 它解决什么问题
@@ -90,6 +90,8 @@ maidcafe 把你想学的词，<br>
 <br clear="right">
 
 ## 快速开始
+
+维护者更新与发布流程见 [RELEASING.md](RELEASING.md)：PR 自动测试与打包，版本升级合入 main 后自动验证并发布。
 
 ### 桌面预览：Mac 与 Windows
 

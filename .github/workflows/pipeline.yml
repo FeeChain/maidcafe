@@ -1,0 +1,64 @@
+name: desktop-pipeline
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+  desktop:
+    needs: checks
+    uses: ./.github/workflows/desktop.yml
+  release-ready:
+    if: always()
+    needs: [checks, desktop]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Require every test and installer job
+        env:
+          CHECKS_RESULT: ${{ needs.checks.result }}
+          DESKTOP_RESULT: ${{ needs.desktop.result }}
+        run: |
+          test "$CHECKS_RESULT" = success
+          test "$DESKTOP_RESULT" = success
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: desktop-*
+          path: artifacts
+      - name: Verify exact source, complete installers and release contents
+        run: python packaging/publish_release.py
+  publish:
+    needs: release-ready
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: desktop-*
+          path: artifacts
+      - name: Upload, verify checksums and publish the new version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python packaging/publish_release.py --publish

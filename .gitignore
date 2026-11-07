@@ -32,3 +32,5 @@ dist/
 .venv-desktop/
 *.spec
 assistant/
+artifacts/
+release-output/

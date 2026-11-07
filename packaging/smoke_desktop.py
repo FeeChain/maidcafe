@@ -10,6 +10,7 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import ai_runtime
+from app_paths import VERSION
 # Server editions of Windows may have no installed speech engines. Compare the
 # frozen build against the source runtime so missing bundled modules cannot pass.
 expected_audio = ai_runtime.audio_backend()
@@ -29,6 +30,7 @@ with tempfile.TemporaryDirectory(prefix='maidcafe-package-') as tmp:
             raise
     result = json.loads((home / 'self-check.json').read_text(encoding='utf-8'))
     assert result['words'] == result['audio'] == 24, result
+    assert result['version'] == VERSION, result
     native = json.loads((home / 'native-smoke.json').read_text(encoding='utf-8'))
     assert native['welcome'] and native['bridge'], native
     audio = json.loads((home / 'speech-check.json').read_text(encoding='utf-8'))
@@ -42,4 +44,7 @@ with tempfile.TemporaryDirectory(prefix='maidcafe-package-') as tmp:
     assert worker.returncode != 0, 'Missing model should fail cleanly'
     with closing(sqlite3.connect(home / 'progress.db')) as con:
         assert con.execute('select status from dialogues').fetchone()[0] == 'error'
-    print(json.dumps({'self_check': result, 'native': native, 'speech': audio, 'worker': 'error recorded'}))
+    report = {'self_check': result, 'native': native, 'speech': audio, 'worker': 'error recorded'}
+    if len(sys.argv) > 2:
+        Path(sys.argv[2]).write_text(json.dumps(report), encoding='utf-8')
+    print(json.dumps(report))

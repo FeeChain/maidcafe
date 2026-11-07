@@ -1,0 +1,2 @@
+# UI tests only; never included in the desktop product.
+playwright==1.60.0

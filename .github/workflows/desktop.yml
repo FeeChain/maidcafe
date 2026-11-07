@@ -1,10 +1,6 @@
-name: desktop-preview
+name: installers
 on:
-  workflow_dispatch:
-  push:
-    branches: ['codex/desktop-*']
-  pull_request:
-    paths: ['desktop.py', 'app_paths.py', 'ai_runtime.py', 'assistant_setup.py', 'windows_speech.py', 'packaging/**', 'requirements-desktop.txt', '.github/workflows/desktop.yml']
+  workflow_call:
 permissions:
   contents: read
 jobs:
@@ -12,48 +8,46 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, macos-15-intel, windows-2022]
+        include:
+          - {os: macos-15, target: macOS-arm64}
+          - {os: macos-15-intel, target: macOS-x86_64}
+          - {os: windows-2022, target: Windows-x64}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements-desktop.txt
-      - name: First-install and data safety tests
+      - name: First-install and platform tests
         run: |
           python tests/test_desktop.py
           python tests/test_assistant_setup.py
-      - name: Build native application and installer
-        run: python packaging/build_desktop.py
-      - name: Test Mac native window, voices and worker
-        if: runner.os == 'macOS'
-        run: python packaging/smoke_desktop.py dist/maidcafe.app/Contents/MacOS/maidcafe
-      - name: Test Mac one-click assistant download and warmup
-        if: matrix.os == 'macos-15'
-        run: python packaging/smoke_assistant.py dist/maidcafe.app/Contents/MacOS/maidcafe light
-      - name: Test Intel Mac managed engine startup
-        if: matrix.os == 'macos-15-intel'
-        run: python packaging/smoke_assistant.py dist/maidcafe.app/Contents/MacOS/maidcafe engine
-      - name: Install and test Windows app
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $installDir = Join-Path $env:RUNNER_TEMP 'maidcafe-installed'
-          $installer = Resolve-Path 'dist/maidcafe-0.3.0-preview-Windows-x64-Setup.exe'
-          $process = Start-Process $installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$installDir" -Wait -PassThru
-          if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
-          python packaging/smoke_desktop.py "$installDir/maidcafe.exe"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python packaging/smoke_assistant.py "$installDir/maidcafe.exe" light
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - uses: actions/upload-artifact@v4
+          python tests/test_release.py
+      - name: Build native installer
+        run: python packaging/build_desktop.py 2>&1 | tee build.log
+      - name: Install, launch, synthesize speech and prepare AI
+        run: python packaging/test_installer.py '${{ matrix.target }}' 2>&1 | tee installer-test.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: maidcafe-${{ matrix.os }}
+          name: desktop-${{ matrix.target }}
           path: |
             dist/*.dmg
             dist/*Setup.exe
-            dist/*.zip
+            dist/build-report-*.json
           if-no-files-found: error
           retention-days: 30
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: installer-logs-${{ matrix.target }}
+          path: |
+            build.log
+            installer-test.log
+          retention-days: 14

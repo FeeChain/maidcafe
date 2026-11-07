@@ -1,4 +1,4 @@
-maidcafe · 0.3.0 预览版
+maidcafe · {VERSION}
 
 Mac 安装
 打开 DMG，将 maidcafe 拖进 Applications，然后从应用程序打开。
