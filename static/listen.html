@@ -7,6 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
 <link rel="stylesheet" href="/static/style.css?v=6">
 <link rel="stylesheet" href="/static/listen.css?v=6">
+<link rel="stylesheet" href="/static/cafe-theme.css?v=2">
 </head>
 <body>
 <header>
@@ -21,7 +22,8 @@
 
 <main>
   <!-- ============ 列表视图 ============ -->
-  <section id="listView">
+  <section id="listView" data-cafe-stage="history">
+<figure class="cafe-scene-frame cafe-decoration"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure><h1 class="cafe-banner-title">留在店里的故事</h1>
     <details class="custom-gen">
       <summary class="hint-line">用自己挑的词写一段</summary>
       <div class="gen-row">
@@ -35,7 +37,8 @@
   </section>
 
   <!-- ============ 播放视图 ============ -->
-  <section id="playerView" class="hidden">
+  <section id="playerView" data-cafe-stage="story" class="hidden">
+<figure class="cafe-scene-frame cafe-decoration"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure>
     <button id="backBtn" class="mk small">← 返回列表</button>
     <div class="card player-card">
       <div class="player-info">
@@ -61,7 +64,8 @@
   </section>
 
   <!-- ============ 生词本视图 ============ -->
-  <section id="wordbookView" class="hidden">
+  <section id="wordbookView" data-cafe-stage="wordbook" class="hidden">
+<figure class="cafe-scene-frame cafe-decoration"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure><h1 class="cafe-banner-title">你的单词手帖</h1>
     <div class="gen-row">
       <input id="addWordInput" placeholder="手动加词：输入英文单词" />
       <button id="addWordBtn" class="mk">加入生词本</button>
@@ -93,8 +97,8 @@
   </div>
 
   <!-- 释义卡弹窗 -->
-  <div id="wordCard" role="dialog" aria-modal="true" aria-label="单词释义" class="word-card hidden">
-    <div class="wc-word" id="wcWord"></div>
+  <div id="wordCard" data-cafe-still data-cafe-stage="word" role="dialog" aria-modal="true" aria-label="单词释义" class="word-card hidden">
+    <img class="cafe-word-stamp cafe-decoration" data-cafe-cast alt=""><div class="wc-word" id="wcWord"></div>
     <div class="wc-phon" id="wcPhon"></div>
     <div class="wc-def" id="wcDef"></div>
     <div class="morph" id="wcMorph"></div>
@@ -111,7 +115,7 @@
 <script src="/static/keys.js"></script>
 <script src="/static/log.js?v=6"></script>
 <script src="/static/morph.js?v=1"></script>
-<script src="/static/art.js?v=6"></script>
+<script src="/static/art.js?v=8"></script>
 <script src="/static/listen.js?v=6"></script>
 </body>
 </html>

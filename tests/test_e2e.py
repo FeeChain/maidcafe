@@ -204,6 +204,22 @@ class TestMaidcafe(unittest.TestCase):
         idxs = [widx(w["word"]) for w in ws]
         self.assertEqual(idxs, sorted(idxs))
 
+    def test_06b_appearance_preferences_are_independent_and_validated(self):
+        original = call('/api/config')
+        call('/api/config', {'art_mode': 'quiet'})
+        self.assertEqual(call('/api/config')['new_quota'], original['new_quota'])
+        self.assertEqual(call('/api/config')['art_mode'], 'quiet')
+        for payload in ({'art_mode': 'other'}, {'art_mode': None},
+                        {'art_mode': 'fixed', 'new_quota': True},
+                        {'new_quota': 10, 'art_mode': []}, {}):
+            with self.subTest(payload=payload):
+                with self.assertRaises(urllib.error.HTTPError) as error:
+                    call('/api/config', payload)
+                self.assertEqual(error.exception.code, 400)
+                self.assertEqual(call('/api/config')['art_mode'], 'quiet')
+                self.assertEqual(call('/api/config')['new_quota'], original['new_quota'])
+        call('/api/config', {'art_mode': 'rotate'})
+
     def test_07_config_quota(self):
         call("/api/config", {"new_quota": 5})
         self.assertEqual(call("/api/config")["new_quota"], 5)

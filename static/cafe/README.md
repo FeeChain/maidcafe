@@ -1,27 +1,19 @@
-# 窗边美术与音频
+# 咖啡馆美术资源
 
-本轮插画通过内置 image generation 工具生成，并已复制到项目内。保留原有 Momo 头像与旧插画，新图作为迎宾、等候及收尾场景使用。
+人物定妆以 [五人同尺度总览](../../design/characters/v1/00-approved-lineup.png) 为最高依据。后续作画先读 [定妆规范](../../design/characters/v1/使用说明.txt)，再使用对应角色的四视图、动作表与隐藏属性设定。可打开 [设定图册](../../design/characters/v1/index.html) 一次查看。
 
-- `window-seat.jpg`，新增窗边迎宾场景。
-- `../art/V1_haruka.png`，Haruka 头像。
-- `../art/V3_shizuku.png`，Shizuku 头像。
-- `../art/V4_suzu.png`，Suzu 头像。
-- `../art/V5_aoi.png`，Aoi 头像。
+五位角色身高：Haruka 169 cm、Momo 155 cm、Shizuku 166 cm、Suzu 171 cm、Aoi 160 cm。Momo 保持已确认的身体比例；Haruka 固定黑白制服与两侧垂发；Suzu 使用缩短后的小腿比例。早期头像、酒红制服和 175 cm / 九头身草稿不再作为依据。
 
-四名新店员为第一版头像设计，尚无完整三视图、全身立绘及表情差分。角色性格与配音映射以 `roster.json` 为准。
+本版包含 23 幅界面图片（共 4,050,800 字节）：5 张透明立绘、5 张头像、8 张日常场景和5张隐藏属性场景。全部通过内置 image_gen 生成或修正；cwebp 仅作等比例尺寸适配和编码。立绘保留透明通道，最长边 1400 像素，头像 512 像素。运行时不需要图片库，不联网请求美术。文件、提示词、引用、大小和 SHA-256 在 [artwork-prompts.json](artwork-prompts.json)。
 
-## 复用提示词规格
+旧图审核：五幅立绘、五幅头像、七幅人物场景统一到最终脸型、服装、体型；雨窗空桌和杯子 Logo 无角色冲突，保留。其他旧人物图退出界面和安装包，可从 Git 历史追溯。隐藏面貌分别为海边休息、哥特诗集、周末志愿服务、电脑专长、晨间芭蕾。
 
-### 窗边场景
+## 页面使用
 
-Use case: illustration-story. A first-person guest view from a window seat inside a cozy Japanese manga-style maid cafe. Adult Momo, pink hair, black-and-white maid uniform, gently places a cup of tea in front of the viewer. Adult Shizuku prepares coffee behind the wooden counter. Warm amber light, rainy window, detailed wood and porcelain, quiet inviting atmosphere, expressive anime illustration. No logos, captions, UI, or watermark. Designed as an immersive wide welcome illustration with a clear foreground table.
+../art.js 的 CAFE_SCENES 与 CAFE_POOLS 负责场景、焦点与题签。每阶段三种场景，不重复抽取，跨轮避免紧邻重复；只在可见阶段切换时换图，没有定时器。词卡、播放轮次、进度刷新不换图。art_mode 在本地数据库持久化，支持轮换、固定、安静阅读。图片缺失不阻断学习。
 
-### 店员头像
-
-Use case: stylized-concept. A coordinated 2-by-2 atlas of four adult maid cafe character bust portraits, consistent anime illustration, warm cream background, clear separation between quadrants, no text or watermark. Top-left Haruka, calm responsible manager. Top-right Shizuku, cool deadpan kitchen lead. Bottom-left Suzu, cheerful accident-prone floor waitress. Bottom-right Aoi, earnest trainee. Distinct hairstyles and expressions, modest black-and-white maid uniforms, readable at small avatar size. Match the cafe's warm manga atmosphere.
-
-以上是已选素材的维护与重绘规格，不保证后续生成与本版像素一致。
+名册主动展示五人立绘；「下班相册」默认折叠，可用键盘打开。不设置打卡或解锁门槛。按钮、纸面和边框在 ../cafe-theme.css 统一维护。
 
 ## 离线招待
 
-`window-seat.mp3` 为原创四句招待对话的本地 Kokoro 配音，英文全文在 `static/home.html` 中。浏览器原生音频控件支持暂停、拖动与键盘操作。切换到词卡或离开菜单时自动暂停。
+window-seat.mp3 是原创四句招待对话的本地 Kokoro 配音，英文全文在 static/home.html。原生音频控件支持暂停、拖动与键盘操作，离开菜单自动暂停。

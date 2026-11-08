@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "approved_date": "2026-11-08",
+  "authority": "00-approved-lineup.png",
+  "characters": [
+    {
+      "id": "haruka",
+      "name": "Haruka",
+      "age": 26,
+      "height": 169,
+      "column": 1,
+      "description": "Adult cafe manager, dark navy long hair tied in a low side ponytail, TWO substantial softly curved face-framing locks falling along the cheeks to the collarbones, warm amber almond eyes, gentle mature oval face. Moderately soft and curvy build exactly like the approved first figure, not overweight and not slimmed further. CLASSIC BLACK AND WHITE uniform: black knee-length dress and sleeves, white apron and frills, black ribbons, small antique gold brooch/buttons, black low Mary Jane shoes. Preserve the approved bust, waist and hip proportions. Apron ties neatly in a simple white bow behind the waist.",
+      "actions": "WELCOME: calm smile with one open palm gently inviting the guest to sit. SERVE: carefully offer a porcelain tea cup and saucer with both hands. GUIDE: hold an open cafe ledger with blank pages at waist height and gesture toward a page."
+    },
+    {
+      "id": "momo",
+      "name": "Momo",
+      "age": 20,
+      "height": 155,
+      "column": 2,
+      "description": "Adult star waitress, long pink twin tails, rose eyes, approved cheerful round face, small gold star hair clips and brown ribbons, white frilled headband. EXACT approved body and bust volume: bust size, shoulder width, waist/hip ratio, head/body ratio and leg length must remain the same in every view. Never enlarge or reduce the chest in profile or action poses. Cocoa-brown knee-length maid dress, white ruffled apron with distinctive heart-shaped pocket and brown bow, gold details, white thigh-high stockings with modest frilled tops and small brown bows, brown low shoes with gold star motifs. Preserve original hair length and twin-tail placement. Apron ties with a neat white bow behind the waist.",
+      "actions": "WELCOME: lively friendly wave, both eyes open, natural smile. SERVE: warmly offer a cup and saucer, matching the existing approved gesture. GUIDE: hold a blank vocabulary card at waist height and gesture toward it with the other hand, encouraging expression."
+    },
+    {
+      "id": "shizuku",
+      "name": "Shizuku",
+      "age": 22,
+      "height": 166,
+      "column": 3,
+      "description": "Adult kitchen lead, short silver bob, teal eyes, delicate slender oval feminine face with quiet deadpan expression, forest-green tied bandana. Lean adult build, narrow but naturally supported shoulders, approved moderate head size, no masculine brow/jaw and no gaunt cheeks. White/ivory short-sleeved blouse with rolled cuffs, forest-green practical bib apron tied at the natural waist, simple pockets, dark knee-length skirt, short dark socks, sensible brown low shoes. Preserve body proportions from the third approved figure. Apron has plain crossed straps and waist ties at back, no added ornament.",
+      "actions": "WELCOME: quiet polite nod with one hand gently indicating a seat, restrained small smile. SERVE: carefully offer a porcelain cup and saucer with both hands, natural hands and balanced weight. GUIDE: hold a recipe notebook with blank pages and indicate one page with a precise small gesture."
+    },
+    {
+      "id": "suzu",
+      "name": "Suzu",
+      "age": 19,
+      "height": 171,
+      "column": 4,
+      "description": "Adult floor waitress, copper-orange softly wavy hair in a loose side ponytail, brown eyes, feminine cheerful face, fine brows, small cheek bandage and subtle freckles. 171 cm, NOT 175. Use EXACTLY the final approved fourth figure's NATURAL balanced proportions and shorter knee-to-ankle segment. Do NOT use nine-head fashion anatomy, tiny head, overlong calves, stretched legs, broad muscular shoulders or stocky build. Healthy slender feminine frame. Cocoa-brown knee-length dress with small puff sleeves and white collar, small brown neck bow, white ruffled apron with simple rounded pocket, plain neat white ankle socks, brown low Mary Jane shoes. The approved neutral pose holds a small wooden tray at waist height with both hands. Apron ties with a neat white back bow.",
+      "actions": "WELCOME: naturally stand holding a small tray at one side and gently indicate a seat with the other hand. SERVE: stand with both hands supporting a small wooden tray with one cup, very close to the approved relaxed tray-holding pose. GUIDE: hold a blank order card at waist height and indicate it with a small friendly gesture, no exaggerated action pose."
+    },
+    {
+      "id": "aoi",
+      "name": "Aoi",
+      "age": 18,
+      "height": 160,
+      "column": 5,
+      "description": "Adult trainee, black chin-length bob with straight bangs, violet almond eyes, approved heart-shaped feminine face and quiet earnest expression. Light graceful adult dancer build, natural neck and legs, exactly the approved fifth character, no childlike proportions or figure changes. Navy knee-length maid dress, white apron and frills, lavender bow with pearl brooch, pale opaque tights and dark low Mary Jane shoes. Preserve face and body scale. Apron ties in a simple white bow behind the waist. A small plain brown notebook is her prop, not attached to her outfit.",
+      "actions": "WELCOME: polite small bow with hands loosely clasped in front of her apron, shy warm smile. SERVE: carefully offer a cup and saucer with both hands, composed balanced stance. GUIDE: hold an open brown notebook with blank pages and point to a page, attentive earnest expression."
+    }
+  ],
+  "hidden": [
+    {
+      "id": "haruka",
+      "title": "A DAY OFF",
+      "theme": "She dreams of doing absolutely nothing, napping by the sea. Off-duty outfit: a simple ivory calf-length summer dress with short sleeves, soft charcoal cardigan worn open, flat tan sandals, plain straw sunhat with black ribbon held in one hand. Preserve her dark navy low side ponytail and BOTH face-framing locks, amber eyes, mature soft oval face, and approved soft curvy body. No maid headband. No swimwear.",
+      "action": "Relaxed sitting on a simple wooden beach chair, eyes softly closed in contented afternoon rest, straw hat resting on her lap."
+    },
+    {
+      "id": "momo",
+      "title": "BLACK ROSE POETRY",
+      "theme": "She quietly loves gothic fashion, black lace, poetry and black roses. Off-duty outfit: an elegant black knee-length gothic dress with high ivory lace collar, long sheer-lined black sleeves, restrained lace hem, small black velvet bows and antique-gold brooch; opaque black tights, black low Mary Jane shoes. Same pink twin tails, same gold star clips, black hair bows replacing brown, no white maid headband, same rose eyes and round face. EXACT same approved bust volume and body proportions, never enlarge or slim her.",
+      "action": "Standing reading a small black poetry book, holding a single black rose, quietly pleased and thoughtful."
+    },
+    {
+      "id": "shizuku",
+      "title": "WEEKEND KINDNESS",
+      "theme": "She volunteers at the children's home where she grew up, showing a warm patient side. Off-duty outfit: soft sage cardigan over an ivory crew-neck blouse, simple charcoal calf-length skirt, comfortable brown flats, small canvas tote with a picture book. No apron and no bandana; preserve short SILVER bob shape and teal eyes, delicate slender face and lean adult body. Warm gentle small smile instead of deadpan, same exact person.",
+      "action": "Sitting on a small simple stool, warmly reading a colorful picture book held open at lap height, turning toward unseen children. No other characters in this reference sheet."
+    },
+    {
+      "id": "suzu",
+      "title": "QUIETLY BRILLIANT",
+      "theme": "She is brilliant at fixing computers and networks. Off-duty outfit: dark cocoa zip hoodie worn open, simple ivory crew-neck T-shirt, straight fitted charcoal trousers, plain white low-top sneakers. Sleeves pushed to forearms. Preserve copper/orange softly wavy loose side ponytail, fine brows, brown eyes, subtle freckles and the small cheek bandage. No maid headband. SAME healthy slender feminine frame, height171cm, no stretched calves or masculine shoulders.",
+      "action": "Seated naturally at a minimal desk with an unbranded laptop, hands resting credibly on keyboard, focused confident subtle smile. The keyboard is on the table, no floating devices."
+    },
+    {
+      "id": "aoi",
+      "title": "BEFORE DAWN",
+      "theme": "She is an adult award-winning ballet dancer who practises before dawn. Training outfit: modest navy ballet leotard with short sleeves and a normal high neckline, soft lavender wrap skirt reaching mid-thigh, opaque pale pink tights, pale pink ballet slippers with simple crossed ankle elastics. No maid apron or headband. Preserve exactly her black chin-length bob and straight bangs, violet eyes, adult heart-shaped face and graceful body, not new long hair or a bun.",
+      "action": "Simple balanced ballet arabesque with one leg extended modestly backward, gentle one-hand support on a short barre, elegant natural joint positions. Show the whole body and slippers, do not elongate her anatomy."
+    }
+  ]
+}

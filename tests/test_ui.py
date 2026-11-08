@@ -234,7 +234,7 @@ class TestMainJourney(UIBase):
         self.assertFalse([t for t in targets if t in before], before)
         # 缺失头像只请求一次（10-13 冒烟：每轮重绘都重新 404 一次）
         missing = []
-        on_req = lambda r: missing.append(r.url) if "V4_suzu" in r.url else None
+        on_req = lambda r: missing.append(r.url) if "suzu-avatar-v3" in r.url else None
         self.page.on("request", on_req)
         row = self.page.locator("#lsDlgList .ditem").first
         row.locator(".d-top").click()
@@ -884,6 +884,108 @@ class TestDesktopSetup(UIBase):
             self.assertEqual(len(requests), 2)
         finally:
             self.page.unroute('**/api/setup**', route)
+
+
+class TestCafeAtmosphere(UIBase):
+    PORT = 8804
+
+    def setUp(self):
+        self.api('/api/config', {'art_mode': 'rotate'})
+        self.page.set_viewport_size({'width': 1280, 'height': 800})
+        self.page.goto(self.base + '/listen')
+        self.page.evaluate('CafeArt.ready')
+        self.page.evaluate('sessionStorage.removeItem("mc_cafe_art_rotation")')
+        self.page.goto(self.base + '/?welcome=1')
+        self.page.evaluate('CafeArt.ready')
+        self.page.wait_for_selector('#vNew[data-cafe-scene-id]')
+
+    def test_rotation_visits_every_variant_without_immediate_repeats(self):
+        scenes = [self.page.get_attribute('#vNew', 'data-cafe-scene-id')]
+        for _ in range(8):
+            self.page.evaluate('show("vSeat")')
+            self.page.wait_for_selector('#vSeat[data-cafe-scene-id]')
+            self.page.evaluate('show("vNew")')
+            previous = scenes[-1]
+            self.page.wait_for_function('(old) => document.getElementById("vNew").dataset.cafeSceneId !== old', arg=previous)
+            scenes.append(self.page.get_attribute('#vNew', 'data-cafe-scene-id'))
+        self.assertEqual(len(set(scenes[:3])), 3)
+        self.assertTrue(all(a != b for a, b in zip(scenes, scenes[1:])))
+        self.page.reload()
+        self.page.evaluate('CafeArt.ready')
+        self.assertNotEqual(scenes[-1], self.page.get_attribute('#vNew', 'data-cafe-scene-id'))
+
+    def test_word_controls_keep_art_still_and_preferences_survive_navigation(self):
+        self.page.click('#sitBtn')
+        self.page.click('#starterBtn')
+        self.page.wait_for_selector('#vLearn[data-cafe-scene-id]')
+        before = self.page.get_attribute('#vLearn', 'data-cafe-scene-id')
+        for _ in range(3):
+            self.page.click('#lRevealBtn')
+            self.page.click('#lNextBtn')
+        self.assertEqual(before, self.page.get_attribute('#vLearn', 'data-cafe-scene-id'))
+        self.page.click('#cfgBtn')
+        self.page.select_option('#artMode', 'quiet')
+        self.page.wait_for_selector('body[data-cafe-art="quiet"]')
+        self.assertFalse(self.page.is_visible('#vLearn .cafe-companion'))
+        self.assertEqual(self.api('/api/config')['art_mode'], 'quiet')
+        self.page.goto(self.base + '/listen#wordbook')
+        self.page.evaluate('CafeArt.ready')
+        self.assertFalse(self.page.is_visible('#wordbookView .cafe-scene-frame'))
+        self.assertEqual(self.page.get_attribute('body', 'data-cafe-art'), 'quiet')
+        self.page.goto(self.base + '/?menu=1')
+        self.page.evaluate('CafeArt.ready')
+        self.page.click('#cfgBtn')
+        self.page.select_option('#artMode', 'fixed')
+        self.page.wait_for_selector('body[data-cafe-art="fixed"]')
+        first = self.page.get_attribute('#vSeat', 'data-cafe-scene-id')
+        self.page.reload()
+        self.page.evaluate('CafeArt.ready')
+        self.assertEqual(first, self.page.get_attribute('#vSeat', 'data-cafe-scene-id'))
+
+    def test_stage_images_load_and_narrow_layout_fits(self):
+        errors = []
+        self.page.on('pageerror', lambda e: errors.append(str(e)))
+        for size in ({'width': 1280, 'height': 800}, {'width': 390, 'height': 844}):
+            self.page.set_viewport_size(size)
+            for stage in ('vNew', 'vSeat', 'vIntro', 'vEmpty', 'vLearn', 'vListen', 'vExam', 'vExamDone', 'vDone'):
+                self.page.evaluate('(id) => show(id)', stage)
+                self.page.wait_for_function('(id) => !!document.getElementById(id).dataset.cafeSceneId', arg=stage)
+                self.page.wait_for_function('''(id) => [...document.querySelectorAll('#' + id + ' [data-cafe-scene], #' + id + ' [data-cafe-cast]')].every(i => i.complete && i.naturalWidth > 0)''', arg=stage)
+                self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth'), stage)
+        self.assertFalse(errors)
+
+    def test_hidden_album_is_optional_and_all_five_images_load(self):
+        self.page.click('#sitBtn')
+        self.page.click('.cast-notes>summary')
+        self.assertFalse(self.page.is_visible('.secret-grid'))
+        self.page.locator('.secret-album>summary').focus()
+        self.page.keyboard.press('Enter')
+        self.page.wait_for_selector('.secret-grid', state='visible')
+        self.page.evaluate("document.querySelectorAll('.secret-grid img').forEach(i => i.loading = 'eager')")
+        self.page.wait_for_function("[...document.querySelectorAll('.secret-grid img')].every(i => i.complete && i.naturalWidth > 0)")
+        self.assertEqual(self.page.locator('.secret-grid figure').count(), 5)
+        self.page.set_viewport_size({'width':390, 'height':844})
+        self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
+        self.page.locator('.secret-album>summary').focus()
+        self.page.keyboard.press('Enter')
+        self.assertFalse(self.page.is_visible('.secret-grid'))
+        self.page.click('#starterBtn')
+        self.page.wait_for_selector('#lRevealBtn', state='visible')
+
+    def test_missing_art_does_not_block_entry(self):
+        self.page.route('**/static/cafe/**', lambda route: route.fulfill(status=404, body='missing'))
+        try:
+            self.page.reload()
+            self.page.evaluate('CafeArt.ready')
+            self.page.wait_for_selector('#vNew [data-cafe-scene][hidden]', state='attached')
+            self.page.click('#sitBtn')
+            self.page.wait_for_selector('#vSeat', state='visible')
+            self.page.click('#starterBtn')
+            self.page.wait_for_selector('#lRevealBtn', state='visible')
+            self.page.click('#lRevealBtn')
+            self.assertTrue(self.page.is_visible('#lNextBtn'))
+        finally:
+            self.page.unroute('**/static/cafe/**')
 
 
 if __name__ == "__main__":

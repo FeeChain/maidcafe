@@ -98,7 +98,7 @@ summary { cursor:pointer; }
 #vLearn .group-head { justify-content:center; margin:10px 12px 0; }
 #vLearn .group-head .hint-line:empty {display:none}
 .card-nav { margin:10px 0 18px; }
-.brew-illustration { height:clamp(110px,22vw,220px); border-radius:14px; background:center 52% / cover url('/static/cafe/window-seat.jpg'); margin-bottom:12px; }
+.brew-illustration { height:clamp(110px,22vw,220px); border-radius:14px; background:center 52% / cover url('/static/cafe/scenes/window-seat-v3.webp'); margin-bottom:12px; }
 @media(max-width:720px) { .arrival {grid-template-columns:minmax(0,1fr)} .arrival-cover {min-height:210px; aspect-ratio:2/1} .arrival-letter {gap:10px} .arrival h1 br {display:none} .sample-ticket {grid-template-columns:1fr} .sample-scene {min-height:0; height:130px} .menu-links>a {margin:0} .cast-grid {gap:4px} .cast-grid small {font-size:11px} }
 
 .arrival-letter > * { max-width:100%; overflow-wrap:anywhere; }

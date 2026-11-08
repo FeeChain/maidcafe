@@ -1,0 +1,10 @@
+maidcafe 人物定妆 v1（2026-11-08）
+视觉最高依据：00-approved-lineup.png，这是用户确认的第7版五人同尺度总览。
+每人：turnaround.webp 四视图；poses.webp 三个标准动作；hidden-reference.webp 隐藏服装三视图与代表动作。
+后续生成必须输入总览 + 对应角色设定表；隐藏场景再增加 hidden-reference.webp。不得只靠文字重新猜造型。
+Momo155cm，保持已确认立绘的脸与胸腰臀比例；Haruka169cm，黑白制服、两侧垂发与柔和成熟脸；Shizuku166cm；Suzu171cm，正常头身和缩短后的小腿，旧175cm/九头身稿废弃；Aoi160cm。
+角色年龄分别26/20/22/19/18岁，全部为成年人。
+服装、发色、眼睛、脸型、体型是固定设定；表情、动作、光照可以变化，不能借机改变身体比例。
+总览中未出现的背面围裙系带、隐藏服装由本设定表补全。后续若用户修改，应另建版本，保留此基准。
+生成工具：内置image_gen。所有最终提示词与引用关系在 generation-prompts.json；详细文字规格在 character-specs.json。
+旧版cast-study-01到06、旧static/art头像、full-v2立绘是历史稿，不再作为人物参考。

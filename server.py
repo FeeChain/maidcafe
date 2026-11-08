@@ -1330,7 +1330,8 @@ class Handler(BaseHTTPRequestHandler):
                  "event": r[3], "detail": r[4]} for r in reversed(rows)])
 
         if path == "/api/config":
-            return self._send(200, {"new_quota": int(kv_get("new_quota", 20))})
+            return self._send(200, {"new_quota": int(kv_get("new_quota", 20)),
+                                    "art_mode": kv_get("art_mode", "rotate")})
 
         if path == "/api/decks":
             decks = []
@@ -1632,11 +1633,21 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"ok": True})
 
         if parsed.path == "/api/config":
+            # Validate all requested fields before persisting either preference.
+            if not any(k in payload for k in ("new_quota", "art_mode")):
+                return self._send(400, {"error": "no settings provided"})
             q = payload.get("new_quota")
-            if not isinstance(q, int) or not (1 <= q <= 100):
+            if "new_quota" in payload and (type(q) is not int or not (1 <= q <= 100)):
                 return self._send(400, {"error": "new_quota must be 1-100"})
-            kv_set("new_quota", q)
-            return self._send(200, {"ok": True, "new_quota": q})
+            mode = payload.get("art_mode")
+            if "art_mode" in payload and mode not in ("rotate", "fixed", "quiet"):
+                return self._send(400, {"error": "invalid art_mode"})
+            if "new_quota" in payload:
+                kv_set("new_quota", q)
+            if "art_mode" in payload:
+                kv_set("art_mode", mode)
+            return self._send(200, {"ok": True, "new_quota": int(kv_get("new_quota", 20)),
+                                    "art_mode": kv_get("art_mode", "rotate")})
 
         if parsed.path == "/api/listened":
             # 听完对话不再计分（用户裁决：学没学会考试说了算，对话只是学习辅助）

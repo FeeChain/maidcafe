@@ -6,6 +6,7 @@
 <title>maidcafe ☕ 词汇校准</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
 <link rel="stylesheet" href="/static/style.css?v=3">
+<link rel="stylesheet" href="/static/cafe-theme.css?v=2">
 </head>
 <body>
 <header>
@@ -28,9 +29,9 @@
 </header>
 
 <main id="main">
-  <div id="startOverlay" class="overlay">
+  <div id="startOverlay" data-cafe-stage="calibrate" class="overlay">
     <div class="overlay-card">
-      <img class="art-banner" src="/static/art/C1_welcome.png" alt="" onerror="this.remove()">
+      <figure class="cafe-scene-frame cafe-decoration"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure>
       <h1>欢迎回来，客人 ☕</h1>
       <p>听音优先的词汇校准：先凭耳朵判断，再看词形确认。</p>
       <p class="rhythm">每个词两下：<b>第一下</b>凭耳朵——听出来了吗？<br>
@@ -58,7 +59,7 @@
     </div>
   </div>
 
-  <div id="card" class="card hidden">
+  <div id="card" data-cafe-stage="calibrate" class="card hidden cafe-study"><div class="study-desk">
     <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
     <div class="card-body">
       <div id="listenState" class="listen-state">
@@ -95,10 +96,10 @@
       <span><kbd>K</kbd> 重听</span>
       <button id="hintClose" title="关闭提示">×</button>
     </div>
-  </div>
+  </div><aside class="cafe-companion cafe-decoration" aria-label="店员陪伴"><figure class="cafe-scene-frame cafe-decoration"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure><img class="cafe-portrait" data-cafe-cast alt=""><p class="cafe-companion-name" data-cafe-name></p><p class="cafe-companion-line" data-cafe-line></p></aside></div>
 
-  <div id="doneCard" class="card done hidden">
-    <img id="doneArt" class="art-banner hidden" src="/static/cafe/window-seat.jpg" alt="" onerror="this.remove()">
+  <div id="doneCard" data-cafe-stage="rest" class="card done hidden">
+    <figure class="cafe-scene-frame cafe-decoration"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure>
     <h2 id="doneTitle">这一轮结束 🎉</h2>
     <div id="doneStats"></div>
     <p>进度已自动保存，随时回来继续。</p>
@@ -106,8 +107,8 @@
     <button id="resumeBtn" class="mk">继续过词</button>
   </div>
 
-  <div id="probeCard" class="card done hidden">
-    <h2>测定完成 ☕</h2>
+  <div id="probeCard" data-cafe-stage="rest" class="card done hidden">
+    <figure class="cafe-scene-frame cafe-decoration"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure><h2>测定完成 ☕</h2>
     <p>下次进店，我们会按这次的结果准备词卡。</p>
     <details class="measure-details"><summary>查看估计与词段详情</summary><div id="probeBoundary" class="hint-line hidden" style="margin-bottom:10px;"></div>
     <div id="probeNums" class="vocab-nums"></div>
@@ -124,7 +125,7 @@
 
 <script src="/static/keys.js"></script>
 <script src="/static/log.js?v=2"></script>
-<script src="/static/art.js?v=3"></script>
+<script src="/static/art.js?v=8"></script>
 <script src="/static/app.js?v=4"></script>
 </body>
 </html>

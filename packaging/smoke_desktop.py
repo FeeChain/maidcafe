@@ -33,6 +33,7 @@ with tempfile.TemporaryDirectory(prefix='maidcafe-package-') as tmp:
     assert result['version'] == VERSION, result
     native = json.loads((home / 'native-smoke.json').read_text(encoding='utf-8'))
     assert native['welcome'] and native['bridge'], native
+    assert native['art'] == {'count': 23, 'failed': [], 'ready': True}, native
     audio = json.loads((home / 'speech-check.json').read_text(encoding='utf-8'))
     assert audio['backend'] == expected_audio, audio
     if expected_audio != 'text':

@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="/static/style.css?v=5">
 <link rel="stylesheet" href="/static/listen.css?v=5">
 <link rel="stylesheet" href="/static/home.css?v=5">
+<link rel="stylesheet" href="/static/cafe-theme.css?v=2">
 </head>
 <body>
 <header>
@@ -21,21 +22,21 @@
 </header>
 
 <main>
-  <section id="vNew" class="hidden arrival">
-    <div class="arrival-cover"><img src="/static/cafe/window-seat.jpg" alt="从窗边的客席望过去，Momo 正递来茶杯，Shizuku 在吧台冲咖啡。"><span class="scene-stamp">窓ぎわの席</span></div>
+  <section id="vNew" data-cafe-stage="welcome" class="hidden arrival">
+    <div class="arrival-cover cafe-decoration"><img data-cafe-scene alt=""><span class="scene-stamp" data-cafe-caption></span></div>
     <div class="arrival-letter">
       <p class="folio">MAIDCAFE <span>／</span> 第一话</p>
       <h1>窗边的位置，<br>给你留着。</h1>
-      <p class="host"><img src="/static/art/V2_momo.png" alt="">Momo <span>· 今日接待</span></p>
+      <p class="host"><img class="cafe-decoration" data-cafe-avatar alt=""><b data-cafe-name>店员</b><span>· 今日接待</span></p>
       <p>“欢迎光临！坐这边吧。先听我们聊两句，咖啡马上就好。”</p>
       <p class="quiet">带一个想学的英文词来，店员会把它编进一段日常对话。听不清可以重听，想走随时收工。</p>
       <button id="sitBtn" class="cafe-primary">推门入座 <span aria-hidden="true">→</span></button>
     </div>
   </section>
-  <section id="vSeat" class="hidden table-menu">
+  <section id="vSeat" data-cafe-stage="menu" class="hidden table-menu">
     <div class="table-heading"><p class="folio">TABLE 01 <span>／</span> 窓辺</p><h1>今天想听点什么？</h1><p>可以先尝尝店里的招待，也可以点自己的词。</p></div>
     <article class="sample-ticket">
-      <img class="sample-scene" src="/static/art/C2_empty.png" alt="窗边的小桌和热咖啡">
+      <img class="sample-scene cafe-decoration" data-cafe-scene alt="">
       <div><p class="folio">店内招待 · 离线试听</p><h2>窗边的第一杯</h2>
       <p>Momo 带你入座，Haruka 来续杯。</p>
       <audio id="sampleAudio" controls preload="metadata" aria-label="播放窗边的第一杯" src="/static/cafe/window-seat.mp3"></audio>
@@ -46,13 +47,14 @@
       <p id="orderMsg" role="status"></p><div class="story-readiness"><span id="storyStatus" role="status">试听与词卡已准备好</span><button type="button" class="mk small" data-story-setup>故事设置</button></div>
     </form>
     <div class="menu-links"><button id="starterBtn" class="mk">翻翻店里的词卡 →</button><button id="goProbeBtn" class="mk">调一调听力难度</button><a href="/window-seat.apkg" download>带走入门词包 ↓</a></div>
-    <details class="cast-notes"><summary>翻开当班名册</summary><div class="cast-grid"><figure><img loading="lazy" src="/static/art/V1_haruka.png" alt=""><figcaption>Haruka<small>店长</small></figcaption></figure><figure><img loading="lazy" src="/static/art/V2_momo.png" alt=""><figcaption>Momo<small>看板娘</small></figcaption></figure><figure><img loading="lazy" src="/static/art/V3_shizuku.png" alt=""><figcaption>Shizuku<small>后厨</small></figcaption></figure><figure><img loading="lazy" src="/static/art/V4_suzu.png" alt=""><figcaption>Suzu<small>大厅接待</small></figcaption></figure><figure><img loading="lazy" src="/static/art/V5_aoi.png" alt=""><figcaption>Aoi<small>实习店员</small></figcaption></figure></div></details>
+    <details class="cast-notes"><summary>翻开当班名册</summary><p class="cast-intro">五位店员，各有各的步调。故事里慢慢认识她们。</p><div class="cast-grid"><figure><img loading="lazy" style="--cast-scale:0.9883" src="/static/cafe/cast/haruka-full-v3.webp" alt="Haruka 的全身立绘"><figcaption>Haruka<small>店长</small></figcaption></figure><figure><img loading="lazy" style="--cast-scale:0.9064" src="/static/cafe/cast/momo-full-v3.webp" alt="Momo 的全身立绘"><figcaption>Momo<small>看板娘</small></figcaption></figure><figure><img loading="lazy" style="--cast-scale:0.9708" src="/static/cafe/cast/shizuku-full-v3.webp" alt="Shizuku 的全身立绘"><figcaption>Shizuku<small>后厨</small></figcaption></figure><figure><img loading="lazy" style="--cast-scale:1.0" src="/static/cafe/cast/suzu-full-v3.webp" alt="Suzu 的全身立绘"><figcaption>Suzu<small>大厅接待</small></figcaption></figure><figure><img loading="lazy" style="--cast-scale:0.9357" src="/static/cafe/cast/aoi-full-v3.webp" alt="Aoi 的全身立绘"><figcaption>Aoi<small>实习店员</small></figcaption></figure></div>
+    <details class="secret-album"><summary>她们的另一面 · 翻开下班相册</summary><p class="cast-intro">工作之外，她们也有自己的小世界。想看时，慢慢翻一翻。</p><div class="secret-grid"><figure><img loading="lazy" src="/static/cafe/hidden/haruka-hidden-v3.webp" alt="Haruka：想偷一天懒" onerror="artGone(this)"><figcaption><strong>Haruka · 想偷一天懒</strong><p>店长也偷偷梦想着海边、午睡，和什么都不用操心的一天。</p></figcaption></figure><figure><img loading="lazy" src="/static/cafe/hidden/momo-hidden-v3.webp" alt="Momo：黑玫瑰与诗" onerror="artGone(this)"><figcaption><strong>Momo · 黑玫瑰与诗</strong><p>热闹的看板娘，私下偏爱黑色蕾丝和安静的诗集。</p></figcaption></figure><figure><img loading="lazy" src="/static/cafe/hidden/shizuku-hidden-v3.webp" alt="Shizuku：周末的温柔" onerror="artGone(this)"><figcaption><strong>Shizuku · 周末的温柔</strong><p>在她长大的儿童之家，平时寡言的 Shizuku 会耐心读完每一个故事。</p></figcaption></figure><figure><img loading="lazy" src="/static/cafe/hidden/suzu-hidden-v3.webp" alt="Suzu：原来很拿手" onerror="artGone(this)"><figcaption><strong>Suzu · 原来很拿手</strong><p>托盘偶尔会打翻，电脑和网络的问题却总能被她轻轻松松修好。</p></figcaption></figure><figure><img loading="lazy" src="/static/cafe/hidden/aoi-hidden-v3.webp" alt="Aoi：黎明前的练习" onerror="artGone(this)"><figcaption><strong>Aoi · 黎明前的练习</strong><p>上班前，她已经在练功房练过一轮。那份从容，来自多年的芭蕾。</p></figcaption></figure></div></details></details>
   </section>
 
   <!-- 校准完成 → 开学确认卡（只在测完那一次出现） -->
-  <section id="vIntro" class="overlay hidden">
+  <section id="vIntro" data-cafe-stage="study" class="overlay hidden">
     <div class="overlay-card">
-      <img class="art-banner" src="/static/art/C1_welcome.png" alt="" onerror="this.remove()">
+      <figure class="cafe-scene-frame cafe-decoration"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure>
       <h1>校准完成 ☕</h1>
       <div id="introLine" class="menu-line"></div>
       <p class="hint-line">先随便翻翻卡混个脸熟——翻开的词会攒进下一杯，随时能让女仆们煮一场对话（最多 5 个词一杯）；
@@ -62,9 +64,9 @@
   </section>
 
   <!-- 词池与复习都空：去攒生词 -->
-  <section id="vEmpty" class="overlay hidden">
+  <section id="vEmpty" data-cafe-stage="empty" class="overlay hidden">
     <div class="overlay-card">
-      <img class="art-banner" src="/static/art/C2_empty.png" alt="" onerror="this.remove()">
+      <figure class="cafe-scene-frame cafe-decoration"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure>
       <h1>词池空了 ☕</h1>
       <p class="hint-line">没有到期的复习，生词池也见底了——可以自己点一段故事，或去校准工具找词。</p>
       <a href="/?menu=1" class="mk">回到窗边点单</a> <a href="/calibrate" class="mknext big" style="text-decoration:none;border-radius:12px;display:inline-block;border:none;">去校准工具攒生词 →</a>
@@ -72,7 +74,7 @@
   </section>
 
   <!-- 学习会话 -->
-  <section id="vLearn" class="hidden">
+  <section id="vLearn" data-cafe-stage="study" class="hidden cafe-study"><div class="study-desk">
     <div class="counter-head"><p class="folio">AT THE COUNTER <span>／</span> 单词手帖</p><h1>在吧台听一个词</h1></div>
     <div class="learn-top">
       <span id="learnProgress" class="hint-line"></span>
@@ -104,17 +106,17 @@
       </div>
     </div>
 
-  </section>
+  </div><aside class="cafe-companion cafe-decoration" aria-label="店员陪伴"><figure class="cafe-scene-frame cafe-decoration"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure><img class="cafe-portrait" data-cafe-cast alt=""><p class="cafe-companion-name" data-cafe-name></p><p class="cafe-companion-line" data-cafe-line></p></aside></section>
 
   <!-- S6 听对话（会话内子页：词源=当前 S2 词池） -->
-  <section id="vListen" class="hidden">
+  <section id="vListen" data-cafe-stage="prepare" class="hidden">
     <div class="learn-top">
       <span id="lsInfo" class="hint-line"></span>
       <span style="flex:1"></span>
       <button id="lsBackBtn" class="mk">← 回去学</button>
       <button id="lsExamBtn" class="mk">回想刚才的词</button>
     </div>
-    <div class="brew-illustration" role="img" aria-label="从客席看着女仆在吧台准备咖啡"></div>
+    <figure class="cafe-scene-frame cafe-decoration brew-illustration"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure>
     <div id="lsGenCard" class="card" style="padding:16px 20px;">
       <div id="lsGenLine" class="hint-line">☕</div>
       <div class="progress" style="margin-top:10px;border-radius:99px;overflow:hidden;">
@@ -131,8 +133,8 @@
   </section>
 
   <!-- 释义卡（S6 点词用） -->
-  <div aria-label="单词释义" id="wordCard" class="word-card hidden" role="dialog" aria-modal="true">
-    <div class="wc-word" id="wcWord"></div>
+  <div aria-label="单词释义" id="wordCard" data-cafe-stage="word" data-cafe-still class="word-card hidden" role="dialog" aria-modal="true">
+    <img class="cafe-word-stamp cafe-decoration" data-cafe-cast alt=""><div class="wc-word" id="wcWord"></div>
     <div class="wc-phon" id="wcPhon"></div>
     <div class="wc-def" id="wcDef"></div>
     <div class="morph" id="wcMorph"></div>
@@ -144,7 +146,7 @@
   </div>
 
   <!-- 考试 -->
-  <section id="vExam" class="hidden">
+  <section id="vExam" data-cafe-stage="recall" class="hidden cafe-study"><div class="study-desk">
     <div class="learn-top">
       <span id="examProgress" class="hint-line"></span>
       <span style="flex:1"></span>
@@ -175,21 +177,21 @@
         </div>
       </div>
     </div>
-  </section>
+  </div><aside class="cafe-companion cafe-decoration" aria-label="店员陪伴"><figure class="cafe-scene-frame cafe-decoration"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure><img class="cafe-portrait" data-cafe-cast alt=""><p class="cafe-companion-name" data-cafe-name></p><p class="cafe-companion-line" data-cafe-line></p></aside></section>
 
   <!-- 考试小结 -->
-  <section id="vExamDone" class="overlay hidden">
+  <section id="vExamDone" data-cafe-stage="rest" class="overlay hidden">
     <div class="overlay-card">
-      <h1 id="exDoneTitle"></h1>
+      <figure class="cafe-scene-frame cafe-decoration"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure><h1 id="exDoneTitle"></h1>
       <div id="exDoneStats" class="menu-line"></div>
       <button id="backToLearnBtn" class="mk mknext" style="border:none;">回吧台</button>
     </div>
   </section>
 
   <!-- 今日完成 -->
-  <section id="vDone" class="overlay hidden">
+  <section id="vDone" data-cafe-stage="rest" class="overlay hidden">
     <div class="overlay-card">
-      <img class="art-banner" src="/static/cafe/window-seat.jpg" alt="" onerror="this.remove()">
+      <figure class="cafe-scene-frame cafe-decoration"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure>
       <h1>这一杯，慢慢回味。</h1>
       <div id="doneLine" class="menu-line"></div>
       <p class="hint-line">可以关店休息，想再坐一会儿也行。</p>
@@ -198,8 +200,8 @@
   </section>
 
   <!-- 设置 -->
-  <div aria-label="设置" id="cfgModal" class="word-card hidden" role="dialog" aria-modal="true" style="width:380px;">
-    <div class="wc-word" style="font-family:var(--font-display);font-size:20px;">设置</div>
+  <div aria-label="设置" id="cfgModal" data-cafe-stage="settings" class="word-card hidden" role="dialog" aria-modal="true" style="width:380px;">
+    <figure class="cafe-scene-frame cafe-decoration cafe-small cfg-art"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure><div class="wc-word" style="font-family:var(--font-display);font-size:20px;">设置</div>
     <div class="cfg-body">
       <label>每份词数（复习+新词）
         <input id="quotaInput" type="number" min="1" max="100" style="width:70px;">
@@ -207,6 +209,7 @@
       </label>
       <div class="hint-line">先放要复习的，再用新词补满。断几天也没关系：每次打开都是这么多，不累计。</div>
       <div id="cfgVocab" class="hint-line"></div>
+      <label class="cafe-mode-label" for="artMode">店里的风景<select id="artMode" data-cafe-mode><option value="rotate">每次换个风景</option><option value="fixed">固定配图</option><option value="quiet">安静阅读 · 减少配图</option></select></label><p class="hint-line">进入页面时换一幅，同一轮翻词和听故事时保持不动。固定模式下，每个页面使用固定配图。</p><p id="appearanceStatus" class="hint-line" role="status"></p>
       <button class="mk small" data-story-setup>配置故事助手与配音</button>
       <details class="data-tools"><summary>词库与学习记录</summary>
         <label class="file-label">导入 Anki 词包 <input id="deckFile" type="file" accept=".apkg"></label>
@@ -225,8 +228,8 @@
     <div class="wc-actions"><button id="cfgClose" class="mk small" style="margin-left:auto;">关闭</button></div>
   </div>
 
-  <div id="setupModal" class="word-card hidden setup-dialog" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
-    <h2 id="setupTitle">准备你的故事助手</h2>
+  <div id="setupModal" data-cafe-stage="setup" class="word-card hidden setup-dialog" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+    <figure class="cafe-scene-frame cafe-decoration cafe-small"><img data-cafe-scene alt=""><figcaption data-cafe-caption></figcaption></figure><h2 id="setupTitle">准备你的故事助手</h2>
     <p class="hint-line">点一次，剩下的交给店里。准备好后，故事会在你的电脑上创作。</p>
     <p id="setupStatus" role="status" class="setup-status"></p>
     <div class="assistant-install">
@@ -258,7 +261,7 @@
 <script src="/static/keys.js"></script>
 <script src="/static/log.js?v=5"></script>
 <script src="/static/morph.js?v=1"></script>
-<script src="/static/art.js?v=5"></script>
+<script src="/static/art.js?v=8"></script>
 <script src="/static/setup.js"></script>
 <script src="/static/home.js?v=5"></script>
 </body>

@@ -239,6 +239,7 @@ function enterListen(genWords) {
 }
 
 function genIdle(msg) {
+  $("vListen").dataset.cafeStage = msg ? "error" : "story";
   $("lsGenLine").textContent = msg || "想再来一场：换个场景再来一杯，或回学习页再攒一篮 ☕";
   $("lsGenFill").style.width = "0%";
   $("lsFreeHint").classList.add("hidden");
@@ -246,6 +247,7 @@ function genIdle(msg) {
 }
 
 async function startGen(words) {
+  $("vListen").dataset.cafeStage = "prepare";
   mclog("gen_start", words.join(","));
   sceneGroup = words;
   const t0 = Date.now() / 1000;
@@ -290,6 +292,7 @@ function fmtDur(sec) {
 }
 
 function genWatch(words, t0) {
+  $("vListen").dataset.cafeStage = "prepare";
   sceneGroup = words;
   $("lsAgainBtn").classList.add("hidden");
   $("lsFreeHint").classList.remove("hidden");   // 安心话术：煮着可以回去学
@@ -327,6 +330,7 @@ function genWatch(words, t0) {
       pct = Math.max(pct, 90);
       line = `⑤ 拉花中 · 就快好了 · ${clock}`;
     } else if (hit && hit.status === "error") {
+      $("vListen").dataset.cafeStage = "error";
       mclog("gen_error", hit.error || "");
       $("lsGenLine").textContent = "这段还没煮好。请检查本机 Ollama 和模型，或回窗边点单听离线招待。";
       $("lsGenFill").style.width = "0%";
@@ -334,6 +338,7 @@ function genWatch(words, t0) {
       stop(true);
       return;
     } else if (hit) {  // done
+      $("vListen").dataset.cafeStage = "story";
       mclog("gen_done", "#" + hit.id);
       genHistPush(el);                 // 喂给下一杯的时间估计
       stop(true);
@@ -357,6 +362,7 @@ function genWatch(words, t0) {
       renderBrew();   // 灶上态挂在按钮上，跟着秒表走
     }
     if (Date.now() / 1000 - t0 > GEN_TIMEOUT) {
+      $("vListen").dataset.cafeStage = "error";
       $("lsGenLine").innerHTML =
         `<span class="s1">✗ 超时了——灶可能熄了（Ollama 没开？）· 详见 generate.log</span>`;
       $("lsAgainBtn").classList.remove("hidden");

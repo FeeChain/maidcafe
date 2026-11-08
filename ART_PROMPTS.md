@@ -1,3 +1,5 @@
+> 历史设计稿：角色已于 2026-11-08 定妆。后续作画请以 [当前定妆规范](design/characters/v1/使用说明.txt) 与 [当前素材清单](static/cafe/README.md) 为准；下文旧图名不再用于界面。
+
 # maidcafe ☕ 成品 Prompt 手册（直接丢给 GPT）
 
 > 每条 prompt 自包含、可直接复制粘贴。**按"会话"分组使用**：

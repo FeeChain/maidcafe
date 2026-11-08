@@ -25,7 +25,7 @@ async function loadList() {
   box.innerHTML = "";
   if (!dialogues.length) {
     // 对话只从主页学习里的篮子煮（今日任务入口 10-13 已删）
-    box.insertAdjacentHTML("beforeend", artBanner("empty") +
+    box.insertAdjacentHTML("beforeend",
       '<p class="empty">还没有对话——在<a href="/">主页</a>翻卡攒词，点「☕ 给这几个词来一场对话」，煮好的都会出现在这里。</p>');
     return;
   }

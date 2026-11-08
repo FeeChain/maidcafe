@@ -1,0 +1,403 @@
+{
+  "tool": "built-in image_gen",
+  "version": "0.3.2-preview",
+  "design_authority": "design/characters/v1/00-approved-lineup.png",
+  "assets": [
+    {
+      "id": "aoi-avatar-v3",
+      "file": "static/cafe/avatars/aoi-avatar-v3.webp",
+      "kind": "avatars",
+      "bytes": 34136,
+      "dimensions": [
+        512,
+        512
+      ],
+      "sha256": "160ec4d6552e03e1cdba7505c147c19bffae12dd8d78046c6d04fd1c3d3f4b75",
+      "prompt": "Use case: stylized-concept. One square head-and-shoulders portrait of adult Aoi, canonical character 5 in supplied approved lineup, image2 exact turnaround. Strict identity match: Adult trainee, black chin-length bob with straight bangs, violet almond eyes, approved heart-shaped feminine face and quiet earnest expression. Light graceful adult dancer build, natural neck and legs, exactly the approved fifth character, no childlike proportions or figure changes. Navy knee-length maid dress, white apron and frills, lavender bow with pearl brooch, pale opaque tights and dark low Mary Jane shoes. Preserve face and body scale. Apron ties in a simple white bow behind the waist. A small plain brown notebook is her prop, not attached to her outfit. Show ONLY head, hair and upper shoulders with neckline; face fills most of square, both eyes open, calm friendly expression appropriate to her personality. Same face geometry and exact hair/costume from reference, refined warm painted anime style, cocoa outlines, plain warm ivory background. No hands, props, text, labels, border or other people. Preserve distinctive face rather than generic anime face. Avatar used at small size. Normal maid costume, no hidden outfit.",
+      "design": "",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/aoi/turnaround.webp"
+      ]
+    },
+    {
+      "id": "haruka-avatar-v3",
+      "file": "static/cafe/avatars/haruka-avatar-v3.webp",
+      "kind": "avatars",
+      "bytes": 38428,
+      "dimensions": [
+        512,
+        512
+      ],
+      "sha256": "9e08e3712e9e99ddd644f5b27618577ad24c0b3de860b5b7a6798f49da1c9368",
+      "prompt": "Use case: stylized-concept. One square head-and-shoulders portrait of adult Haruka, canonical character 1 in supplied approved lineup, image2 exact turnaround. Strict identity match: Adult cafe manager, dark navy long hair tied in a low side ponytail, TWO substantial softly curved face-framing locks falling along the cheeks to the collarbones, warm amber almond eyes, gentle mature oval face. Moderately soft and curvy build exactly like the approved first figure, not overweight and not slimmed further. CLASSIC BLACK AND WHITE uniform: black knee-length dress and sleeves, white apron and frills, black ribbons, small antique gold brooch/buttons, black low Mary Jane shoes. Preserve the approved bust, waist and hip proportions. Apron ties neatly in a simple white bow behind the waist. Show ONLY head, hair and upper shoulders with neckline; face fills most of square, both eyes open, calm friendly expression appropriate to her personality. Same face geometry and exact hair/costume from reference, refined warm painted anime style, cocoa outlines, plain warm ivory background. No hands, props, text, labels, border or other people. Preserve distinctive face rather than generic anime face. Avatar used at small size. Normal maid costume, no hidden outfit.",
+      "design": "",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/haruka/turnaround.webp"
+      ]
+    },
+    {
+      "id": "momo-avatar-v3",
+      "file": "static/cafe/avatars/momo-avatar-v3.webp",
+      "kind": "avatars",
+      "bytes": 57270,
+      "dimensions": [
+        512,
+        512
+      ],
+      "sha256": "6a6ca81901ca6992143ffca88a506f81bede8614387e3a784b125de3569d6eb9",
+      "prompt": "Use case: stylized-concept. One square head-and-shoulders portrait of adult Momo, canonical character 2 in supplied approved lineup, image2 exact turnaround. Strict identity match: Adult star waitress, long pink twin tails, rose eyes, approved cheerful round face, small gold star hair clips and brown ribbons, white frilled headband. EXACT approved body and bust volume: bust size, shoulder width, waist/hip ratio, head/body ratio and leg length must remain the same in every view. Never enlarge or reduce the chest in profile or action poses. Cocoa-brown knee-length maid dress, white ruffled apron with distinctive heart-shaped pocket and brown bow, gold details, white thigh-high stockings with modest frilled tops and small brown bows, brown low shoes with gold star motifs. Preserve original hair length and twin-tail placement. Apron ties with a neat white bow behind the waist. Show ONLY head, hair and upper shoulders with neckline; face fills most of square, both eyes open, calm friendly expression appropriate to her personality. Same face geometry and exact hair/costume from reference, refined warm painted anime style, cocoa outlines, plain warm ivory background. No hands, props, text, labels, border or other people. Preserve distinctive face rather than generic anime face. Avatar used at small size. Normal maid costume, no hidden outfit.",
+      "design": "",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/momo/turnaround.webp"
+      ]
+    },
+    {
+      "id": "shizuku-avatar-v3",
+      "file": "static/cafe/avatars/shizuku-avatar-v3.webp",
+      "kind": "avatars",
+      "bytes": 29932,
+      "dimensions": [
+        512,
+        512
+      ],
+      "sha256": "a354bfd398536f6833233d166729661296688a6ad7e45f5bceb7de8161ae4a56",
+      "prompt": "Use case: stylized-concept. One square head-and-shoulders portrait of adult Shizuku, canonical character 3 in supplied approved lineup, image2 exact turnaround. Strict identity match: Adult kitchen lead, short silver bob, teal eyes, delicate slender oval feminine face with quiet deadpan expression, forest-green tied bandana. Lean adult build, narrow but naturally supported shoulders, approved moderate head size, no masculine brow/jaw and no gaunt cheeks. White/ivory short-sleeved blouse with rolled cuffs, forest-green practical bib apron tied at the natural waist, simple pockets, dark knee-length skirt, short dark socks, sensible brown low shoes. Preserve body proportions from the third approved figure. Apron has plain crossed straps and waist ties at back, no added ornament. Show ONLY head, hair and upper shoulders with neckline; face fills most of square, both eyes open, calm friendly expression appropriate to her personality. Same face geometry and exact hair/costume from reference, refined warm painted anime style, cocoa outlines, plain warm ivory background. No hands, props, text, labels, border or other people. Preserve distinctive face rather than generic anime face. Avatar used at small size. Normal maid costume, no hidden outfit.",
+      "design": "",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/shizuku/turnaround.webp"
+      ]
+    },
+    {
+      "id": "suzu-avatar-v3",
+      "file": "static/cafe/avatars/suzu-avatar-v3.webp",
+      "kind": "avatars",
+      "bytes": 51852,
+      "dimensions": [
+        512,
+        512
+      ],
+      "sha256": "12e31275444f42257647652e8e21ba9df6bb53c45c6c5787d0eb0807279a0bb8",
+      "prompt": "Use case: stylized-concept. One square head-and-shoulders portrait of adult Suzu, canonical character 4 in supplied approved lineup, image2 exact turnaround. Strict identity match: Adult floor waitress, copper-orange softly wavy hair in a loose side ponytail, brown eyes, feminine cheerful face, fine brows, small cheek bandage and subtle freckles. 171 cm, NOT 175. Use EXACTLY the final approved fourth figure's NATURAL balanced proportions and shorter knee-to-ankle segment. Do NOT use nine-head fashion anatomy, tiny head, overlong calves, stretched legs, broad muscular shoulders or stocky build. Healthy slender feminine frame. Cocoa-brown knee-length dress with small puff sleeves and white collar, small brown neck bow, white ruffled apron with simple rounded pocket, plain neat white ankle socks, brown low Mary Jane shoes. The approved neutral pose holds a small wooden tray at waist height with both hands. Apron ties with a neat white back bow. Show ONLY head, hair and upper shoulders with neckline; face fills most of square, both eyes open, calm friendly expression appropriate to her personality. Same face geometry and exact hair/costume from reference, refined warm painted anime style, cocoa outlines, plain warm ivory background. No hands, props, text, labels, border or other people. Preserve distinctive face rather than generic anime face. Avatar used at small size. Normal maid costume, no hidden outfit.",
+      "design": "",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/suzu/turnaround.webp"
+      ]
+    },
+    {
+      "id": "aoi-full-v3",
+      "file": "static/cafe/cast/aoi-full-v3.webp",
+      "kind": "cast",
+      "bytes": 91888,
+      "dimensions": [
+        700,
+        1400
+      ],
+      "sha256": "62181328115f33ba220bfd57f8ffc2fda91575441717bebc222dd5969746598d",
+      "prompt": "Use case: stylized-concept. Produce ONE final transparent-background full-body game/UI character cutout of adult Aoi. Reference1 approved lineup column5; reference2 exact turnaround; reference3 exact action sheet. Preserve identity and anatomy exactly. Adult trainee, black chin-length bob with straight bangs, violet almond eyes, approved heart-shaped feminine face and quiet earnest expression. Light graceful adult dancer build, natural neck and legs, exactly the approved fifth character, no childlike proportions or figure changes. Navy knee-length maid dress, white apron and frills, lavender bow with pearl brooch, pale opaque tights and dark low Mary Jane shoes. Preserve face and body scale. Apron ties in a simple white bow behind the waist. A small plain brown notebook is her prop, not attached to her outfit. Hold the small brown notebook at chest height with both hands, quiet small smile.\nPortrait canvas, single figure only with the complete head/hair/shoes inside frame and modest transparent padding, upright natural posture. Same warm cocoa linework and soft refined painted anime style as references. Precise clear face with both eyes open. This is extraction into a polished single UI sprite, NOT a redesign, not a reference sheet. No labels, border, ground shadow, scenery, extra props, text or watermark. Actual transparent alpha outside figure. Preserve every garment/face/body feature from references.",
+      "design": "",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/aoi/turnaround.webp",
+        "design/characters/v1/aoi/poses.webp"
+      ]
+    },
+    {
+      "id": "haruka-full-v3",
+      "file": "static/cafe/cast/haruka-full-v3.webp",
+      "kind": "cast",
+      "bytes": 121656,
+      "dimensions": [
+        934,
+        1400
+      ],
+      "sha256": "dff2f87a3b625fa31b566899a94cafc76d97a936f4c993adeb439a6c2a65332c",
+      "prompt": "Edit target: supplied single full-body maid illustration. Keep the entire character EXACTLY unchanged: face, anatomy, body proportions, hair, clothes, colors, pose and held objects. Remove ALL background and ALL blurry glow/halo/shadow surrounding the character. Make every pixel outside the actual character silhouette fully transparent. Preserve clean hair strands, solid opaque clothing and skin, clean antialiasing only at silhouette edge. No black, brown, pink or white surrounding haze. This is only background removal to produce a clean alpha sprite; do not repaint the person, no cropping.",
+      "design": "Adult cafe manager, dark navy long hair tied in a low side ponytail, TWO substantial softly curved face-framing locks falling along the cheeks to the collarbones, warm amber almond eyes, gentle mature oval face. Moderately soft and curvy build exactly like the approved first figure, not overweight and not slimmed further. CLASSIC BLACK AND WHITE uniform: black knee-length dress and sleeves, white apron and frills, black ribbons, small antique gold brooch/buttons, black low Mary Jane shoes. Preserve the approved bust, waist and hip proportions. Apron ties neatly in a simple white bow behind the waist.",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/haruka/turnaround.webp",
+        "design/characters/v1/haruka/poses.webp"
+      ]
+    },
+    {
+      "id": "momo-full-v3",
+      "file": "static/cafe/cast/momo-full-v3.webp",
+      "kind": "cast",
+      "bytes": 174252,
+      "dimensions": [
+        934,
+        1400
+      ],
+      "sha256": "d09617eefd7901c10a78fe77872a7eee574d7e89e6b030e39ff7166d7d3ecc6f",
+      "prompt": "Edit target: supplied single full-body maid illustration. Keep the entire character EXACTLY unchanged: face, anatomy, body proportions, hair, clothes, colors, pose and held objects. Remove ALL background and ALL blurry glow/halo/shadow surrounding the character. Make every pixel outside the actual character silhouette fully transparent. Preserve clean hair strands, solid opaque clothing and skin, clean antialiasing only at silhouette edge. No black, brown, pink or white surrounding haze. This is only background removal to produce a clean alpha sprite; do not repaint the person, no cropping.",
+      "design": "Adult star waitress, long pink twin tails, rose eyes, approved cheerful round face, small gold star hair clips and brown ribbons, white frilled headband. EXACT approved body and bust volume: bust size, shoulder width, waist/hip ratio, head/body ratio and leg length must remain the same in every view. Never enlarge or reduce the chest in profile or action poses. Cocoa-brown knee-length maid dress, white ruffled apron with distinctive heart-shaped pocket and brown bow, gold details, white thigh-high stockings with modest frilled tops and small brown bows, brown low shoes with gold star motifs. Preserve original hair length and twin-tail placement. Apron ties with a neat white bow behind the waist.",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/momo/turnaround.webp",
+        "design/characters/v1/momo/poses.webp"
+      ]
+    },
+    {
+      "id": "shizuku-full-v3",
+      "file": "static/cafe/cast/shizuku-full-v3.webp",
+      "kind": "cast",
+      "bytes": 80952,
+      "dimensions": [
+        467,
+        1400
+      ],
+      "sha256": "2fc079212edf62c227cac2aa4e6b9bf90139fc9512ef1aae68b7c2138c5c9f8c",
+      "prompt": "Use case: stylized-concept. Produce ONE final transparent-background full-body game/UI character cutout of adult Shizuku. Reference1 approved lineup column3; reference2 exact turnaround; reference3 exact action sheet. Preserve identity and anatomy exactly. Adult kitchen lead, short silver bob, teal eyes, delicate slender oval feminine face with quiet deadpan expression, forest-green tied bandana. Lean adult build, narrow but naturally supported shoulders, approved moderate head size, no masculine brow/jaw and no gaunt cheeks. White/ivory short-sleeved blouse with rolled cuffs, forest-green practical bib apron tied at the natural waist, simple pockets, dark knee-length skirt, short dark socks, sensible brown low shoes. Preserve body proportions from the third approved figure. Apron has plain crossed straps and waist ties at back, no added ornament. Hold a tea cup and saucer at waist height with both hands, quiet restrained expression.\nPortrait canvas, single figure only with the complete head/hair/shoes inside frame and modest transparent padding, upright natural posture. Same warm cocoa linework and soft refined painted anime style as references. Precise clear face with both eyes open. This is extraction into a polished single UI sprite, NOT a redesign, not a reference sheet. No labels, border, ground shadow, scenery, extra props, text or watermark. Actual transparent alpha outside figure. Preserve every garment/face/body feature from references.",
+      "design": "",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/shizuku/turnaround.webp",
+        "design/characters/v1/shizuku/poses.webp"
+      ]
+    },
+    {
+      "id": "suzu-full-v3",
+      "file": "static/cafe/cast/suzu-full-v3.webp",
+      "kind": "cast",
+      "bytes": 130532,
+      "dimensions": [
+        700,
+        1400
+      ],
+      "sha256": "9ba286431642142804cf04967c69aade67395e0dd6cd00e522f517a00d4188c1",
+      "prompt": "Use case: stylized-concept. Produce ONE final transparent-background full-body game/UI character cutout of adult Suzu. Reference1 approved lineup column4; reference2 exact turnaround; reference3 exact action sheet. Preserve identity and anatomy exactly. Adult floor waitress, copper-orange softly wavy hair in a loose side ponytail, brown eyes, feminine cheerful face, fine brows, small cheek bandage and subtle freckles. 171 cm, NOT 175. Use EXACTLY the final approved fourth figure's NATURAL balanced proportions and shorter knee-to-ankle segment. Do NOT use nine-head fashion anatomy, tiny head, overlong calves, stretched legs, broad muscular shoulders or stocky build. Healthy slender feminine frame. Cocoa-brown knee-length dress with small puff sleeves and white collar, small brown neck bow, white ruffled apron with simple rounded pocket, plain neat white ankle socks, brown low Mary Jane shoes. The approved neutral pose holds a small wooden tray at waist height with both hands. Apron ties with a neat white back bow. Hold a small wooden tray with both hands at waist height, approved relaxed pose.\nPortrait canvas, single figure only with the complete head/hair/shoes inside frame and modest transparent padding, upright natural posture. Same warm cocoa linework and soft refined painted anime style as references. Precise clear face with both eyes open. This is extraction into a polished single UI sprite, NOT a redesign, not a reference sheet. No labels, border, ground shadow, scenery, extra props, text or watermark. Actual transparent alpha outside figure. Preserve every garment/face/body feature from references.",
+      "design": "",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/suzu/turnaround.webp",
+        "design/characters/v1/suzu/poses.webp"
+      ]
+    },
+    {
+      "id": "aoi-hidden-v3",
+      "file": "static/cafe/hidden/aoi-hidden-v3.webp",
+      "kind": "hidden",
+      "bytes": 184380,
+      "dimensions": [
+        1400,
+        934
+      ],
+      "sha256": "0baed0cfedbfa7e093e3f67eeb1c12302e999bcb9724c36baa7d3fb29fee903a",
+      "prompt": "Use case: illustration-story. One final production landscape 3:2 anime illustration of adult Aoi, age 18, height 160cm. First supplied image is approved face/body lineup, column5; second image is canonical HIDDEN-SIDE outfit/action sheet. Match exactly her face geometry, hair color/length, eyes, body/head/bust/waist proportions. Quiet ballet studio at dawn, adult Aoi practising at a wooden barre, one hand lightly supporting, one leg extended modestly backward in a balanced arabesque. Exact navy short-sleeve high-neck leotard, lavender wrap skirt, opaque pale pink tights and ballet slippers from reference; black chin-length bob and straight bangs, violet eyes, same natural proportions. Entire body and feet visible. Dawn light through windows, wood floor, no duplicate figures in mirrors. The SAME character and outfit in a real scene, not a redesigned person. Beautiful soft warm painterly anime style with refined cocoa lines and detailed cozy environment. Natural hands and anatomy. No captions, labels, UI, border or watermark. No maid uniform, no added jewelry, no changed hair.",
+      "design": "",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/aoi/hidden-reference.webp"
+      ]
+    },
+    {
+      "id": "haruka-hidden-v3",
+      "file": "static/cafe/hidden/haruka-hidden-v3.webp",
+      "kind": "hidden",
+      "bytes": 254508,
+      "dimensions": [
+        1400,
+        934
+      ],
+      "sha256": "d0ebc3ab94bd8ca333e0e1561a81794846e25f8b03d7363927427148f8e8de8b",
+      "prompt": "Use case: illustration-story. Create one polished landscape anime illustration of adult Haruka, age26, showing her canonical hidden side. Image1 is the approved face/body lineup column1; image2 is her EXACT hidden outfit and action reference. Match the SAME face, hair, eye color, age, body/head/bust/waist proportions. A quiet seaside afternoon, Haruka rests in a wooden beach chair under a softly shaded parasol, straw hat on her lap, ivory dress and open charcoal cardigan exactly as the sheet, bare feet in flat sandals. Gentle breeze, a tea cup on a side table, calm sea beyond, eyes softly closed with contented smile. Medium-wide composition showing whole seated person. Style: warm cocoa linework, rich but soft painterly manga illustration matching reference, polished beautiful eyes and natural hands, warm inviting mood suitable for a relaxed vocabulary-learning cafe app. 3:2 landscape, balanced cinematic medium-wide scene, character clearly recognizable, no captions, text, UI, watermark or frame. Hidden outfit from reference overrides maid uniform; do not mix outfits or redesign face.",
+      "design": "",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/haruka/hidden-reference.webp"
+      ]
+    },
+    {
+      "id": "momo-hidden-v3",
+      "file": "static/cafe/hidden/momo-hidden-v3.webp",
+      "kind": "hidden",
+      "bytes": 282068,
+      "dimensions": [
+        1400,
+        934
+      ],
+      "sha256": "db1d761044b6d016b770bf430289e359ffff46cf29d354a946b756b21885e26a",
+      "prompt": "Use case: illustration-story. One final production landscape 3:2 anime illustration of adult Momo, age 20, height 155cm. First supplied image is approved face/body lineup, column2; second image is canonical HIDDEN-SIDE outfit/action sheet. Match exactly her face geometry, hair color/length, eyes, body/head/bust/waist proportions. After closing, in a warm lamplit reading nook of the cafe with rain outside, Momo sits reading a black poetry book, a single black rose in a vase on the wooden table. Pink long twin tails, black bows, gold star clips, rose eyes, round face, exact elegant black lace dress with high ivory lace collar from reference. Thoughtful quiet small smile, same body and bust size as reference. The SAME character and outfit in a real scene, not a redesigned person. Beautiful soft warm painterly anime style with refined cocoa lines and detailed cozy environment. Natural hands and anatomy. No captions, labels, UI, border or watermark. No maid uniform, no added jewelry, no changed hair.",
+      "design": "",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/momo/hidden-reference.webp"
+      ]
+    },
+    {
+      "id": "shizuku-hidden-v3",
+      "file": "static/cafe/hidden/shizuku-hidden-v3.webp",
+      "kind": "hidden",
+      "bytes": 209472,
+      "dimensions": [
+        1400,
+        934
+      ],
+      "sha256": "16cf691ce5329f34752c406baaf042b4601483b96acb3b6878725eec6e1d09da",
+      "prompt": "Use case: illustration-story. Create one polished landscape anime illustration of adult Shizuku, age22, showing her canonical hidden side. Image1 is the approved face/body lineup column3; image2 is her EXACT hidden outfit and action reference. Match the SAME face, hair, eye color, age, body/head/bust/waist proportions. A bright welcoming reading corner in a children's home, Shizuku sits on a low stool and warmly reads a picture book to two children seated nearby with their backs mostly toward viewer. Kind patient smile, silver bob, sage cardigan and charcoal skirt exactly as hidden sheet. Soft afternoon light, picture books and simple wooden shelves. She is central focal point; children simply listening in everyday clothes. No text. Style: warm cocoa linework, rich but soft painterly manga illustration matching reference, polished beautiful eyes and natural hands, warm inviting mood suitable for a relaxed vocabulary-learning cafe app. 3:2 landscape, balanced cinematic medium-wide scene, character clearly recognizable, no captions, text, UI, watermark or frame. Hidden outfit from reference overrides maid uniform; do not mix outfits or redesign face.",
+      "design": "",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/shizuku/hidden-reference.webp"
+      ]
+    },
+    {
+      "id": "suzu-hidden-v3",
+      "file": "static/cafe/hidden/suzu-hidden-v3.webp",
+      "kind": "hidden",
+      "bytes": 198364,
+      "dimensions": [
+        1400,
+        934
+      ],
+      "sha256": "062a640ecfe97b9dd7d7c34eb59de0e36f4b1dc7f7a3e1a60a871d97265b6ae4",
+      "prompt": "Use case: illustration-story. One final production landscape 3:2 anime illustration of adult Suzu, age 19, height 171cm. First supplied image is approved face/body lineup, column4; second image is canonical HIDDEN-SIDE outfit/action sheet. Match exactly her face geometry, hair color/length, eyes, body/head/bust/waist proportions. After-hours warm cafe back office, Suzu sits at a small desk repairing a laptop and home wifi router, focused confident small smile. Cocoa hoodie open over ivory T-shirt, charcoal straight trousers, exact copper-orange side ponytail, freckles and tiny cheek bandage from reference. Natural hands on keyboard, neat cables, warm desk lamp and soft blue screen light, no readable code, no hacker symbols. The SAME character and outfit in a real scene, not a redesigned person. Beautiful soft warm painterly anime style with refined cocoa lines and detailed cozy environment. Natural hands and anatomy. No captions, labels, UI, border or watermark. No maid uniform, no added jewelry, no changed hair.",
+      "design": "",
+      "references": [
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/suzu/hidden-reference.webp"
+      ]
+    },
+    {
+      "id": "arrival-morning-v3",
+      "file": "static/cafe/scenes/arrival-morning-v3.webp",
+      "kind": "scenes",
+      "bytes": 249364,
+      "dimensions": [
+        1400,
+        700
+      ],
+      "sha256": "1b64c9f878c75cf88c1c0e59b4495cb098a66a0147d0483e588a9ecbedfb5eaa",
+      "prompt": "Use case: illustration-story. Edit image1, a cafe scene. Image2 is the FINAL approved character lineup; following images are strict character reference sheets. Preserve the original scene composition, beautiful wooden cafe, lighting, furniture, flowers, cups and background details. Correct the character identity and uniform to the approved reference. Preserve the warm morning doorway invitation and cafe interior; change her burgundy outfit to EXACT canonical BLACK and WHITE short puff sleeve uniform, both long face-framing locks, mature softer oval face and approved body volume. Adult cafe manager, dark navy long hair tied in a low side ponytail, TWO substantial softly curved face-framing locks falling along the cheeks to the collarbones, warm amber almond eyes, gentle mature oval face. Moderately soft and curvy build exactly like the approved first figure, not overweight and not slimmed further. CLASSIC BLACK AND WHITE uniform: black knee-length dress and sleeves, white apron and frills, black ribbons, small antique gold brooch/buttons, black low Mary Jane shoes. Preserve the approved bust, waist and hip proportions. Apron ties neatly in a simple white bow behind the waist.\nThe model-sheet face shape and anatomy override the old scene. Respect pose perspective naturally; face, hair length, bust/waist size must stay consistent with the same adult woman. Beautiful warm painted manga/anime illustration, clean hands and facial features, warm soft cocoa outlines matching reference sheets while retaining detailed environment. Landscape frame with same aspect as original. No text, labels, UI, watermark, border, new people, or blank areas. Final production scene for a relaxing vocabulary app.",
+      "design": "",
+      "references": [
+        "historical:static/cafe/scenes/arrival-morning.webp",
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/haruka/turnaround.webp"
+      ]
+    },
+    {
+      "id": "rainy-table",
+      "file": "static/cafe/scenes/rainy-table.webp",
+      "prompt": "Use case: illustration-story. Create one wide landscape scene for a cozy Japanese manga maid-cafe vocabulary learning app. Image 1 is the cafe world and rendering reference. Scene: A calm unoccupied window table in the same maid cafe, without people. A floral porcelain cup with a little steam, a closed burgundy book, blank folded cream napkin, small vase of white flowers. Rain droplets on the tall window, soft blurred blue-green garden outside, warm brass lamp and rich walnut chair, quiet afternoon. Guest-eye-level medium-wide composition, inviting comfortable seat, gentle low contrast lighting, a place to rest between words. Match polished anime illustration, delicate cocoa linework, refined painted cel shading, detailed walnut furniture, warm cream and brass accents. Natural human anatomy and hands where present. Comfortable gentle atmosphere suitable for repeated long viewing. No readable text, symbols imitating text, captions, UI, logo, watermark or frame.",
+      "bytes": 261314,
+      "sha256": "e9cd728bf9765cf1f1f1122875a364e01fb85c2a956df4dcb2dc8b34db10dc96",
+      "kind": "scenes",
+      "review": "No characters; retains the approved cafe setting."
+    },
+    {
+      "id": "reading-haruka-v3",
+      "file": "static/cafe/scenes/reading-haruka-v3.webp",
+      "kind": "scenes",
+      "bytes": 297922,
+      "dimensions": [
+        1400,
+        934
+      ],
+      "sha256": "2e5d62cf6e1a121c0fa01ea3649405fea95085ff23fb53974f5e81ca524235f5",
+      "prompt": "Use case: illustration-story. Edit image1, a cafe scene. Image2 is the FINAL approved character lineup; following images are strict character reference sheets. Preserve the original scene composition, beautiful wooden cafe, lighting, furniture, flowers, cups and background details. Correct the character identity and uniform to the approved reference. Preserve the intimate book-reading scene and warm cafe environment; change her burgundy long sleeve outfit to canonical BLACK and WHITE short puff sleeve uniform, both long face-framing locks and approved mature soft curvy body. Adult cafe manager, dark navy long hair tied in a low side ponytail, TWO substantial softly curved face-framing locks falling along the cheeks to the collarbones, warm amber almond eyes, gentle mature oval face. Moderately soft and curvy build exactly like the approved first figure, not overweight and not slimmed further. CLASSIC BLACK AND WHITE uniform: black knee-length dress and sleeves, white apron and frills, black ribbons, small antique gold brooch/buttons, black low Mary Jane shoes. Preserve the approved bust, waist and hip proportions. Apron ties neatly in a simple white bow behind the waist.\nThe model-sheet face shape and anatomy override the old scene. Respect pose perspective naturally; face, hair length, bust/waist size must stay consistent with the same adult woman. Beautiful warm painted manga/anime illustration, clean hands and facial features, warm soft cocoa outlines matching reference sheets while retaining detailed environment. Landscape frame with same aspect as original. No text, labels, UI, watermark, border, new people, or blank areas. Final production scene for a relaxing vocabulary app.",
+      "design": "",
+      "references": [
+        "historical:static/cafe/scenes/reading-haruka.webp",
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/haruka/turnaround.webp"
+      ]
+    },
+    {
+      "id": "rest-momo-v3",
+      "file": "static/cafe/scenes/rest-momo-v3.webp",
+      "kind": "scenes",
+      "bytes": 246834,
+      "dimensions": [
+        1400,
+        700
+      ],
+      "sha256": "3ac7634645517e9fd2a7b043916f5371059de3c0648e75f8aa8318c39c9e9dfe",
+      "prompt": "Use case: illustration-story. Edit image1, a cafe scene. Image2 is the FINAL approved character lineup; following images are strict character reference sheets. Preserve the original scene composition, beautiful wooden cafe, lighting, furniture, flowers, cups and background details. Correct the character identity and uniform to the approved reference. Preserve quiet sunset cup-of-tea break and cafe background. Match canonical round face and EXACT body and bust volume from model sheet, never exaggerated by leaning pose. Match pink long twin tails, brown bows and gold star hair clips, cocoa uniform with white fitted apron chest construction and antique gold round neck brooch as sheet. Adult star waitress, long pink twin tails, rose eyes, approved cheerful round face, small gold star hair clips and brown ribbons, white frilled headband. EXACT approved body and bust volume: bust size, shoulder width, waist/hip ratio, head/body ratio and leg length must remain the same in every view. Never enlarge or reduce the chest in profile or action poses. Cocoa-brown knee-length maid dress, white ruffled apron with distinctive heart-shaped pocket and brown bow, gold details, white thigh-high stockings with modest frilled tops and small brown bows, brown low shoes with gold star motifs. Preserve original hair length and twin-tail placement. Apron ties with a neat white bow behind the waist.\nThe model-sheet face shape and anatomy override the old scene. Respect pose perspective naturally; face, hair length, bust/waist size must stay consistent with the same adult woman. Beautiful warm painted manga/anime illustration, clean hands and facial features, warm soft cocoa outlines matching reference sheets while retaining detailed environment. Landscape frame with same aspect as original. No text, labels, UI, watermark, border, new people, or blank areas. Final production scene for a relaxing vocabulary app.",
+      "design": "",
+      "references": [
+        "historical:static/cafe/scenes/rest-momo.webp",
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/momo/turnaround.webp"
+      ]
+    },
+    {
+      "id": "study-aoi-v3",
+      "file": "static/cafe/scenes/study-aoi-v3.webp",
+      "kind": "scenes",
+      "bytes": 270036,
+      "dimensions": [
+        1400,
+        934
+      ],
+      "sha256": "b7e4d05ae09ca469c51c35bd5469ed1ae93e772793907c45e04f609a8f9623e3",
+      "prompt": "Use case: illustration-story. Edit image1, a cafe scene. Image2 is the FINAL approved character lineup; following images are strict character reference sheets. Preserve the original scene composition, beautiful wooden cafe, lighting, furniture, flowers, cups and background details. Correct the character identity and uniform to the approved reference. Preserve quiet seated notebook scene and cafe environment. Match canonical adult heart-shaped face, violet almond eyes, short black bob straight bangs, navy uniform with SHORT puff sleeves, white apron, lavender bow and gold/pearl brooch, same modest body proportions. Adult trainee, black chin-length bob with straight bangs, violet almond eyes, approved heart-shaped feminine face and quiet earnest expression. Light graceful adult dancer build, natural neck and legs, exactly the approved fifth character, no childlike proportions or figure changes. Navy knee-length maid dress, white apron and frills, lavender bow with pearl brooch, pale opaque tights and dark low Mary Jane shoes. Preserve face and body scale. Apron ties in a simple white bow behind the waist. A small plain brown notebook is her prop, not attached to her outfit.\nThe model-sheet face shape and anatomy override the old scene. Respect pose perspective naturally; face, hair length, bust/waist size must stay consistent with the same adult woman. Beautiful warm painted manga/anime illustration, clean hands and facial features, warm soft cocoa outlines matching reference sheets while retaining detailed environment. Landscape frame with same aspect as original. No text, labels, UI, watermark, border, new people, or blank areas. Final production scene for a relaxing vocabulary app.",
+      "design": "",
+      "references": [
+        "historical:static/cafe/scenes/study-aoi.webp",
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/aoi/turnaround.webp"
+      ]
+    },
+    {
+      "id": "tea-shizuku-v3",
+      "file": "static/cafe/scenes/tea-shizuku-v3.webp",
+      "kind": "scenes",
+      "bytes": 281188,
+      "dimensions": [
+        1400,
+        934
+      ],
+      "sha256": "99a649adb5b70b5bf2fd6dac69a7767d6442e9eb29e217e494810fc837aec037",
+      "prompt": "Use case: illustration-story. Edit image1, a cafe scene. Image2 is the FINAL approved character lineup; following images are strict character reference sheets. Preserve the original scene composition, beautiful wooden cafe, lighting, furniture, flowers, cups and background details. Correct the character identity and uniform to the approved reference. Preserve quiet tea-pouring scene, cafe counter, teapot and cups. Match canonical silver bob, teal eyes, feminine slender oval face, forest-green bandana, short rolled-sleeve ivory blouse, simple green bib apron. Same lean adult body. Adult kitchen lead, short silver bob, teal eyes, delicate slender oval feminine face with quiet deadpan expression, forest-green tied bandana. Lean adult build, narrow but naturally supported shoulders, approved moderate head size, no masculine brow/jaw and no gaunt cheeks. White/ivory short-sleeved blouse with rolled cuffs, forest-green practical bib apron tied at the natural waist, simple pockets, dark knee-length skirt, short dark socks, sensible brown low shoes. Preserve body proportions from the third approved figure. Apron has plain crossed straps and waist ties at back, no added ornament.\nThe model-sheet face shape and anatomy override the old scene. Respect pose perspective naturally; face, hair length, bust/waist size must stay consistent with the same adult woman. Beautiful warm painted manga/anime illustration, clean hands and facial features, warm soft cocoa outlines matching reference sheets while retaining detailed environment. Landscape frame with same aspect as original. No text, labels, UI, watermark, border, new people, or blank areas. Final production scene for a relaxing vocabulary app.",
+      "design": "",
+      "references": [
+        "historical:static/cafe/scenes/tea-shizuku.webp",
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/shizuku/turnaround.webp"
+      ]
+    },
+    {
+      "id": "welcome-suzu-v3",
+      "file": "static/cafe/scenes/welcome-suzu-v3.webp",
+      "kind": "scenes",
+      "bytes": 249202,
+      "dimensions": [
+        1400,
+        700
+      ],
+      "sha256": "0e884f766dc6a61b7958ba4540e8e3a521fd7ca7844ce55b0c33139606760a47",
+      "prompt": "Use case: illustration-story. Edit image1, a cafe scene. Image2 is the FINAL approved character lineup; following images are strict character reference sheets. Preserve the original scene composition, beautiful wooden cafe, lighting, furniture, flowers, cups and background details. Correct the character identity and uniform to the approved reference. Preserve rainy evening cafe welcome, character orange side ponytail and cup tray. Replace old frilled bib chest and exaggerated neckline with exact canonical cocoa BUTTON-FRONT bodice, SMALL brown neck bow, narrow white apron straps and SMALL puff sleeves. Same feminine face, freckles, tiny cheek bandage; healthy slender body. Adult floor waitress, copper-orange softly wavy hair in a loose side ponytail, brown eyes, feminine cheerful face, fine brows, small cheek bandage and subtle freckles. 171 cm, NOT 175. Use EXACTLY the final approved fourth figure's NATURAL balanced proportions and shorter knee-to-ankle segment. Do NOT use nine-head fashion anatomy, tiny head, overlong calves, stretched legs, broad muscular shoulders or stocky build. Healthy slender feminine frame. Cocoa-brown knee-length dress with small puff sleeves and white collar, small brown neck bow, white ruffled apron with simple rounded pocket, plain neat white ankle socks, brown low Mary Jane shoes. The approved neutral pose holds a small wooden tray at waist height with both hands. Apron ties with a neat white back bow.\nThe model-sheet face shape and anatomy override the old scene. Respect pose perspective naturally; face, hair length, bust/waist size must stay consistent with the same adult woman. Beautiful warm painted manga/anime illustration, clean hands and facial features, warm soft cocoa outlines matching reference sheets while retaining detailed environment. Landscape frame with same aspect as original. No text, labels, UI, watermark, border, new people, or blank areas. Final production scene for a relaxing vocabulary app.",
+      "design": "",
+      "references": [
+        "historical:static/cafe/scenes/welcome-suzu.webp",
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/suzu/turnaround.webp"
+      ]
+    },
+    {
+      "id": "window-seat-v3",
+      "file": "static/cafe/scenes/window-seat-v3.webp",
+      "kind": "scenes",
+      "bytes": 255250,
+      "dimensions": [
+        1400,
+        700
+      ],
+      "sha256": "c06e09a2ad7fefc1b3e6c109f4c723c23a3af476235af6bdd06f83e2953c0745",
+      "prompt": "Use case: illustration-story. Edit image1, a cafe scene. Image2 is the FINAL approved character lineup; following images are strict character reference sheets. Preserve the original scene composition, beautiful wooden cafe, lighting, furniture, flowers, cups and background details. Correct the character identity and uniform to the approved reference. Keep first-person window-seat welcome, Momo bringing a cup forward, Shizuku behind wooden counter. Correct BOTH characters to the supplied reference: Momo exact round face/body/bust volume, cocoa dress, brown bows, gold stars and round gold brooch; Shizuku silver bob with FOREST-GREEN bandana (not maid headband), ivory blouse and green bib apron. Match current approved distinct faces; keep natural anatomy without forced perspective enlarging chest. Adult star waitress, long pink twin tails, rose eyes, approved cheerful round face, small gold star hair clips and brown ribbons, white frilled headband. EXACT approved body and bust volume: bust size, shoulder width, waist/hip ratio, head/body ratio and leg length must remain the same in every view. Never enlarge or reduce the chest in profile or action poses. Cocoa-brown knee-length maid dress, white ruffled apron with distinctive heart-shaped pocket and brown bow, gold details, white thigh-high stockings with modest frilled tops and small brown bows, brown low shoes with gold star motifs. Preserve original hair length and twin-tail placement. Apron ties with a neat white bow behind the waist.\nThe model-sheet face shape and anatomy override the old scene. Respect pose perspective naturally; face, hair length, bust/waist size must stay consistent with the same adult woman. Beautiful warm painted manga/anime illustration, clean hands and facial features, warm soft cocoa outlines matching reference sheets while retaining detailed environment. Landscape frame with same aspect as original. No text, labels, UI, watermark, border, new people, or blank areas. Final production scene for a relaxing vocabulary app.",
+      "design": "",
+      "references": [
+        "historical:static/cafe/window-seat.jpg",
+        "design/characters/v1/00-approved-lineup.png",
+        "design/characters/v1/momo/turnaround.webp",
+        "design/characters/v1/shizuku/turnaround.webp"
+      ]
+    }
+  ]
+}

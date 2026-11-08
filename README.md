@@ -17,7 +17,7 @@ maidcafe 把你想学的词，<br>
 ![Local First](https://img.shields.io/badge/data-100%25%20local-brightgreen)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-orange)
 
-<img src="static/cafe/window-seat.jpg" width="820" alt="欢迎光临">
+<img src="static/cafe/scenes/window-seat-v3.webp" width="820" alt="欢迎光临">
 
 </div>
 
@@ -34,8 +34,10 @@ maidcafe 把你想学的词，<br>
 | Intel Mac | 文件名以 `macOS-x86_64.dmg` 结尾 |
 | Windows 64 位 | 文件名以 `Windows-x64-Setup.exe` 结尾 |
 
-安装包约 20 MB，发布页顶部有各系统的直接下载按钮。无需 Python 或命令行。先体验内置词卡和试听，生成自己的故事只需在软件内点「故事设置 → 一键准备」；引擎和模型会自动下载、校验和配置，支持暂停续传。轻量模型约 1.4 GB、标准约 2.5 GB，首次还需下载引擎；自动准备需要 macOS 14+ / Windows 10 22H2+。当前为未完成发行签名的预览版，首次打开可能出现系统来源提示；[安装说明与更新记录](https://github.com/FeeChain/maidcafe/releases)。
+安装包约 20–25 MB，发布页顶部有各系统的直接下载按钮。无需 Python 或命令行。先体验内置词卡和试听，生成自己的故事只需在软件内点「故事设置 → 一键准备」；引擎和模型会自动下载、校验和配置，支持暂停续传。轻量模型约 1.4 GB、标准约 2.5 GB，首次还需下载引擎；自动准备需要 macOS 14+ / Windows 10 22H2+。当前为未完成发行签名的预览版，首次打开可能出现系统来源提示；[安装说明与更新记录](https://github.com/FeeChain/maidcafe/releases)。
 <!-- desktop-downloads:end -->
+
+人物与配图：[当前定妆规范](design/characters/v1/使用说明.txt) · [素材与提示词](static/cafe/README.md)。
 
 ## 它解决什么问题
 
@@ -60,8 +62,10 @@ maidcafe 把你想学的词，<br>
 
 可选的「调一调听力难度」先问听音，再问看词，分别记录。无录音的词只测阅读，不生成听力成绩。
 
+迎宾、学习、听故事与休息各有三种场景，进入阶段时轮换，翻词和播放中保持静止。设置里的「店里的风景」可以选择固定配图或安静阅读。五位店员的完整立绘与场景图随安装包提供，离线也能看到。
+
 <div align="center">
-<img src="static/art/C2_empty.png" width="720" alt="窗边的空桌">
+<img src="static/cafe/scenes/rainy-table.webp" width="720" alt="窗边的空桌">
 </div>
 
 ## 店里的规矩
@@ -73,7 +77,7 @@ maidcafe 把你想学的词，<br>
 
 ## 店员
 
-<img src="static/art/B2_momo_full.png" width="230" align="right" alt="Momo">
+<img src="static/cafe/cast/momo-full-v3.webp" width="230" align="right" alt="Momo">
 
 五位性格各异的女仆轮班：沉稳的店长、招牌店员 **Momo**（右图）、
 毒舌的后厨、冒失的新人、认真的实习生。
