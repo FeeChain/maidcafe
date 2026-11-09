@@ -10,6 +10,7 @@ Run:  python3 tests/test_e2e.py -v
 
 import json
 import os
+os.environ['MAIDCAFE_VOCABULARY'] = os.path.join(os.path.dirname(__file__), 'synthetic-bank-only.json')
 import shutil
 import sqlite3
 import subprocess
@@ -116,7 +117,7 @@ class TestMaidcafe(unittest.TestCase):
         self.assertEqual(call("/api/probe_sessions"), [])
 
     def test_02_static_pages(self):
-        for path, marker in [("/", "vLearn"), ("/calibrate", "probeBtn"),
+        for path, marker in [("/", "cafe-ui/"), ("/calibrate", "probeBtn"),
                              ("/listen", "tabWordbook"),
                              ("/static/home.js", "boot"),
                              ("/static/app.js", "startProbe")]:

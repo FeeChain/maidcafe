@@ -26,8 +26,8 @@ class ArtifactTests(unittest.TestCase):
             path.write_bytes(('installer ' + target).encode())
             report = {'platform':target,'version':self.version,'commit':SHA,
                       'filename':path.name,'size':path.stat().st_size,'sha256':meta.digest(path),
-                      'native':{'native':{'welcome':True,'bridge':True},
-                                'self_check':{'version':self.version,'words':24,'audio':24},'worker':'error recorded'},
+                      'native':{'native':{'welcome':True,'bridge':True,'art':{'count':25,'failed':[],'ready':True}},
+                                'self_check':{'version':self.version,'words':21244,'audio':24},'worker':'error recorded','speech':{'backend':'kokoro','files':['turn_00.wav']}},
                       'assistant':{'ready':True,'phase':'done','model':['qwen3:1.7b']}}
             (self.root / ('build-report-' + target + '.json')).write_text(json.dumps(report))
 

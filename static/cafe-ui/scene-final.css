@@ -1,0 +1,143 @@
+/* B scene layout for word cards; full-width sheets for tools and dialogue.
+   Capsule controls and the vertical menu are shared. G/H/I are archived. */
+html[data-layout=b] .layout {align-items:start;max-width:1440px;}
+html[data-layout=b] .scene {position:sticky;top:24px;align-self:start;height:calc(100dvh - 160px);min-height:0;}
+html[data-layout=b] .content {min-width:0;min-height:calc(100dvh - 175px);}
+html[data-layout=b] .scene .scene-copy {bottom:20px;}
+html[data-layout=b] .scene .scene-copy h2 {font-size:clamp(18px,1.6vw,23px);}
+html[data-layout=b] .shell-background {object-position:var(--room-position,left center);}
+html[data-layout=b] .content .work-hero {display:block;margin:0 0 24px;padding-bottom:24px;}
+html[data-layout=b] .content .work-hero-art,
+html[data-layout=b] .content .group-art-frame {display:none;}
+html[data-layout=b] .work-hero .lead {max-width:none;}
+html[data-layout=b] .back {margin-bottom:24px;}
+html[data-layout=b] .work-head {margin-bottom:20px;padding-bottom:20px;}
+html[data-layout=b] .work-head h1 {font-size:clamp(25px,2.2vw,32px);}
+/* Keep the continuation action above an indefinitely growing story list. */
+html[data-layout=b] .content .group-layout {display:flex;flex-direction:column;gap:24px;}
+html[data-layout=b] .content .group-layout>section {display:contents;}
+html[data-layout=b] .content .group-aside {order:-1;position:static;align-self:stretch;width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 14px;border:1px solid #dac6a9;border-radius:22px;background:#f3e8d6a6;padding:18px 20px;}
+html[data-layout=b] .content .group-aside h3 {font-size:18px;}
+html[data-layout=b] .content .group-aside .btn {grid-column:2;grid-row:1 / span 2;align-self:center;margin:0;width:auto;}
+html[data-layout=b] .content .group-aside>.tiny:last-child {display:none;}
+html[data-layout=b] .content .group-aside>h3,html[data-layout=b] .content .group-aside>p {grid-column:1;}
+html[data-layout=b] .content .group-layout>section>p {margin:0!important;}
+html[data-layout=b] .content .group-layout .action-row {margin:0;}
+html[data-layout=b] .content .group-layout .action-row>.btn {flex:none;width:auto;}
+html[data-layout=b] .content .group-layout .segmented {margin:0;}
+html[data-layout=b] .content .group-layout .footer-note {font-size:11px;}
+html[data-layout=b] .content .group-layout .empty {margin:0;padding:28px 18px;}
+html[data-layout=b] .content .group-layout .story-list {margin:0;}
+html[data-layout=b] .content .group-layout .select-area {margin:0;padding:16px;border-radius:20px;}
+html[data-layout=b] .word-chips {gap:8px;}
+html[data-layout=b] .word-chip {min-height:40px;}
+/* Shared right-hand panel supports long tools without covering the host. */
+html[data-layout=b] .library-tools {float:none;display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px;}
+html[data-layout=b] .word-row {gap:10px;}
+html[data-layout=b] .word-row .word-main {overflow-wrap:anywhere;}
+html[data-layout=b] .word-row .row-action {flex:none;min-height:40px;white-space:nowrap;}
+html[data-layout=b] .word-row .pill {font-size:10px;padding:4px 7px;}
+html[data-layout=b] .setting-row {flex-wrap:wrap;gap:14px;}
+html[data-layout=b] .setting-row>div {flex:1 1 170px;}
+html[data-layout=b] .setting-row select {max-width:100%;}
+html[data-layout=b] .settings-section {padding:24px 0;}
+html[data-layout=b] .setting-actions {gap:9px;}
+html[data-layout=b] .checklist {grid-template-columns:1fr 1fr;gap:9px;}
+html[data-layout=b] .check-item {padding:13px;min-width:0;overflow-wrap:anywhere;}
+html[data-layout=b] .check-item strong {font-size:16px;}
+html[data-layout=b] .dialogue-head {padding:15px;gap:10px;}
+html[data-layout=b] .dialogue-title {min-width:0;}
+html[data-layout=b] .dialogue-title strong {font-size:17px;overflow-wrap:anywhere;}
+html[data-layout=b] .dialogue-icon {flex:none;}
+html[data-layout=b] .dialogue-body {padding:0 15px 16px;}
+html[data-layout=b] .player-bar {gap:8px;flex-wrap:wrap;}
+html[data-layout=b] .player-bar .text-btn {padding:7px 9px;}
+html[data-layout=b] .transcript {max-height:350px;overscroll-behavior:contain;}
+html[data-layout=b] .turn {padding:12px 8px;gap:10px;}
+html[data-layout=b] .turn-text {font-size:18px;}
+html[data-layout=b] .turn>div {min-width:0;overflow-wrap:anywhere;}
+html[data-layout=b] .content .empty {border-radius:22px;}
+html[data-layout=b] .coach {border-radius:20px;}
+html[data-layout=b] .modal-card {border-radius:24px;}
+.exam-controls {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.exam-controls .btn {padding:10px 6px;font-size:12px;white-space:nowrap;gap:5px;}
+.exam-controls svg {width:14px;height:14px;}
+html[data-layout=b] .quiet .layout {max-width:760px;}
+html[data-layout=b] .quiet .masthead {color:#594135;text-shadow:none;}
+html[data-layout=b] .quiet .prototype-mark {color:#6d5545;background:#fff7e8e0;}
+html[data-layout=b] .quiet .page-watermark {color:#644a36;background:#fff8eb;border-color:#d6c1a2;}
+html[data-layout=b] .quiet .scene,
+html[data-layout=b] .quiet :is(.work-hero-art,.group-art-frame) {display:none;}
+html[data-layout=b] :is(button,a,input,select,textarea):focus-visible {outline:2px solid #98713e;outline-offset:3px;}
+/* Typical small laptop windows still show the tutorial controls without scrolling. */
+@media(min-width:801px) and (max-height:800px){
+ html[data-layout=b] .app-shell {padding-top:20px;padding-bottom:65px;}
+ html[data-layout=b] .masthead {margin-bottom:14px;}
+ html[data-layout=b] .content {padding-top:26px;padding-bottom:26px;}
+ html[data-layout=b] [data-screen=learn] .word-stage {height:210px;min-height:210px;margin:8px 0 20px;}
+ html[data-layout=b] [data-screen=learn] .coach {min-height:86px;margin-bottom:15px;}
+ html[data-layout=b] [data-screen=learn] .progress-line {margin:15px 0 20px;}
+ html[data-layout=b] .scene {height:calc(100dvh - 155px);}
+ html[data-layout=b] [data-screen=assessment] .word-stage {min-height:210px;padding:18px 8px;}
+}
+@media(min-width:801px) and (max-width:1100px){
+ html[data-layout=b] .content {padding-left:25px;padding-right:25px;}
+ html[data-layout=b] .content .checklist {grid-template-columns:1fr;}
+ html[data-layout=b] .content .group-aside {display:block;}
+ html[data-layout=b] .content .group-aside .btn {margin-top:14px;}
+ html[data-layout=b] .content .word-row .pill {display:none;}
+ html[data-layout=b] .scene .scene-copy {left:8px;right:15px;padding:18px;}
+ html[data-layout=b] .scene .scene-copy h2 {font-size:19px;}
+}
+@media(max-width:800px){
+ html[data-layout=b] .scene {position:relative;top:auto;min-height:240px;height:240px;}
+ html[data-layout=b] .scene .scene-copy {bottom:15px;}
+ html[data-layout=b] .scene .scene-copy h2 {font-size:16px;}
+ html[data-layout=b] .content {min-height:0;}
+ html[data-layout=b] .shell-background {left:0;width:100%;object-position:var(--mobile-position,25% center);}
+ html[data-layout=b] .content .work-hero {padding-bottom:20px;margin-bottom:20px;}
+ html[data-layout=b] .work-head h1 {font-size:25px;}
+ html[data-layout=b] .content .group-layout {gap:20px;}
+ html[data-layout=b] .content .group-aside {padding:16px;}
+ html[data-layout=b] .content .group-aside {display:block;}
+ html[data-layout=b] .content .group-aside .btn {margin-top:14px;}
+ html[data-layout=b] .content .checklist {grid-template-columns:1fr;}
+ html[data-layout=b] .setting-row>div {flex:1 1 145px;}
+ html[data-layout=b] .player-bar .time {font-size:11px;}
+ html[data-layout=b] .dialogue-icon {display:none;}
+ html[data-layout=b] .content .word-row .pill {display:none;}
+ html[data-layout=b] .work-hero h1 {font-size:27px;}
+ html[data-layout=b] .quiet .masthead {color:#594135;}
+ html[data-layout=b] .quiet .content {width:100%;}
+}
+@media(prefers-reduced-motion:reduce){
+ *,*:before,*:after {scroll-behavior:auto!important;animation:none!important;transition:none!important;}
+}
+
+/* Tools and conversation need reading width rather than a portrait column. */
+html[data-layout=b] .wide-room .workroom {max-width:1120px;width:100%;background:#fffaf5f5;border-radius:24px;}
+html[data-layout=b] .wide-room .work-hero {margin-bottom:26px;padding-bottom:26px;}
+html[data-layout=b] .wide-room .work-hero-art {display:block;}
+html[data-layout=b] .wide-room .group-layout {display:grid;grid-template-columns:minmax(0,1fr) 265px;gap:34px;align-items:start;}
+html[data-layout=b] .wide-room .group-layout>section {min-width:0;}
+html[data-layout=b] .wide-room .group-aside {position:sticky;top:28px;}
+html[data-layout=b] .wide-room .group-art-frame {display:block;}
+html[data-layout=b] .wide-room .group-aside .btn {width:100%;}
+html[data-layout=b] .wide-room .coach {margin-bottom:24px;}
+html[data-layout=b] .wide-room .action-row>.btn {flex:none;}
+html[data-layout=b] .wide-room .transcript {max-height:450px;}
+html[data-layout=b] .wide-room.quiet :is(.work-hero-art,.group-art-frame) {display:none;}
+@media(min-width:801px) and (max-width:1100px){
+ html[data-layout=b] .wide-room .group-layout {grid-template-columns:minmax(0,1fr) 225px;gap:25px;}
+}
+@media(max-width:800px){
+ html[data-layout=b] .wide-room .workroom {padding:26px 24px 34px;min-height:calc(100dvh - 160px);}
+ html[data-layout=b] .wide-room .group-layout {display:flex;flex-direction:column;gap:25px;}
+ html[data-layout=b] .wide-room .group-layout>section {width:100%;}
+ html[data-layout=b] .wide-room .group-aside {position:static;order:-1;width:100%;}
+ html[data-layout=b] .wide-room .work-hero {display:flex;flex-direction:column-reverse;align-items:stretch;}
+ html[data-layout=b] .wide-room .work-hero-art {max-width:100%;}
+ html[data-layout=b] .wide-room .checklist {grid-template-columns:1fr;}
+ html[data-layout=b] .wide-room .word-row .pill {display:none;}
+}
+@media(max-width:360px){html[data-layout=b] .wide-room .workroom{padding-left:18px;padding-right:18px;}}

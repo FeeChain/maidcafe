@@ -33,6 +33,7 @@ import morph  # noqa: E402
 import ai_runtime
 import portability
 import assistant_setup
+import cafe
 from pathlib import Path
 from app_paths import VERSION
 
@@ -85,8 +86,17 @@ def build_words():
             os.replace(filename + ".tmp", filename)
     else:
         WORDS = []
+    bank_path = os.environ.get('MAIDCAFE_VOCABULARY', os.path.join(ROOT, 'resources', 'vocabulary.json'))
+    if os.path.isfile(bank_path):
+        with open(bank_path, encoding='utf-8') as f:
+            bank = json.load(f)
+        merged = {w['word'].lower(): w for w in bank}
+        merged.update({w['word'].lower(): dict(merged.get(w['word'].lower(), {}), **w) for w in WORDS})
+        for w in starter:
+            merged.setdefault(w['word'].lower(), dict(w, sources=['窗边的第一杯']))
+        WORDS = list(merged.values())
     if not WORDS:
-        WORDS = [dict(w, sources=["窗边的第一杯"]) for w in starter]
+        WORDS = [dict(w, sources=['窗边的第一杯']) for w in starter]
     AUDIO = {w["word"].lower(): w["audio_path"] for w in starter + WORDS if w.get("audio_path")}
     attach_tiers()
 
@@ -119,7 +129,7 @@ def attach_tiers():
     BLOCK_SIZE blocks, shuffle stably inside each block (md5 of the word,
     so order survives restarts)."""
     global WORDS, N_TIERS, WORD_INDEX, RANK_KEYS
-    info = {}  # word(lower) -> ECDICT (frq, bnc, tag)
+    info = {w['word'].lower(): (w.get('frq'), w.get('bnc'), w.get('tag')) for w in WORDS if 'tag' in w}
     if os.path.exists(ECDICT_DB):
         con = sqlite3.connect(ECDICT_DB)
         try:
@@ -138,7 +148,7 @@ def attach_tiers():
             con.close()
         print("ECDICT matched: %d/%d words" % (len(info), len(WORDS)))
     else:
-        print("NOTE: %s missing — difficulty blocks fall back to load order" % ECDICT_DB)
+        print("NOTE: %s missing — using bundled vocabulary metadata where available" % ECDICT_DB)
 
     def sort_key(w):
         return difficulty_key(w["word"], info.get(w["word"].lower()))
@@ -521,9 +531,14 @@ def known_set():
     """核心定义（用户定稿）：已知 = 边界块之内的**全部**单词（推定已知）
     + 显式标记认识的词 − 显式标记不认识的词。边界由探针无状态重放得出。"""
     known = set()
+    con = db()
+    try:
+        state = cafe.read_state(con)
+    finally:
+        con.close()
     try:
         hearing_marks = {w: m for w, m in get_marks_src().items() if m[0] not in (5, 6)}
-        if has_probe_evidence(hearing_marks):
+        if not (state and state.get('level') is not None) and has_probe_evidence(hearing_marks):
             nxt = probe_next("all", hearing_marks, settle=True)
             if nxt.get("done"):
                 frontier = nxt["bracket"][1]  # 第一个生词侧的块
@@ -531,6 +546,15 @@ def known_set():
                              if w.get("tier", 1) < frontier)
     except Exception:
         pass
+    con = db()
+    try:
+        state = cafe.read_state(con)
+        if state and state.get('level') is not None:
+            frontier = state.get('learningFrontier')
+            known.update(w['word'].lower() for w in WORDS if
+                         (w['rank'] < frontier if frontier is not None else cafe.stage(w.get('band')) < state['level']))
+    finally:
+        con.close()
     marks = get_marks()
     known.update(w for w, s in marks.items() if s in (3, 4))
     # 全扫在边界内逐词揪出的漏词：显式标了不认识的，推定失效，从已知集剔除
@@ -1019,6 +1043,9 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         qs = parse_qs(parsed.query)
 
+        if path.startswith('/api/cafe/'):
+            return cafe.handle(self, sys.modules[__name__], path, qs=qs)
+
         if path == "/api/setup":
             setup = get_setup()
             return self._send(200, dict(ai_runtime.inspect(kv_get('model', '')), version=VERSION,
@@ -1039,7 +1066,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if path == "/":
-            return self._send_file(os.path.join(STATIC_DIR, "home.html"))
+            return self._send_file(os.path.join(STATIC_DIR, "cafe-ui/index.html"))
 
         if path == "/window-seat.apkg":
             return self._send_file(STARTER_PACK)
@@ -1405,6 +1432,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if not isinstance(payload, dict):
             return self._send(400, {"error": "请求格式无效"})
+
+        if parsed.path.startswith('/api/cafe/'):
+            return cafe.handle(self, sys.modules[__name__], parsed.path, payload)
 
         if parsed.path == '/api/setup/prepare':
             if os.environ.get('MAIDCAFE_MODEL'):

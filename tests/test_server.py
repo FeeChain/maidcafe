@@ -13,6 +13,7 @@ Run:  python3 tests/test_server.py -v
 
 import json
 import os
+os.environ['MAIDCAFE_VOCABULARY'] = os.path.join(os.path.dirname(__file__), 'synthetic-bank-only.json')
 import sqlite3
 import sys
 import tempfile

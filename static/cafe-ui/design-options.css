@@ -1,0 +1,161 @@
+/* B is the accepted baseline; D/E/F explore different compositions. */
+html[data-layout] .app-shell{padding:24px 52px 90px 84px;background:transparent;}
+html[data-layout] .shell-background{display:block;}
+html[data-layout] .app-shell:before{background:linear-gradient(90deg,#26190e22,transparent 50%,#26190e22);}
+html[data-layout] .masthead{color:#fff4e1;text-shadow:0 1px 8px #271a13;min-height:42px;margin-bottom:19px;}
+html[data-layout] .brand .brand-seal{width:32px;height:32px;}
+html[data-layout] .brand-seal svg{width:18px;height:18px;}
+html[data-layout] .brand .brand-copy{font-size:27px;}
+html[data-layout] .brand small{font-size:8px;letter-spacing:.1em;}
+html[data-layout] .page-watermark{top:28px;right:52px;font-size:10px;background:#33231a8c;color:#f4dfc0;border-color:#ebc99755;}
+html[data-layout] .page-watermark span{border-color:#dbc49e55;}
+html[data-layout] .layout{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(0,1fr) minmax(420px,1fr);gap:26px;min-height:calc(100dvh - 175px);overflow:visible;border:0;border-radius:0;background:none;box-shadow:none;}
+html[data-layout] .scene{min-height:600px;overflow:visible;background:none;border-radius:0;}
+html[data-layout] .scene:before,html[data-layout] .scene:after{display:none;}
+html[data-layout] .scene .scene-copy{left:24px;right:48px;bottom:28px;padding:21px 24px;background:#302217a8;border:1px solid #ffdfac4d;border-radius:18px;box-shadow:0 5px 22px #110c091f;backdrop-filter:blur(12px);}
+html[data-layout] .scene .scene-copy h2{font-size:23px;line-height:1.8;letter-spacing:.02em;color:#fff4dd;}
+html[data-layout] [data-screen=start] .scene-copy h2{font-size:21px;}
+html[data-layout] .scene .scene-copy .scene-name{display:flex;position:static;background:none;padding:0;border:0;margin:0 0 10px;box-shadow:none;color:#fff4dd;}
+html[data-layout] .scene-name strong{font-size:18px;}
+html[data-layout] .scene-name small{color:#e1c49f;border-color:#dec39555;font-size:10px;}
+html[data-layout] .content{min-height:600px;border:1px solid #fff8e4b3;background:#fffcf4f5;border-radius:20px;box-shadow:12px 14px 45px #1f140c38;backdrop-filter:blur(8px);padding:38px 40px;}
+html[data-layout] .content:after{display:none;}
+html[data-layout] .content h1{font-size:clamp(27px,2.5vw,35px);line-height:1.6;letter-spacing:.025em;}
+html[data-layout] .content .lead{font-size:14px;line-height:2;}
+html[data-layout] .prototype-mark{bottom:16px;background:#261b155c;color:#f2dfbc;}
+html[data-layout] .workroom{background:#fffaf2f7;border-radius:24px;}
+/* All actions share the capsule vocabulary, including onboarding and tools. */
+html[data-layout] :is(.btn,.text-btn,.back,.level-list button,.segmented button,.word-chip,.row-action,.close-btn){border-radius:999px;}
+html[data-layout] .btn{background:#fbf4e7;border:1px solid #cdb99c;color:#715240;box-shadow:none;min-height:44px;padding:11px 20px;}
+html[data-layout] .btn.primary{background:#795348;border-color:#795348;color:#fff8ec;}
+html[data-layout] .btn:disabled{background:#f3ede2;color:#978873;border-color:#e0d3bf;}
+html[data-layout] .btn:hover:not(:disabled){background:#e9ddcb;border-color:#ab8c6c;color:#5e402f;}
+html[data-layout] .btn.primary:hover:not(:disabled){background:#654338;border-color:#654338;color:#fffaf0;}
+html[data-layout] :is(.text-btn,.back){padding:7px 14px;border:1px solid #cdb99c88;background:#fffaf199;align-self:flex-start;min-height:36px;gap:7px;font-size:12px;}
+html[data-layout] .text-btn:disabled{opacity:.5;}
+html[data-layout] .choice{border-radius:40px;padding:19px 25px;background:#fffdf6d9;border-color:#dfcdb3;}
+html[data-layout] .choice strong{font-size:17px;}
+html[data-layout] .choice small{font-size:12px;}
+html[data-layout] .choice.active{background:#eee0ca;box-shadow:none;border-color:#b48f69;}
+html[data-layout] .level-list button{padding:14px 9px;}
+html[data-layout] .segmented{background:none;border:0;border-radius:0;gap:8px;padding:0;flex-wrap:wrap;}
+html[data-layout] .segmented button{background:#fbf4e7;border:1px solid #d2bea2;box-shadow:none;min-height:40px;}
+html[data-layout] .segmented button.active{background:#795348;border-color:#795348;color:#fff8ec;}
+html[data-layout] :is(.check-item,.dialogue-card){border-radius:24px;}
+html[data-layout] .dialogue-head{border-radius:24px;padding:17px 20px;}
+html[data-layout] :is(.field,.searchbox input){border-radius:23px;}
+html[data-layout] textarea.field{border-radius:20px;}
+html[data-layout] .learning-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:stretch;}
+html[data-layout] .learning-controls .btn{margin:0;min-height:44px;padding:9px 7px;font:12px var(--sans);letter-spacing:0;white-space:nowrap;gap:4px;}
+html[data-layout] .learning-controls .key{display:none;}
+html[data-layout] .learning-controls svg{width:14px;height:14px;}
+html[data-layout] .learning-controls .btn:focus-visible{outline:2px solid #bb9467;outline-offset:4px;}
+/* D: smoked glass and light type. A distinct night-time treatment. */
+html[data-layout=d] .app-shell:before{background:linear-gradient(90deg,#241c251c,#241c2545);}
+html[data-layout=d] .content{--ink:#fff0d7;--muted:#d0bca6;--line:#d6b88b42;--gold:#e0b77e;background:#221e24d6;border:1px solid #efd6b44a;color:var(--ink);border-radius:30px;box-shadow:0 24px 60px #18101b4d;backdrop-filter:blur(22px);}
+html[data-layout=d] .content :is(h1,.word,.word-meaning){color:#fff0d7;}
+html[data-layout=d] .content :is(.lead,.tiny,.card-top,.card-foot,.footer-note){color:#d3bfa8;}
+html[data-layout=d] .content .eyebrow{color:#e6bd86;}
+html[data-layout=d] .progress-line{background:#d2b99a33;}
+html[data-layout=d] .progress-line>span{background:#e0b57e;}
+html[data-layout=d] .word-stage{border-color:#eed6b32d;background:none;}
+html[data-layout=d] .word-stage:before{background:#2d2630;color:#cfa777;}
+html[data-layout=d] .content .btn{background:#fff4d916;border-color:#dcc6ac66;color:#f4dfc5;}
+html[data-layout=d] .content .btn.primary{background:#e5c99c;border-color:#e5c99c;color:#3d302b;}
+html[data-layout=d] .content .btn:disabled{background:#fff4d908;border-color:#dcc6ac2e;color:#aa9a8c;}
+html[data-layout=d] .content .btn:hover:not(:disabled){background:#69554b;color:#fff7e7;}
+html[data-layout=d] .content .btn.primary:hover:not(:disabled){background:#f2d8b3;color:#352820;}
+html[data-layout=d] .content :is(.choice,.back,.text-btn,.level-list button){background:#fff1d915;border-color:#d9bea14a;color:#f3dec3;}
+html[data-layout=d] .content :is(.choice strong,.choice small){color:#f3dec3;}
+html[data-layout=d] .content .choice.active,html[data-layout=d] .content .level-list button.active{background:#e3c69e;color:#49362a;}
+html[data-layout=d] .content .choice.active :is(strong,small){color:#49362a;}
+html[data-layout=d] .level-explainer{background:#d5b89114;color:#e4c9a8;border-color:#bca07a;}
+html[data-layout=d] .coach{background:#fff3dc12;border-color:#d4ba9240;color:#e6d3b6;}
+html[data-layout=d] .coach :is(b,small){color:#e6d3b6;}
+html[data-layout=d] .scene .scene-copy{background:#221e2485;border-color:#efd6b444;border-radius:26px;}
+/* E: a wide study card on the table, keeping the scene above it open. */
+html[data-layout=e] .layout{display:flex;flex-direction:column;gap:18px;min-height:0;}
+html[data-layout=e] .scene{height:clamp(270px,37dvh,410px);min-height:0;}
+html[data-layout=e] .scene .scene-copy{left:auto;right:18px;bottom:20px;width:370px;max-width:40%;padding:19px 24px;}
+html[data-layout=e] .content{min-height:0;border-radius:30px;padding:30px 36px;background:#fffaf1ed;}
+html[data-layout=e] .content .choice-list{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px;}
+html[data-layout=e] [data-screen=methods] .choice-list{grid-template-columns:repeat(3,1fr);}
+html[data-layout=e] [data-screen=learn] .content{display:grid;grid-template-columns:1fr minmax(380px,.85fr);column-gap:45px;}
+html[data-layout=e] [data-screen=learn] :is(.card-top,.progress-line,.coach,.card-foot,.word-story){grid-column:1/-1;}
+html[data-layout=e] [data-screen=learn] .progress-line{margin:15px 0 20px;}
+html[data-layout=e] [data-screen=learn] .word-stage{height:180px;min-height:180px;margin:0;border:0;}
+html[data-layout=e] [data-screen=learn] .word-stage:before{display:none;}
+html[data-layout=e] .learning-controls{grid-template-columns:1fr 1fr;grid-auto-rows:46px;gap:12px;align-self:center;width:100%;}
+html[data-layout=e] .learning-controls .btn{font-size:13px;min-height:46px;}
+/* F: separate floating word and action surfaces, with more of the room visible. */
+html[data-layout=f] .app-shell:before{background:linear-gradient(90deg,transparent 32%,#2418107a);}
+html[data-layout=f] .layout{grid-template-columns:minmax(0,1fr) minmax(420px,.82fr);align-items:center;}
+html[data-layout=f] .content{min-height:0;background:none;border:0;box-shadow:none;backdrop-filter:none;padding:24px 0;}
+html[data-layout=f] .content :is(h1,.lead,.eyebrow,.card-top,.card-foot,.footer-note){color:#fff4df;text-shadow:0 1px 12px #241810;}
+html[data-layout=f] .content .card-top{background:#241b1480;padding:9px 18px;border:1px solid #dec39b55;border-radius:30px;}
+html[data-layout=f] .progress-line{margin:15px 14px 24px;background:#f9ebcd44;}
+html[data-layout=f] [data-screen=learn] .word-stage{height:274px;min-height:274px;background:#fffbf2ee;border:1px solid #f1dcbd94;border-radius:34px;backdrop-filter:blur(18px);box-shadow:0 8px 30px #281e142b;}
+html[data-layout=f] [data-screen=learn] .word-stage:before{display:none;}
+html[data-layout=f] .content .choice-list{gap:14px;}
+html[data-layout=f] .content .choice{background:#fffaf0f0;backdrop-filter:blur(12px);border-color:#fff4dda6;}
+html[data-layout=f] .content .learning-controls{padding:0 2px;}
+html[data-layout=f] .content .btn:not(.primary){background:#fff9eddc;}
+html[data-layout=f] .scene .scene-copy{background:#2419114a;border:0;box-shadow:none;backdrop-filter:none;}
+html[data-layout=f] .scene-copy h2{text-shadow:0 2px 12px #21120c;}
+html[data-layout=f] .content .level-explainer{background:#fff9edef;}
+html[data-layout=f] .content .level-list button{background:#fff9edef;}
+html[data-layout=f] .content .level-list button.active{background:#795348;}
+html[data-layout] .quiet .layout{display:block;}
+html[data-layout] .quiet:before{background:#ede5d7;}
+html[data-layout] .quiet .content{background:#fffcf4;color:#49352f;}
+html[data-layout] .quiet .masthead{color:#6a4d39;text-shadow:none;}
+@media(max-width:1150px){
+ html[data-layout] .app-shell{padding:22px 28px 86px 78px;}
+ html[data-layout] .layout{grid-template-columns:minmax(0,.85fr) minmax(390px,1fr);}
+ html[data-layout] .content{padding:33px 27px;}
+ html[data-layout] .scene .scene-copy{left:18px;right:18px;padding:19px;}
+ html[data-layout] .scene .scene-copy h2{font-size:21px;}
+ html[data-layout] [data-screen=start] .scene-copy h2{font-size:19px;}
+ html[data-layout] .page-watermark{right:28px;}
+ html[data-layout=e] .scene .scene-copy{left:auto;right:0;max-width:45%;}
+ html[data-layout=e] [data-screen=learn] .content{grid-template-columns:1fr minmax(320px,.9fr);gap:0 25px;}
+ html[data-layout=f] .content{padding:24px 0;}
+}
+@media(max-width:800px){
+ html[data-layout] body{background:#302219;}
+ html[data-layout] .shell-background{height:440px;}
+ html[data-layout] .app-shell:not(.quiet):before{background:linear-gradient(180deg,transparent 200px,#30221950 330px,#302219 450px);}
+ html[data-layout] .app-shell{padding:19px 16px 86px;}
+ html[data-layout] .masthead{margin-bottom:16px;}
+ html[data-layout] .layout{display:flex;flex-direction:column;min-height:0;gap:15px;}
+ html[data-layout] .scene{width:100%;min-height:240px;height:240px;}
+ html[data-layout] .scene .scene-copy{bottom:17px;left:auto;right:10px;width:min(66%,300px);max-width:none;padding:13px 15px;}
+ html[data-layout] .scene .scene-copy h2,html[data-layout] [data-screen=start] .scene-copy h2{font-size:16px;line-height:1.8;}
+ html[data-layout] .scene .scene-copy .scene-name{margin-bottom:7px;}
+ html[data-layout] .scene-name strong{font-size:15px;}
+ html[data-layout] .scene-name small{font-size:9px;}
+ html[data-layout] .content{width:100%;min-height:0;padding:28px 24px;border-radius:24px;}
+ html[data-layout] .content h1{font-size:27px;}
+ html[data-layout] .choice{border-radius:32px;padding:18px 20px;}
+ html[data-layout] .page-watermark{right:16px;top:24px;padding:5px 7px;}
+ html[data-layout] .learning-controls{grid-template-columns:1fr 1fr;gap:10px;}
+ html[data-layout] .learning-controls .btn{min-height:44px;font-size:13px;}
+ html[data-layout] .prototype-mark{right:12px;font-size:8px;max-width:calc(100vw - 98px);}
+ html[data-layout=e] .content .choice-list,html[data-layout=e] [data-screen=methods] .choice-list{grid-template-columns:1fr;}
+ html[data-layout=e] [data-screen=learn] .content{display:flex;flex-direction:column;align-items:stretch;}
+ html[data-layout=e] [data-screen=learn] .word-stage{margin-bottom:24px;}
+ html[data-layout=f] .content{padding:0;}
+ html[data-layout=f] .scene{min-height:240px;}
+}
+@media(max-width:360px){
+ html[data-layout] .app-shell{padding-left:12px;padding-right:12px;}
+ html[data-layout] .content{padding-left:18px;padding-right:18px;}
+ html[data-layout] .scene .scene-copy{right:7px;padding:12px;}
+ html[data-layout] .scene .scene-copy h2,html[data-layout] [data-screen=start] .scene-copy h2{font-size:15px;}
+ html[data-layout] .content h1{font-size:25px;}
+ html[data-layout] .brand .brand-copy{font-size:24px;}
+ html[data-layout] .brand small{letter-spacing:0;font-size:7px;}
+ html[data-layout] .learning-controls .btn{font-size:12px;padding-left:6px;padding-right:6px;}
+ html[data-layout] .choice{padding-left:18px;padding-right:18px;}
+ html[data-layout=f] .content{padding:0;}
+}

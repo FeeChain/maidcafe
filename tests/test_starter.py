@@ -26,10 +26,12 @@ class TestStarter(unittest.TestCase):
 import server
 server.build_words()
 server.kv_set('seated', 1)
-assert len(server.WORDS) == 24
+assert len(server.WORDS) >= 20000
 words = server.build_session()['words']
 assert len(words) == 20
-assert all(w['definition'] and w['has_audio'] for w in words)
+assert all(w['definition'] for w in words)
+assert len(server.AUDIO) >= 24
+assert all(w.get('band') is not None for w in server.WORDS if w.get('tag'))
 assert server.word_info('refill')['definition']
 """
             subprocess.run([sys.executable, '-c', code], cwd=ROOT, env=env, check=True)
@@ -65,7 +67,7 @@ assert server.word_info('refill')['definition']
                     z.write(path, path.name)
             updated = words()
             self.assertIn('topup', updated)
-            self.assertNotIn('refill', updated)
+            self.assertIn('refill', updated)  # The built-in dictionary remains available alongside imported decks.
             pack.unlink()
             self.assertNotIn('topup', words())
             self.assertIn('refill', words())

@@ -78,7 +78,7 @@ def main():
         return
     import webview
     webview.settings['ALLOW_DOWNLOADS'] = True
-    window = webview.create_window('maidcafe · 窗边的位置', address,
+    window = webview.create_window('MaidCafe · 窗边的位置', address,
                                   width=1160, height=820, min_size=(620, 620),
                                   background_color='#f7f2e7', text_select=True)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -87,18 +87,14 @@ def main():
         # Own-app development QA only, never connects to an external browser.
         import time
         window.run_js("""
-          fetch('/static/cafe/artwork-prompts.json').then(r => r.json()).then(async manifest => {
-            const failed = [];
-            await Promise.all(manifest.assets.map(asset => new Promise(resolve => {
-              const img = new Image();
-              img.onload = () => { if (!img.naturalWidth) failed.push(asset.id); resolve(); };
-              img.onerror = () => { failed.push(asset.id); resolve(); };
-              img.src = '/' + asset.file;
+          import('/static/cafe-ui/presentation.js').then(async ({POOLS}) => {
+            const failed=[];
+            await Promise.all(POOLS.learn.map(file=>new Promise(resolve=>{
+              const img=new Image();img.onload=()=>resolve();img.onerror=()=>{failed.push(file);resolve();};
+              img.src='/static/cafe-ui/assets/'+file;
             })));
-            await CafeArt.ready;
-            window.__artSmoke = {count: manifest.assets.length, failed,
-              ready: document.body.classList.contains('cafe-art-ready')};
-          }).catch(e => { window.__artSmoke = {error: String(e)}; });
+            window.__artSmoke={count:POOLS.learn.length,failed,ready:true};
+          }).catch(e=>{window.__artSmoke={error:String(e)};});
         """)
         deadline = time.monotonic() + 20
         art = None
@@ -106,7 +102,7 @@ def main():
             art = window.evaluate_js('window.__artSmoke || null')
             if art is None:
                 time.sleep(.1)
-        check = window.evaluate_js("({title: document.title, welcome: !!document.getElementById('vNew'), bridge: !!window.pywebview})")
+        check = window.evaluate_js("({title: document.title, welcome: !!document.querySelector('[data-action=seat]'), bridge: !!window.pywebview})")
         check['art'] = art
         (home / 'native-smoke.json').write_text(json.dumps(check), encoding='utf-8')
         window.destroy()

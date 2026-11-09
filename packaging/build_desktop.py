@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 from release_tools import version_info, installer_name, render_install_guide
+from prepare_speech import prepare
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = Path(os.environ.get('MAIDCAFE_DIST', ROOT / 'dist')).resolve()
@@ -14,9 +15,12 @@ WORK = ROOT / 'build'
 VERSION = version_info()
 OUT.mkdir(parents=True, exist_ok=True)
 WORK.mkdir(exist_ok=True)
+prepare()
 cmd = [sys.executable, '-m', 'PyInstaller', '--noconfirm', '--windowed',
        '--name', 'maidcafe', '--distpath', str(OUT), '--workpath', str(WORK / 'pyinstaller'),
        '--specpath', str(WORK), '--collect-data', 'webview']
+for package in ('kokoro_onnx', 'espeakng_loader', 'phonemizer', 'onnxruntime', 'soundfile'):
+    cmd += ['--collect-all', package]
 for name in ('static', 'resources', 'roster.json', 'scenes.json', 'tts_kokoro.py', 'LICENSE'):
     cmd += ['--add-data', str(ROOT / name) + ':' + (name if (ROOT / name).is_dir() else '.')]
 if sys.platform == 'darwin':

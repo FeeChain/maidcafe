@@ -14,17 +14,14 @@ DEFAULT_MODEL = 'qwen3.6:27b-mlx'
 
 
 def audio_backend():
+    import tts_kokoro
+    if tts_kokoro.available():
+        return 'kokoro'
     data = Path(os.environ.get('MAIDCAFE_DATA_DIR', ROOT / 'data'))
     python = Path(os.environ.get('MAIDCAFE_TTS_PY', ROOT / '.venv-tts/bin/python'))
-    if python.is_file() and (data / 'kokoro-v1.0.onnx').is_file() and (data / 'voices-v1.0.bin').is_file():
+    if python.is_file() and (data/'kokoro-v1.0.onnx').is_file() and (data/'voices-v1.0.bin').is_file():
         return 'kokoro'
-    if sys.platform == 'darwin' and shutil.which('say') and shutil.which('afconvert'):
-        return 'system'
-    if sys.platform == 'win32':
-        from windows_speech import voice_names
-        if voice_names():
-            return 'system'
-    return 'text'
+    return 'unavailable'
 
 
 def inspect(saved_model=''):

@@ -34,3 +34,6 @@ dist/
 assistant/
 artifacts/
 release-output/
+resources/kokoro/*.onnx
+resources/kokoro/*.bin
+resources/kokoro/*.part

@@ -1,3 +1,7 @@
 # Only for building/running the native desktop wrapper. The web core stays stdlib-only.
 pywebview==6.2.1
 pyinstaller==6.22.3
+kokoro-onnx==0.6.1
+onnxruntime==1.30.0
+soundfile==0.14.0
+espeakng-loader==0.2.4

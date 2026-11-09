@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parent
-VERSION = '0.3.2-preview'
+VERSION = '0.4.0-preview'
 
 
 def user_data_dir():
