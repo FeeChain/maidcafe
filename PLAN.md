@@ -1,3 +1,15 @@
+# 当前执行：2026-11-10 用户批准正式版本
+
+- [x] 品牌 MaidCafe；25 张同组稳定、换组轮换背景。20 张新图已生成、人工检查并优化为 WebP；原图保留 outputs/maidcafe-backgrounds-v6。
+- [x] 原型 UI 接入真实词库、SQLite 状态、SRS、测试、AI 生成、Kokoro、导入／备份。13 项新数据库回归、8 条生产 UI 旅程已通过；真实 AI 教学对话 3 句与 Kokoro 音频通过。
+- [ ] 自动化检查、三平台安装包、GitHub Actions 发布；安装已发布 Mac 包（此前授权）。
+- [ ] 发布后美化 GitHub README 首页。
+- [ ] 从最终代码提取词段／首次学会／复习／失败规则，与旧设计逐项对照。
+
+当前正式代码工作分支 codex/maidcafe-approved-ui-20261110；来源 main a1ef1b1；最近已发布 0.3.2-preview，当前源码 0.4.0-preview。原型目录 ../maidcafe-ui-prototype；背景原图 outputs/maidcafe-backgrounds-v6；用户个人 Chrome 必须每次申请，本次使用独立测试浏览器和 CLI 即可。
+
+---
+
 # maidcafe — 产品与商业决策（2026-09-17 定稿）
 
 > 内部计划文档。开源发布时可选择是否公开（透明化商业模式在开源社区通常是加分项）。

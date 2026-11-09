@@ -44,8 +44,8 @@ class TestTokenize(unittest.TestCase):
         self.assertEqual(dialogue.tokenize("Momo's cup, it's FINE-ish!"),
                          ["momo", "cup", "it", "fine", "ish"])
 
-    def test_lemma_identity_without_ecdict(self):
-        self.assertEqual(LEM.lemma("running"), "running")
+    def test_bundled_lemma_without_external_ecdict(self):
+        self.assertEqual(LEM.lemma("running"), "run")
 
 
 class TestVerifier(unittest.TestCase):
@@ -72,12 +72,12 @@ class TestVerifier(unittest.TestCase):
         self.assertEqual(r["known_ratio"], 1.0)
         self.assertEqual(r["missing_targets"], [])
 
-    def test_inflection_needs_lemma_db(self):
+    def test_inflection_uses_bundled_or_external_mapping(self):
         # 记录真实语义：校验器只靠 Lemma 还原词形（无前缀规则）。
-        # 无 ECDICT -> praised 不命中 praise（missing）；有词形映射 -> 命中。
+        # 内置词形索引与外部 ECDICT 都能让 praised 命中 praise。
         r = self._v(turns("Haruka praised the tidy shelf"), ["praise"],
                     {"tidy", "shelf", "haruka"})
-        self.assertEqual(r["missing_targets"], ["praise"])
+        self.assertEqual(r["missing_targets"], [])
 
         class StubLemma:
             def lemma(self, tok):
@@ -400,48 +400,39 @@ class TestBestDraftSelection(unittest.TestCase):
 
 
 class TestVoicesAndSetting(unittest.TestCase):
-    """10-15 用户裁决：女仆 3 美 1 英 1 日（中文音色念英语太难听，Aoi 改纯正美音）、
-    熟客 3 美 2 英，店开在香港。"""
+    """Approved revision: all voices use native US or UK English."""
 
     def test_accent_mix_matches_the_ruling(self):
-        maids = [c["kokoro_voice"][:1] for c in dialogue.ROSTER["characters"]]
-        guests = [g["kokoro_voice"][:1] for g in dialogue.ROSTER["guests"]]
-        self.assertEqual(sorted(maids), ["a", "a", "a", "b", "j"])
-        self.assertEqual(sorted(guests), ["a", "a", "a", "b", "b"])
-        momo = next(c for c in dialogue.ROSTER["characters"] if c["name"] == "Momo")
-        self.assertTrue(momo["kokoro_voice"].startswith("jf_"),
-                        "Momo's art is a Japanese girl, so she is the Japanese voice")
+        voices=[c['kokoro_voice'] for c in dialogue.ROSTER['characters']+dialogue.ROSTER['guests']]
+        self.assertTrue(all(v.startswith(('af_', 'am_', 'bf_', 'bm_')) for v in voices))
+        self.assertEqual(len(set(c['kokoro_voice'] for c in dialogue.ROSTER['characters'])),5)
 
     def test_british_voices_use_british_pronunciation(self):
-        self.assertEqual(dialogue.kokoro_lang("bf_isabella"), "en-gb")
-        self.assertEqual(dialogue.kokoro_lang("bm_george"), "en-gb")
-        for v in ("af_sarah", "am_adam", "jf_alpha", "zf_xiaoxiao"):
-            self.assertEqual(dialogue.kokoro_lang(v), "en-us", v)
+        for v in ('bf_isabella','bm_george'):
+            self.assertEqual(dialogue.kokoro_lang(v),'en-gb')
+        for v in ('af_sarah','am_adam'):
+            self.assertEqual(dialogue.kokoro_lang(v),'en-us')
+        for v in ('jf_alpha','zf_xiaoxiao'):
+            with self.assertRaises(ValueError): dialogue.kokoro_lang(v)
 
-    def test_tts_job_carries_a_language_per_speaker(self):
-        jobs = []
+    def test_native_worker_uses_each_characters_english_voice(self):
+        from unittest.mock import patch
+        with patch('tts_kokoro.available',return_value=True), patch('tts_kokoro.speak') as speak:
+            files=dialogue.synthesize([{'speaker':'Shizuku','text':'Hello.'},{'speaker':'Momo','text':'Hi.'}],{},os.path.join(TMP,'tts_job'))
+        self.assertEqual(files,['turn_00.wav','turn_01.wav'])
+        self.assertEqual([call.args[2] for call in speak.call_args_list],['bf_isabella','af_bella'])
 
-        class Done:
-            returncode, stdout, stderr = 0, "turn_00.wav\n", ""
+    def test_missing_kokoro_is_an_error_never_system_speech(self):
+        from unittest.mock import patch
+        with patch('tts_kokoro.available',return_value=False),patch('dialogue.os.path.isfile',return_value=False):
+            with self.assertRaises(RuntimeError):
+                dialogue.synthesize([{'speaker':'Momo','text':'Hello.'}],{},os.path.join(TMP,'no_tts'))
 
-        def fake_run(cmd, **kw):
-            with open(cmd[-1], encoding="utf-8") as f:
-                jobs.append(json.load(f))
-            return Done()
-
-        orig = (dialogue.kokoro_available, dialogue.subprocess.run)
-        dialogue.kokoro_available = lambda: True
-        dialogue.subprocess.run = fake_run
-        try:
-            dialogue.synthesize([{"speaker": "Shizuku", "text": "No."},
-                                 {"speaker": "Momo", "text": "Ta-da!"}],
-                                {"old tom": {"say": "x", "kokoro": "bm_george"}},
-                                os.path.join(TMP, "tts_job"))
-        finally:
-            dialogue.kokoro_available, dialogue.subprocess.run = orig
-        lang = jobs[0]["lang_map"]
-        self.assertEqual((lang["shizuku"], lang["momo"], lang["old tom"]),
-                         ("en-gb", "en-us", "en-gb"))
+    def test_bundled_inflections_work_without_full_dictionary(self):
+        lem=dialogue.Lemma(os.path.join(TMP,'no-large-dictionary.db'))
+        self.assertEqual(lem.lemma('washing'),'wash')
+        self.assertEqual(lem.lemma('tables'),'table')
+        self.assertEqual(lem.lemma('children'),'child')
 
     def test_hong_kong_setting(self):
         cast, guest, hid = dialogue.build_cast(random.Random(2))
@@ -531,6 +522,16 @@ class TestGenerationGate(unittest.TestCase):
                 con.close()
                 self.assertEqual(status, 'done')
                 self.assertFalse(json.loads(report)['personalized'])
+
+    def test_single_card_rejects_additional_unknown_words(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'MAIDCAFE_SINGLE':'1'}):
+            with patch.object(dialogue,'DB_PATH',os.path.join(tmp,'dialogue.db')), \
+                 patch.object(dialogue,'get_known_set',return_value={'coffee'}), \
+                 patch.object(dialogue,'call_ollama',return_value=turns('The analyst studies zymurgy.','Coffee is good.')), \
+                 patch.object(dialogue,'synthesize') as tts:
+                with self.assertRaisesRegex(ValueError,'不够简单'):
+                    dialogue.generate(['analyst'],seed=1)
+                tts.assert_not_called()
 
     def test_missing_targets_never_reach_tts(self):
         with tempfile.TemporaryDirectory() as tmp:

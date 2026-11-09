@@ -4,8 +4,14 @@
 
 文本源文件是 `window-seat.tsv`，四列依次为词、中文释义、英文例句、中文译文，没有表头。文本由本次项目工作编写，未摘录用户现有的第三方 Anki 包。
 
-音频由本地 Kokoro 合成，逐词使用 `af_sarah`。离线招待对话位于 `static/cafe/window-seat.mp3`，Momo 使用 `jf_alpha`，Haruka 使用 `af_sarah`。这不是原声配音。打包使用 genanki，应用读取包仅使用 Python 标准库。
+音频由本地 Kokoro 合成，逐词使用 `af_sarah`。离线招待对话位于 `static/cafe/window-seat.mp3`，旧版招待示例中 Momo 使用 `jf_alpha`（新版入口已停用），Haruka 使用 `af_sarah`。这不是原声配音。打包使用 genanki，应用读取包仅使用 Python 标准库。
 
 此包可以随 maidcafe 一起分发。独立分享时请同时保留本说明与项目 LICENSE。现有第三方大包的再分发权限未作核实，本次发布材料不包含它们。
 
 本地下载入口 `/window-seat.apkg`。对外分享可将这个文件放到 GitHub Release 或 Google Drive，并以版本号、词数和文件校验值识别更新。学习记录只留在使用者本机，不包含在词包中。
+
+## 内置基础词库与配音（0.4.0）
+
+`vocabulary.json` 从本机已有 ECDICT 数据库提取 21,244 个词：含考试标签的英文词，或 COCA 词频前 20,000 的英文词；只保留单词、释义、音标、标签与排序字段。来源 https://github.com/skywind3000/ECDICT ，MIT 许可证见 `licenses/ECDICT-MIT.txt`。构建不包含用户导入的第三方 Anki 大包。`inflections.json` 保留同一 ECDICT 来源的 27,811 个词形还原条目，帮助对话校验把 tables / washing 识别为 table / wash；同样采用 MIT 许可。`tutorial.json` 是本项目原创的五词教学。
+
+Kokoro v1.0 英语模型与声音从 thewh1teagle/kokoro-onnx 官方发布下载，构建阶段按 `packaging/prepare_speech.py` 的 SHA-256 验证；权重文件不加入 Git 源码。模型来源 https://huggingface.co/hexgrad/Kokoro-82M ，Apache 2.0，见 `licenses/Kokoro-APACHE-2.0.txt`。安装包内置运行库与权重。所有新语音仅使用 af/am/bf/bm 英语音色，不调用系统语音作为后备。

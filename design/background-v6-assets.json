@@ -1,0 +1,106 @@
+{
+  "generator": "built-in image_gen",
+  "approved_reference_generation": "v3–v5",
+  "assets": [
+    {
+      "file": "static/cafe-ui/assets/aoi-garden-v6.webp",
+      "bytes": 408960,
+      "sha256": "19621bc8499182edc6b3bf768914d165b5741229208a16f05e80dc327c028959"
+    },
+    {
+      "file": "static/cafe-ui/assets/aoi-morning-v6.webp",
+      "bytes": 402562,
+      "sha256": "e999ab0bb7b122c1942994b6358709660d39110d30b720e925f207a857cc7cc7"
+    },
+    {
+      "file": "static/cafe-ui/assets/aoi-night-v6.webp",
+      "bytes": 297954,
+      "sha256": "f9316e1477c1772b5e2b6c2b3279b35acce1809eaa167fb056a1f39092973440"
+    },
+    {
+      "file": "static/cafe-ui/assets/aoi-rain-v6.webp",
+      "bytes": 369924,
+      "sha256": "7f72a70bf34b816d940f82cdb769de609055e9c765988e0cadc8b60ad5c60eb6"
+    },
+    {
+      "file": "static/cafe-ui/assets/haruka-garden-v6.webp",
+      "bytes": 510676,
+      "sha256": "2be800b09cfd935d5a31d273b7b04856b588dadb93656bddb766b926c689dd22"
+    },
+    {
+      "file": "static/cafe-ui/assets/haruka-morning-v6.webp",
+      "bytes": 417526,
+      "sha256": "6b1019d5fc0facc18551fd4177d06df1227562ccb692b89c8108a8dfa1c19c7c"
+    },
+    {
+      "file": "static/cafe-ui/assets/haruka-night-v6.webp",
+      "bytes": 339924,
+      "sha256": "b05f2b825e469439b1b3c1414f1fee1b2e11e9e373fa0cc6da56028b0c4f2363"
+    },
+    {
+      "file": "static/cafe-ui/assets/haruka-rain-v6.webp",
+      "bytes": 448868,
+      "sha256": "a244e30ecc448e1b516801c33ea14b2229d1b1a017df759b948d0d3498e6c0c9"
+    },
+    {
+      "file": "static/cafe-ui/assets/momo-garden-v6.webp",
+      "bytes": 435064,
+      "sha256": "cc8a0ecbc925dc598f5f09c421afc68dc032f898beac9800db49358968e1ebcf"
+    },
+    {
+      "file": "static/cafe-ui/assets/momo-morning-v6.webp",
+      "bytes": 405366,
+      "sha256": "8497385019a63de1de2a9417fc9dec1590e50551c93c5934ca65de642684380b"
+    },
+    {
+      "file": "static/cafe-ui/assets/momo-night-v6.webp",
+      "bytes": 373812,
+      "sha256": "3cb54773f9bef387d17f8986d019478863b54e53e18c0a9e72334f0ef69f2c54"
+    },
+    {
+      "file": "static/cafe-ui/assets/momo-rain-v6.webp",
+      "bytes": 429602,
+      "sha256": "76f58506729cdad3410999b86b466e6c428f9ea3c899d706b5e7fdbeda9a514a"
+    },
+    {
+      "file": "static/cafe-ui/assets/shizuku-garden-v6.webp",
+      "bytes": 432682,
+      "sha256": "cfb2eb7c99facdecca3bd6e4fba60cbf197439f9776defe031912e2cf8fc0ede"
+    },
+    {
+      "file": "static/cafe-ui/assets/shizuku-morning-v6.webp",
+      "bytes": 411440,
+      "sha256": "732332f96b7b95bacb4dc7d3314e67dd7fb6992c27b343c020188fb60c0b298a"
+    },
+    {
+      "file": "static/cafe-ui/assets/shizuku-night-v6.webp",
+      "bytes": 355146,
+      "sha256": "72e61a761ade74b2a72e55758ba201cd24545cc361c6543ef20b89081148ffb4"
+    },
+    {
+      "file": "static/cafe-ui/assets/shizuku-rain-v6.webp",
+      "bytes": 366358,
+      "sha256": "ea2359e1e903892257c1c3a409deeefd9d3cb28394952ec187f8f221ef10fc12"
+    },
+    {
+      "file": "static/cafe-ui/assets/suzu-garden-v6.webp",
+      "bytes": 511100,
+      "sha256": "05b313c6730e510faf7a6d41a82472949e1b7a01ff7cde366f13f617aafda70f"
+    },
+    {
+      "file": "static/cafe-ui/assets/suzu-morning-v6.webp",
+      "bytes": 434462,
+      "sha256": "9aca4b5f2e332bcb0f0db9893d2df663eac7479be485307b62c5de6567c8e811"
+    },
+    {
+      "file": "static/cafe-ui/assets/suzu-night-v6.webp",
+      "bytes": 356262,
+      "sha256": "6994ddc240fd11546592e9d526522eb95db95a43f44f208aae8efaaede870c70"
+    },
+    {
+      "file": "static/cafe-ui/assets/suzu-rain-v6.webp",
+      "bytes": 437032,
+      "sha256": "7f5e942e52a7c84184a2c868790c86235fd0d08b8a970299d7c15c465a4cfbb4"
+    }
+  ]
+}

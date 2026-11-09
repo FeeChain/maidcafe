@@ -1,0 +1,27 @@
+/* Identical expanded and closed menus in the product and the R02 samples. */
+:is(html[data-menu-style],.menu-sample) .menu-trigger{position:fixed;left:20px;bottom:23px;width:40px;height:40px;padding:0;display:flex;align-items:center;justify-content:center;gap:6px;background:#fff7e8b0;border:1px solid #e5d0ac94;border-radius:50%;box-shadow:0 5px 20px #34241930;backdrop-filter:blur(14px);color:#6b4c36;z-index:12;}
+:is(html[data-menu-style],.menu-sample) .menu-trigger svg{width:18px;height:18px;}
+:is(html[data-menu-style],.menu-sample) .menu-caption{display:none;font-size:11px;}
+:is(html[data-menu-style],.menu-sample) .menu-pop{position:fixed;left:20px;bottom:75px;width:224px;padding:10px;background:#fff8e9e6;border:1px solid #e1cba698;border-radius:23px;box-shadow:0 12px 45px #24191140;backdrop-filter:blur(18px);z-index:13;}
+:is(html[data-menu-style],.menu-sample) .menu-pop button{display:flex;gap:9px;align-items:center;justify-content:flex-start;width:100%;min-height:42px;font-size:12px;padding:10px 13px;margin:4px 0;border-radius:999px;background:#fffcf270;border:1px solid #c4ab854a;color:#674a35;text-align:left;white-space:nowrap;cursor:pointer;}
+:is(html[data-menu-style],.menu-sample) .menu-pop button:hover{background:#f0dfc5;border-color:#b59870;}
+:is(html[data-menu-style],.menu-sample) .menu-pop svg{width:17px;height:17px;flex:none;}
+:is(html[data-menu-style],.menu-sample) .menu-title{font-size:10px;padding:4px 12px;color:#947558;letter-spacing:.06em;}
+:is(html[data-menu-style='2'],.menu-sample[data-menu-style='2']) .menu-trigger{width:68px;height:36px;border-radius:25px;left:12px;}
+:is(html[data-menu-style='2'],.menu-sample[data-menu-style='2']) .menu-caption{display:block;}
+:is(html[data-menu-style='2'],.menu-sample[data-menu-style='2']) .menu-pop{display:flex;gap:7px;width:max-content;max-width:calc(100vw - 40px);border-radius:999px;padding:8px;bottom:73px;}
+:is(html[data-menu-style='2'],.menu-sample[data-menu-style='2']) .menu-title{display:none;}
+:is(html[data-menu-style='2'],.menu-sample[data-menu-style='2']) .menu-pop button{width:auto;min-height:40px;margin:0;padding:10px 15px;}
+:is(html[data-menu-style='3'],.menu-sample[data-menu-style='3']) .menu-trigger{width:46px;height:36px;border-radius:22px;background:#3f2d21aa;color:#ffedd3;border-color:#f7dab278;}
+:is(html[data-menu-style='3'],.menu-sample[data-menu-style='3']) .menu-pop{display:grid;grid-template-columns:1fr 1fr;gap:9px;width:292px;padding:0;background:none;border:0;box-shadow:none;backdrop-filter:none;}
+:is(html[data-menu-style='3'],.menu-sample[data-menu-style='3']) .menu-title{display:none;}
+:is(html[data-menu-style='3'],.menu-sample[data-menu-style='3']) .menu-pop button{margin:0;justify-content:center;background:#fff7e6dc;border:1px solid #fff2d1aa;backdrop-filter:blur(14px);box-shadow:0 6px 22px #27170e3d;min-height:44px;padding:10px;}
+@media(max-width:800px){
+ html[data-menu-style] .menu-trigger{position:absolute;left:16px;bottom:18px;}
+ html[data-menu-style] .menu-pop{left:16px;bottom:70px;}
+ html[data-menu-style='2'] .menu-pop{display:grid;grid-template-columns:1fr 1fr;max-width:calc(100vw - 32px);border-radius:24px;}
+ html[data-menu-style='2'] .menu-pop button{justify-content:center;}
+ html[data-menu-style='3'] .menu-pop{width:min(292px,calc(100vw - 32px));}
+}
+/* Samples live inside their own illustration, never at the review viewport edge. */
+.menu-comparison .menu-sample :is(.menu-trigger,.menu-pop){position:absolute;}

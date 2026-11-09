@@ -1,0 +1,172 @@
+/* G/H/I change the metaphor and document structure, rather than the B panel skin. */
+html[data-layout=g] body,html[data-layout=h] body{background:#eee5d6;}
+html[data-layout=g] .shell-background,html[data-layout=h] .shell-background,html[data-layout=i] .shell-background{display:none;}
+/* G — a page of manga: two image panels, a dialogue panel, then the word bubble. */
+html[data-layout=g] .app-shell{padding:25px 65px 86px 85px;}
+html[data-layout=g] .app-shell:before{background:radial-gradient(#d1c8b7 1px,transparent 1.4px) 0 0/7px 7px,#f4eee1;}
+html[data-layout=g] .masthead{max-width:1120px;color:#302923;text-shadow:none;border-bottom:3px solid #342c25;padding-bottom:13px;}
+html[data-layout=g] .brand-seal{background:#f5bfa4;border-color:#342c25;}
+html[data-layout=g] .page-watermark{background:#fffaf0;color:#403229;border:2px solid #342c25;box-shadow:3px 3px 0 #342c25;border-radius:0;}
+html[data-layout=g] .page-watermark span{border-color:#af9577;}
+html[data-layout=g] .layout{display:flex;flex-direction:column;max-width:1120px;gap:17px;min-height:0;}
+html[data-layout=g] .scene{display:grid;grid-template-columns:1.1fr .65fr 1fr;gap:15px;min-height:0;height:248px;overflow:visible;}
+html[data-layout=g] .manga-panel{position:relative;overflow:hidden;border:3px solid #342c25;background:#fffaf0;box-shadow:4px 4px 0 #342c25;}
+html[data-layout=g] .manga-panel img{width:100%;height:100%;object-fit:cover;object-position:var(--art-position);display:block;}
+html[data-layout=g] .manga-room img{object-position:70% 60%;}
+html[data-layout=g] .manga-panel>span{position:absolute;top:0;left:0;padding:4px 9px;background:#fffaf0;border-right:2px solid #342c25;border-bottom:2px solid #342c25;font:9px ui-monospace,monospace;color:#503b2d;}
+html[data-layout=g] .scene .scene-copy{position:relative;inset:auto;margin:0;display:flex;flex-direction:column;justify-content:center;min-width:0;padding:23px 24px;background:#fffaf1;border:3px solid #342c25;border-radius:0;box-shadow:4px 4px 0 #342c25;backdrop-filter:none;color:#352923;}
+html[data-layout=g] .scene .scene-copy:before{content:'03';position:absolute;right:11px;top:8px;font:italic 15px Georgia;color:#b39a7d;}
+html[data-layout=g] .scene .scene-copy h2{font-size:20px;line-height:1.8;color:#3e2e26;}
+html[data-layout=g] .scene .scene-copy .scene-name{color:#7d4d37;margin-bottom:12px;}
+html[data-layout=g] .scene-name small{color:#88705a;border-color:#bea78e;}
+html[data-layout=g] .content{min-height:0;padding:24px 38px 28px;border:3px solid #342c25;border-radius:0;background:#fffdf5;box-shadow:5px 5px 0 #342c25;backdrop-filter:none;}
+html[data-layout=g] .content h1{font-size:31px;}
+html[data-layout=g] .content .choice-list{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+html[data-layout=g] [data-screen=methods] .choice-list{grid-template-columns:repeat(3,1fr);}
+html[data-layout=g] .choice{border:2px solid #624734;background:#fffdf5;box-shadow:2px 3px 0 #d8b995;}
+html[data-layout=g] .choice.active{background:#f5d2ab;}
+html[data-layout=g] .card-top{font-family:ui-monospace,'PingFang SC',sans-serif;color:#65503d;}
+html[data-layout=g] .progress-line{margin:13px 0 19px;height:3px;background:#ede2cf;}
+html[data-layout=g] [data-screen=learn] .word-stage{max-width:680px;width:100%;height:180px;min-height:180px;margin:5px auto 23px;border:2px solid #342c25;border-radius:50%;background:#fffdf7;position:relative;}
+html[data-layout=g] [data-screen=learn] .word-stage:before{display:none;}
+html[data-layout=g] .word-stage:after{content:'';position:absolute;bottom:-8px;left:26%;width:17px;height:17px;border-right:2px solid #342c25;border-bottom:2px solid #342c25;background:#fffdf7;transform:skew(-18deg) rotate(28deg);}
+html[data-layout=g] .word{font-weight:700;font-size:54px;color:#382b25;}
+html[data-layout=g] .word-meaning{font-size:17px;margin-top:12px;}
+html[data-layout=g] .learning-controls{max-width:680px;width:100%;margin:auto;}
+html[data-layout=g] .btn{border:2px solid #5f4433;box-shadow:2px 3px 0 #cfb391;background:#fff5e4;}
+html[data-layout=g] .btn.primary{background:#80513e;border-color:#5f4433;color:#fffaf0;}
+html[data-layout=g] .btn:disabled{border-color:#c9bca8;box-shadow:none;background:#f1e9da;color:#9d8c76;}
+html[data-layout=g] .workroom{background:#fffdf3;border:3px solid #342c25;border-radius:0;box-shadow:5px 5px 0 #342c25;}
+html[data-layout=g] .prototype-mark{background:#fffaedc9;color:#80644a;}
+/* H — a top-down café table; the vocabulary is printed on a paper order slip. */
+html[data-layout=h] .app-shell{padding:25px 54px 90px 84px;}
+html[data-layout=h] .app-shell:before{background:linear-gradient(90deg,#3b1e0e22,transparent 30%,#fff5d214),repeating-linear-gradient(1deg,#8a5f3c00 0 9px,#70472824 10px,#d2ac7224 12px,#8a5f3c00 15px),repeating-linear-gradient(90deg,#b88c59 0px,#d0a66f 270px,#9c7143 272px,#69492c 274px,#bb925f 277px);}
+html[data-layout=h] .masthead{max-width:1160px;color:#fff4df;text-shadow:0 1px 4px #60411f;margin-bottom:24px;}
+html[data-layout=h] .layout{display:grid;grid-template-columns:235px minmax(380px,610px);justify-content:start;align-items:start;max-width:1160px;min-height:calc(100dvh - 190px);gap:45px;}
+html[data-layout=h] .scene{min-height:0;height:auto;display:flex;flex-direction:column;gap:23px;padding-top:45px;}
+html[data-layout=h] .table-photo{margin:0;padding:10px 10px 37px;background:#fffaf0;box-shadow:0 9px 18px #36200e38;transform:rotate(-5deg);position:relative;border:1px solid #efe3ce;}
+html[data-layout=h] .table-photo:before{content:'';position:absolute;z-index:1;width:75px;height:23px;left:calc(50% - 37px);top:-10px;background:#e5cdaac4;transform:rotate(6deg);}
+html[data-layout=h] .table-photo img{width:100%;height:230px;display:block;object-fit:cover;object-position:var(--art-position);}
+html[data-layout=h] .table-photo figcaption{font:italic 13px Georgia,serif;color:#7c6148;position:absolute;bottom:11px;left:17px;}
+html[data-layout=h] .scene .scene-copy{position:relative;inset:auto;padding:22px 20px;background:#f6e5b9;border:0;border-radius:0;box-shadow:3px 5px 10px #5a371525;backdrop-filter:none;transform:rotate(2deg);}
+html[data-layout=h] .scene .scene-copy h2{font-size:18px;line-height:1.9;color:#62452e;}
+html[data-layout=h] .scene .scene-copy .scene-name{color:#6e4d33;}
+html[data-layout=h] .scene-name small{color:#987a53;border-color:#b49a6c;}
+html[data-layout=h] .content{min-height:650px;padding:58px 36px 50px;border:0;border-radius:0;background:repeating-linear-gradient(0deg,#fffdf600 0 3px,#bfaa8510 4px),#fffdf5;box-shadow:0 14px 30px #3b230e40;backdrop-filter:none;position:relative;}
+html[data-layout=h] .content:before{content:'MAIDCAFE / COFFEE & WORDS';position:absolute;top:23px;left:36px;right:36px;text-align:center;font:10px ui-monospace,monospace;letter-spacing:.18em;color:#9b876c;padding-bottom:12px;border-bottom:1px dashed #c2ad8c;}
+html[data-layout=h] .content:after{display:block;content:'';position:absolute;left:0;right:0;bottom:-10px;width:100%;height:11px;border:0;opacity:1;background:linear-gradient(135deg,#fffdf5 5px,transparent 0) 0 0/14px 14px,linear-gradient(225deg,#fffdf5 5px,transparent 0) 0 0/14px 14px;}
+html[data-layout=h] .content h1{font-size:29px;}
+html[data-layout=h] .card-top{margin-top:10px;font-size:11px;}
+html[data-layout=h] .progress-line{background:#e5d5ba;}
+html[data-layout=h] [data-screen=learn] .word-stage{border-top:1px dashed #b6a081;border-bottom:1px dashed #b6a081;background:none;height:274px;min-height:274px;}
+html[data-layout=h] [data-screen=learn] .word-stage:before{content:'•';color:#b39b7a;background:#fffdf5;}
+html[data-layout=h] .word{font-size:54px;color:#59412d;}
+html[data-layout=h] .choice{background:#f8f1e2;border-color:#cfba96;}
+html[data-layout=h] .table-props{position:absolute;top:170px;right:40px;width:155px;height:265px;pointer-events:none;z-index:-1;}
+html[data-layout=h] .linen{position:absolute;inset:0 -10px 30px -10px;transform:rotate(10deg);background:repeating-linear-gradient(90deg,#dfd1b633 0 1px,transparent 1px 4px),repeating-linear-gradient(0deg,#cdbd9c44 0 1px,transparent 1px 4px),#eee0c1;box-shadow:3px 5px 8px #583b2026;}
+html[data-layout=h] .coffee-cup{position:absolute;width:140px;height:140px;border-radius:50%;background:radial-gradient(ellipse,#fffcf3 45%,#ded0b7 47%,#fff7e5 51%,#e4d7c2 67%,#fffaf1 68%);top:5px;left:-5px;box-shadow:4px 12px 12px #412b1b44;}
+html[data-layout=h] .coffee-cup:before{content:'';position:absolute;top:53px;right:-8px;width:28px;height:21px;border:8px solid #fff8e9;border-radius:50%;box-shadow:2px 2px 4px #73553455;}
+html[data-layout=h] .coffee-cup span{position:absolute;inset:23px;border:6px solid #fffdf3;border-radius:50%;background:radial-gradient(ellipse at 40% 25%,#bd8753,#713e1c 35%,#372010 80%);box-shadow:inset 0 3px 8px #1e150a88,0 2px 4px #85694b55;}
+html[data-layout=h] .coffee-spoon{position:absolute;left:65px;bottom:25px;width:8px;height:79px;border-radius:8px;background:linear-gradient(90deg,#a49c8e,#fffdf7 45%,#b7afa1);transform:rotate(-20deg);box-shadow:3px 3px 3px #5e492044;}
+html[data-layout=h] .coffee-spoon:before{content:'';position:absolute;left:-7px;top:-22px;width:22px;height:35px;border-radius:50%;background:radial-gradient(ellipse,#b8ae9c,#eeeadf 60%,#9d968a 65%,#f5f1e5 80%);}
+html[data-layout=h] .prototype-mark{background:#63442591;}
+/* I — a visual novel stage, with a separate approved character sprite. */
+html[data-layout=i] .app-shell{padding:25px 55px 90px 84px;}
+html[data-layout=i] .app-shell:before{background:linear-gradient(#20122418,#20122440),url('assets/rainy-table.webp') center/cover no-repeat;}
+html[data-layout=i] .layout{display:flex;flex-direction:column;gap:0;max-width:1180px;min-height:0;}
+html[data-layout=i] .scene{min-height:0;height:clamp(330px,45dvh,480px);position:relative;clip-path:inset(-200px -100px 0 -100px);}
+html[data-layout=i] .novel-character{position:absolute;height:calc(100% + 370px);max-height:880px;width:auto;right:4%;bottom:-350px;object-fit:contain;filter:drop-shadow(0 12px 18px #2416284d);pointer-events:none;}
+html[data-layout=i] .scene .scene-copy{width:360px;max-width:40%;left:20px;right:auto;bottom:64px;padding:21px 25px;border:1px solid #e4d1b9;background:#fff8e9e6;box-shadow:0 8px 24px #25162a30;color:#5d4455;border-radius:25px 25px 4px 25px;}
+html[data-layout=i] .scene .scene-copy h2{font-size:20px;color:#624b56;}
+html[data-layout=i] .scene .scene-copy .scene-name{color:#926e80;}
+html[data-layout=i] .scene-name small{color:#a0818b;border-color:#c9acb1;}
+html[data-layout=i] .content{position:relative;min-height:0;border:1px solid #fff7ef;border-radius:28px 28px 12px 12px;background:linear-gradient(130deg,#fffaf5f2,#f1e4e9f5);padding:34px 42px 29px;box-shadow:0 6px 30px #29162847,0 0 0 5px #fff5e52e;backdrop-filter:blur(14px);z-index:2;}
+html[data-layout=i] .novel-name{position:absolute;left:28px;top:-22px;background:#785469;color:#fff6ec;border:1px solid #edd9db;border-radius:999px;padding:8px 30px;font:italic 20px Georgia,serif;box-shadow:0 3px 10px #2c192528;}
+html[data-layout=i] .content h1{font-size:29px;}
+html[data-layout=i] .content .choice-list{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+html[data-layout=i] [data-screen=methods] .choice-list{grid-template-columns:repeat(3,1fr);}
+html[data-layout=i] .card-top{color:#876776;font-size:11px;}
+html[data-layout=i] .progress-line{margin:12px 0 10px;background:#d4bccb66;}
+html[data-layout=i] .progress-line>span{background:#a57c90;}
+html[data-layout=i] [data-screen=learn] .word-stage{height:122px;min-height:122px;padding:0 20px;margin:0 0 21px;background:none;border:0;align-items:flex-start;text-align:left;}
+html[data-layout=i] [data-screen=learn] .word-stage:before{display:none;}
+html[data-layout=i] .word{font-size:45px;color:#68465a;}
+html[data-layout=i] .word-meaning{font-size:18px;margin-top:8px;color:#806571;}
+html[data-layout=i] .word-stage:has(.sound-mark){display:grid;grid-template-columns:80px 1fr;align-content:center;align-items:center;column-gap:20px;}
+html[data-layout=i] .word-stage .sound-mark{grid-row:1/3;margin:0;color:#ad8793;}
+html[data-layout=i] .word-stage .word.veiled{font-size:30px;}
+html[data-layout=i] .word-stage .tiny{margin-top:0!important;}
+html[data-layout=i] .learning-controls{max-width:640px;width:100%;align-self:flex-end;}
+html[data-layout=i] .btn.primary{background:#805b70;border-color:#805b70;}
+html[data-layout=i] .content .coach{min-height:0;margin-bottom:12px;background:#ecdce38c;border-color:#c9aebe;color:#8b677b;}
+html[data-layout=i] .content .coach b{color:#8b677b;}
+html[data-layout=i] .content .card-foot{font-size:10px;margin-top:11px;}
+@media(max-width:1200px){
+ html[data-layout=h] .layout{grid-template-columns:200px minmax(390px,1fr);gap:30px;max-width:900px;}
+ html[data-layout=h] .table-props{display:none;}
+ html[data-layout=h] .table-photo img{height:200px;}
+ html[data-layout=g] .scene{grid-template-columns:1fr .6fr 1fr;}
+ html[data-layout=g] .scene .scene-copy{padding:18px;}
+ html[data-layout=g] .scene .scene-copy h2{font-size:18px;}
+}
+@media(max-width:800px){
+ html[data-layout=g] .app-shell,html[data-layout=h] .app-shell,html[data-layout=i] .app-shell{padding:19px 16px 86px;}
+ html[data-layout=g] .app-shell:not(.quiet):before{background:radial-gradient(#d1c8b7 1px,transparent 1.4px) 0 0/7px 7px,#f4eee1;}
+ html[data-layout=g] .masthead{padding-bottom:12px;}
+ html[data-layout=g] .layout{gap:13px;}
+ html[data-layout=g] .scene{display:grid;height:auto;grid-template-columns:1.1fr .9fr;gap:10px;}
+ html[data-layout=g] .manga-panel{height:175px;}
+ html[data-layout=g] .scene .scene-copy{width:100%;max-width:none;grid-column:1/-1;padding:15px 18px;}
+ html[data-layout=g] .scene .scene-copy h2{font-size:16px;}
+ html[data-layout=g] .scene .scene-copy .scene-name{margin-bottom:5px;}
+ html[data-layout=g] .content{padding:23px 20px;}
+ html[data-layout=g] .content h1{font-size:26px;}
+ html[data-layout=g] .content .choice-list,html[data-layout=g] [data-screen=methods] .choice-list{grid-template-columns:1fr;}
+ html[data-layout=g] [data-screen=learn] .word-stage{height:180px;min-height:180px;border-radius:42%;padding:14px 12px;}
+ html[data-layout=g] .word{font-size:43px;}
+ html[data-layout=h] .app-shell:not(.quiet):before{background:repeating-linear-gradient(1deg,transparent 0 9px,#70472824 10px,#d2ac7224 12px,transparent 15px),repeating-linear-gradient(90deg,#b88c59 0,#d0a66f 220px,#9c7143 222px,#69492c 224px,#bb925f 227px);}
+ html[data-layout=h] .layout{display:flex;flex-direction:column;gap:22px;min-height:0;}
+ html[data-layout=h] .scene{display:grid;grid-template-columns:100px 1fr;gap:15px;align-items:center;padding:5px 0 0;}
+ html[data-layout=h] .table-photo{padding:5px 5px 24px;transform:rotate(-3deg);}
+ html[data-layout=h] .table-photo img{height:122px;}
+ html[data-layout=h] .table-photo figcaption{font-size:8px;bottom:7px;left:7px;}
+ html[data-layout=h] .table-photo:before{width:40px;left:calc(50% - 20px);height:16px;top:-8px;}
+ html[data-layout=h] .scene .scene-copy{width:auto;max-width:none;padding:15px 14px;}
+ html[data-layout=h] .scene .scene-copy h2{font-size:15px;line-height:1.8;}
+ html[data-layout=h] .scene .scene-copy .scene-name{font-size:14px;margin-bottom:7px;}
+ html[data-layout=h] .scene-name small{display:none;}
+ html[data-layout=h] .content{width:100%;min-height:0;padding:57px 24px 31px;}
+ html[data-layout=h] .content h1{font-size:26px;}
+ html[data-layout=h] .content:before{left:24px;right:24px;font-size:8px;letter-spacing:.1em;}
+ html[data-layout=h] .word{font-size:44px;}
+ html[data-layout=h] .table-props{display:none;}
+ html[data-layout=i] .app-shell:not(.quiet):before{background:linear-gradient(#20122418,#20122440),url('assets/rainy-table.webp') 60% center/cover no-repeat;}
+ html[data-layout=i] .layout{gap:0;}
+ html[data-layout=i] .scene{height:300px;min-height:0;}
+ html[data-layout=i] .novel-character{height:510px;max-height:none;max-width:100%;right:0;bottom:-210px;}
+ html[data-layout=i] .scene .scene-copy{left:0;right:auto;bottom:65px;width:45%;max-width:none;padding:13px 15px;border-radius:20px 20px 3px 20px;}
+ html[data-layout=i] .scene .scene-copy h2{font-size:14px;line-height:1.8;}
+ html[data-layout=i] .scene-name small{display:none;}
+ html[data-layout=i] .content{border-radius:23px 23px 10px 10px;padding:31px 23px 26px;}
+ html[data-layout=i] .novel-name{left:20px;top:-18px;padding:7px 24px;font-size:17px;}
+ html[data-layout=i] .content h1{font-size:26px;}
+ html[data-layout=i] .content .choice-list,html[data-layout=i] [data-screen=methods] .choice-list{grid-template-columns:1fr;}
+ html[data-layout=i] [data-screen=learn] .word-stage{height:153px;min-height:153px;margin-bottom:20px;padding:0 5px;}
+ html[data-layout=i] .word{font-size:42px;}
+ html[data-layout=i] .word-stage:has(.sound-mark){grid-template-columns:50px 1fr;column-gap:13px;}
+ html[data-layout=i] .sound-mark{gap:3px;}
+}
+@media(max-width:360px){
+ html[data-layout=g] .app-shell,html[data-layout=h] .app-shell,html[data-layout=i] .app-shell{padding-left:12px;padding-right:12px;}
+ html[data-layout=g] .content,html[data-layout=h] .content,html[data-layout=i] .content{padding-left:18px;padding-right:18px;}
+ html[data-layout=h] .scene{grid-template-columns:85px 1fr;gap:12px;}
+ html[data-layout=h] .table-photo img{height:115px;}
+ html[data-layout=h] .scene .scene-copy{padding:12px;}
+ html[data-layout=h] .scene .scene-copy h2{font-size:14px;}
+ html[data-layout=i] .scene .scene-copy{padding:12px;width:45%;}
+ html[data-layout=i] .scene .scene-copy h2{font-size:13px;}
+ html[data-layout=i] .novel-character{right:0;}
+}
+/* Illustration-minimal setting retains an ordinary legible work surface. */
+html:is([data-layout=g],[data-layout=h],[data-layout=i]) .quiet .layout{display:block;}
+html:is([data-layout=g],[data-layout=h],[data-layout=i]) .quiet .table-props{display:none;}

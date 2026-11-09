@@ -1,0 +1,67 @@
+/* One continuous room illustration; the interface floats above it. */
+.app-shell {background:transparent;padding-top:28px;}
+.shell-background {opacity:1;filter:none;left:var(--room-left,0px);width:var(--room-width,100%);object-position:var(--room-position,right center);}
+.app-shell:before {background:linear-gradient(90deg,#24191138,transparent 47%,#2c1e1726);}
+.masthead {color:#fff9ec;text-shadow:0 1px 12px #24160e;}
+.mast-note,.welcome-note {display:none;}
+.layout {background:none;border:0;box-shadow:none;border-radius:0;gap:30px;grid-template-columns:minmax(0,1fr) minmax(450px,.93fr);overflow:visible;}
+.scene {background:none;overflow:visible;min-height:650px;}
+.scene:before {inset:0;border-color:#fff5dd55;border-radius:12px;}
+.scene:after {display:none;}
+.scene .scene-name {top:22px;left:23px;text-shadow:none;}
+.scene .scene-copy {left:23px;right:23px;bottom:25px;padding:24px 26px;background:#34251dd9;border:1px solid #f5dbad5c;border-radius:9px;backdrop-filter:blur(8px);}
+.scene-copy h2 {font-size:26px;line-height:1.8;letter-spacing:.035em;color:#fff7e9;}
+.scene-copy .eyebrow {font-size:10px;margin-bottom:13px;color:#eed4a5;}
+.scene-copy .line,.scene-copy p {display:none;}
+.content {background:#fffdf5fb;border:1px solid #f9e6c7bd;border-radius:12px;box-shadow:0 18px 65px #25150f2b;min-height:650px;padding:40px 42px;}
+.content.top {padding-top:34px;}
+.workroom {background:#fffdf5f7;box-shadow:0 22px 65px #24160d3b;}
+.quiet .masthead {color:var(--ink);text-shadow:none;}
+.quiet .layout {display:block;}
+.quiet:before {background:#f1eadd;}
+.page-watermark {position:fixed;right:26px;top:20px;z-index:20;display:flex;align-items:center;gap:10px;padding:7px 11px;border:1px solid #e1cba680;border-radius:5px;background:#fff9edda;color:#644a36;backdrop-filter:blur(8px);pointer-events:none;font-size:11px;letter-spacing:.06em;}
+.page-watermark b {font:600 13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.03em;}
+.page-watermark span {border-left:1px solid #c7ac87;padding-left:10px;}
+.dialog-watermark {display:block;font:11px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace;color:#95754f;letter-spacing:.09em;margin-bottom:4px;}
+.prototype-mark {color:#fff3df;background:#3b2a1fc4;}
+.welcome .invitation {width:min(450px,100%);}
+.invitation .lead {font-size:15px;line-height:2;}
+.brand small {letter-spacing:.1em;}
+.learning-controls {display:flex;flex-direction:column;gap:14px;}
+.fixed-actions {display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.fixed-actions>.btn {width:100%;min-height:52px;padding:12px 9px;white-space:nowrap;}
+.fixed-actions>.btn:disabled {background:#eee6d9;color:#9a8774;border-color:#dfd0bb;box-shadow:none;}
+.word-tools {display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:11px 12px;border-top:1px solid #dfcdb2;background:#f3eadc91;border-radius:0 0 8px 8px;}
+.word-tools .tool-btn {background:#fffdf5;border:1px solid #cebaa0;min-height:40px;padding:7px 12px;font-size:12px;color:#72523d;box-shadow:none;gap:8px;letter-spacing:0;}
+.word-tools .tool-btn:hover:not(:disabled) {background:#ede2ce;border-color:#ad8c66;}
+.word-tools .tool-btn:disabled {background:transparent;border-color:#e0d5c3;color:#9b8b77;}
+.word-tools svg {width:17px;height:17px;}
+[data-screen=learn] .word-stage {height:274px;min-height:274px;margin:8px 0 24px;padding:18px 10px;}
+[data-screen=learn] .coach {min-height:105px;margin-bottom:20px;align-items:center;}
+[data-screen=learn] .word-meaning {margin-top:16px;}
+[data-screen=learn] .card-foot {margin-top:16px;}
+.work-hero-art figcaption {font-size:10px;}
+.group-art-frame:after {content:'coffee & conversation';}
+@media(min-width:1450px){.layout{min-height:740px}.scene,.content{min-height:740px}}
+@media(max-width:1100px){
+ .layout{gap:22px;grid-template-columns:minmax(0,.8fr) minmax(410px,1.2fr)}
+ .content{padding:33px 30px}.scene .scene-copy{left:16px;right:16px;padding:20px}.scene-copy h2{font-size:23px}.scene .scene-name{left:16px;top:18px}.page-watermark{right:22px;top:19px}
+}
+@media(max-width:730px){
+ .app-shell{padding:17px 14px 75px}.shell-background{left:0;width:100%;object-position:var(--mobile-position,55% center)}
+ .layout{display:flex;gap:15px}.scene{height:208px;min-height:208px}.scene:before{inset:0;border-radius:9px}.scene .scene-name{display:none}.scene .scene-copy{left:13px;right:13px;bottom:13px;padding:14px 17px;background:#302219d4}.scene-copy h2{font-size:20px;line-height:1.8}.scene-copy .eyebrow{display:none}
+ .content,.content.top,.content.wide{min-height:0;padding:28px 24px 31px;border-radius:10px}.masthead{margin-bottom:18px}.brand small{font-size:8px;letter-spacing:.04em}
+ .page-watermark{right:14px;top:21px;padding:6px 8px}.page-watermark span{display:none}.page-watermark b{font-size:11px}
+ .welcome .invitation{width:100%;padding:25px 27px}.invitation .lead{font-size:14px;line-height:1.95}
+ [data-screen=learn] .word-stage{height:235px;min-height:235px;padding:15px 5px}
+ [data-screen=learn] .coach{min-height:118px;padding:11px 12px;font-size:12px}
+ .learning-controls{gap:13px}.fixed-actions{gap:10px}.fixed-actions>.btn{min-height:50px;font-size:13px;padding:10px 6px}.word-tools{padding:11px 7px;gap:9px}.word-tools .tool-btn{font-size:12px;min-height:40px;padding:6px 7px}
+ .quiet .layout{display:block}.quiet .content{width:100%}
+}
+@media(max-width:360px){.content,.content.top{padding-left:18px;padding-right:18px}.scene-copy h2{font-size:18px}.word-tools .tool-btn{font-size:11px}.page-watermark{right:12px}.brand .brand-copy{font-size:25px}.welcome .brand .brand-copy{font-size:30px}.welcome .brand-seal{width:33px;height:33px}}
+
+/* P02: the introduction belongs with the caption, never above Momo's face. */
+.scene .scene-copy .scene-name {position:static;display:flex;width:fit-content;padding:0;margin:0 0 12px;border:0;background:none;box-shadow:none;color:#ffeed6;}
+.scene-copy .scene-name small {color:#e8cfaa;border-color:#dbc39970;}
+[data-screen=start] .scene-copy h2 {font-size:22px;line-height:1.8;letter-spacing:.015em;}
+@media(max-width:730px){.scene .scene-copy .scene-name{display:none}[data-screen=start] .scene-copy h2{font-size:18px;line-height:1.7}}

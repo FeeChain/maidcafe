@@ -1,3 +1,9 @@
 # Only for building/running the native desktop wrapper. The web core stays stdlib-only.
 pywebview==6.2.1
 pyinstaller==6.22.3
+kokoro-onnx==0.6.1
+# 1.23.2 is the final published macOS x86_64 wheel; later wheels are ARM only.
+onnxruntime==1.23.2; sys_platform == 'darwin' and platform_machine == 'x86_64'
+onnxruntime==1.30.0; sys_platform != 'darwin' or platform_machine != 'x86_64'
+soundfile==0.14.0
+espeakng-loader==0.2.4

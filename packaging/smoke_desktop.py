@@ -29,13 +29,13 @@ with tempfile.TemporaryDirectory(prefix='maidcafe-package-') as tmp:
                 print(log.read_text(encoding='utf-8', errors='replace')[-10000:])
             raise
     result = json.loads((home / 'self-check.json').read_text(encoding='utf-8'))
-    assert result['words'] == result['audio'] == 24, result
+    assert result['words'] >= 20000 and result['audio'] >= 24, result
     assert result['version'] == VERSION, result
     native = json.loads((home / 'native-smoke.json').read_text(encoding='utf-8'))
     assert native['welcome'] and native['bridge'], native
-    assert native['art'] == {'count': 23, 'failed': [], 'ready': True}, native
+    assert native['art'] == {'count': 25, 'failed': [], 'ready': True}, native
     audio = json.loads((home / 'speech-check.json').read_text(encoding='utf-8'))
-    assert audio['backend'] == expected_audio, audio
+    assert audio['backend'] == expected_audio == 'kokoro', audio
     if expected_audio != 'text':
         assert audio['files'] and (home / 'speech-check' / audio['files'][0]).stat().st_size > 44
     else:

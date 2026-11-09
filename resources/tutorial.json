@@ -1,0 +1,42 @@
+[
+  {
+    "id": "tutorial:hello",
+    "word": "hello",
+    "meaning": "你好",
+    "example": "Hello! It is nice to see you.",
+    "band": 0,
+    "tutorial": true
+  },
+  {
+    "id": "tutorial:please",
+    "word": "please",
+    "meaning": "请",
+    "example": "A cup of coffee, please.",
+    "band": 0,
+    "tutorial": true
+  },
+  {
+    "id": "tutorial:thank you",
+    "word": "thank you",
+    "meaning": "谢谢你",
+    "example": "Thank you for the coffee.",
+    "band": 0,
+    "tutorial": true
+  },
+  {
+    "id": "tutorial:coffee",
+    "word": "coffee",
+    "meaning": "咖啡",
+    "example": "Your coffee is ready.",
+    "band": 0,
+    "tutorial": true
+  },
+  {
+    "id": "tutorial:welcome",
+    "word": "welcome",
+    "meaning": "欢迎",
+    "example": "Welcome to our little cafe.",
+    "band": 0,
+    "tutorial": true
+  }
+]

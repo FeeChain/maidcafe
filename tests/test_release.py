@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -11,8 +12,27 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'packaging'))
 import release_tools as meta
 import publish_release as release
+import disk_image
 
 SHA = 'a' * 40
+
+
+class DiskImageTests(unittest.TestCase):
+    def test_busy_retry_is_bounded_and_can_recover(self):
+        busy = subprocess.CompletedProcess(['hdiutil'], 1, 'hdiutil: create failed - Resource busy\n')
+        done = subprocess.CompletedProcess(['hdiutil'], 0, 'created\n')
+        with patch('disk_image.subprocess.run', side_effect=[busy, done]) as run, patch('disk_image.time.sleep') as pause:
+            disk_image.create_image(['hdiutil'])
+            self.assertEqual(run.call_count, 2);pause.assert_called_once_with(5)
+        with patch('disk_image.subprocess.run', return_value=busy) as run, patch('disk_image.time.sleep'):
+            with self.assertRaises(subprocess.CalledProcessError):disk_image.create_image(['hdiutil'])
+            self.assertEqual(run.call_count, 3)
+
+    def test_other_errors_are_not_retried(self):
+        error = subprocess.CompletedProcess(['hdiutil'], 1, 'No space left on device\n')
+        with patch('disk_image.subprocess.run', return_value=error) as run, patch('disk_image.time.sleep') as pause:
+            with self.assertRaises(subprocess.CalledProcessError):disk_image.create_image(['hdiutil'])
+            self.assertEqual(run.call_count, 1);pause.assert_not_called()
 
 
 class ArtifactTests(unittest.TestCase):
@@ -26,8 +46,8 @@ class ArtifactTests(unittest.TestCase):
             path.write_bytes(('installer ' + target).encode())
             report = {'platform':target,'version':self.version,'commit':SHA,
                       'filename':path.name,'size':path.stat().st_size,'sha256':meta.digest(path),
-                      'native':{'native':{'welcome':True,'bridge':True},
-                                'self_check':{'version':self.version,'words':24,'audio':24},'worker':'error recorded'},
+                      'native':{'native':{'welcome':True,'bridge':True,'art':{'count':25,'failed':[],'ready':True}},
+                                'self_check':{'version':self.version,'words':21244,'audio':24},'worker':'error recorded','speech':{'backend':'kokoro','files':['turn_00.wav']}},
                       'assistant':{'ready':True,'phase':'done','model':['qwen3:1.7b']}}
             (self.root / ('build-report-' + target + '.json')).write_text(json.dumps(report))
 

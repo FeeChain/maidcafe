@@ -67,8 +67,12 @@ def validate_artifacts(folder, version, commit):
             raise ValueError('Native window not verified: ' + target)
         if native.get('self_check', {}).get('version') != version or native.get('worker') != 'error recorded':
             raise ValueError('Frozen app not verified: ' + target)
-        if native['self_check'].get('words') != 24 or native['self_check'].get('audio') != 24:
+        if native['self_check'].get('words', 0) < 20000 or native['self_check'].get('audio', 0) < 24:
             raise ValueError('Bundled vocabulary not verified: ' + target)
+        if native.get('speech', {}).get('backend') != 'kokoro' or not native.get('speech', {}).get('files'):
+            raise ValueError('Bundled English speech not verified: ' + target)
+        if native.get('native', {}).get('art') != {'count':25,'failed':[],'ready':True}:
+            raise ValueError('Group artwork not verified: ' + target)
         if not assistant.get('ready'):
             raise ValueError('Assistant engine not verified: ' + target)
         if target != 'macOS-x86_64' and (assistant.get('phase') != 'done' or not assistant.get('model')):

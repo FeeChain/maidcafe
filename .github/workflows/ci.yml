@@ -9,8 +9,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: ubuntu-latest, python: '3.9'}
-          - {os: ubuntu-latest, python: '3.12'}
+          - {os: ubuntu-24.04, python: '3.9'}
+          - {os: ubuntu-24.04, python: '3.12'}
           - {os: macos-15, python: '3.12'}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
@@ -32,7 +32,7 @@ jobs:
           path: tests.log
           retention-days: 14
   ui:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -47,7 +47,9 @@ jobs:
       - run: |
           python -m pip install -r requirements-dev.txt
           python -m playwright install --with-deps chromium
-      - run: python tests/test_ui.py 2>&1 | tee ui.log
+      - run: |
+          node tests/test_domain.mjs
+          python tests/test_ui.py 2>&1 | tee ui.log
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:

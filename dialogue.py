@@ -105,7 +105,8 @@ class Lemma:
     def lemma(self, token):
         if token in self.cache:
             return self.cache[token]
-        out = token
+        from inflections import lemma
+        out = lemma(token)
         if self.con:
             row = self.con.execute(
                 "select exchange from stardict where word = ?", (token,)).fetchone()
@@ -374,7 +375,7 @@ def call_ollama(messages):
     payload = json.dumps({
         "model": MODEL, "messages": messages, "stream": False,
         "format": "json", "think": False,
-        "options": {"temperature": 0.9, "num_predict": 1200, "num_ctx": 4096},
+        "options": {"temperature": 0.9, "num_predict": 450 if os.environ.get("MAIDCAFE_SINGLE")=="1" or os.environ.get("MAIDCAFE_TUTORIAL")=="1" else 1200, "num_ctx": 4096},
     }).encode("utf-8")
     req = urllib.request.Request(
         OLLAMA_URL, data=payload, headers={"Content-Type": "application/json"})
@@ -393,13 +394,14 @@ KOKORO_MODEL = os.path.join(os.environ.get("MAIDCAFE_DATA_DIR", os.path.join(ROO
 
 
 def kokoro_lang(voice):
-    """Kokoro 的发音规则：英式音色（bf_/bm_）用 en-gb，其余一律 en-us——日语、中文
-    音色也用 en-us，要的是"带口音的英语"，用 ja/zh 规则会把英文当日文/中文念。"""
-    return "en-gb" if voice.startswith("b") else "en-us"
+    if not voice.startswith(('af_', 'am_', 'bf_', 'bm_')):
+        raise ValueError('Only English Kokoro voices are supported.')
+    return 'en-gb' if voice.startswith('b') else 'en-us'
 
 
 def kokoro_available():
-    return os.path.exists(KOKORO_PY) and os.path.exists(KOKORO_MODEL)
+    import tts_kokoro
+    return tts_kokoro.available() or (os.path.exists(KOKORO_PY) and os.path.exists(KOKORO_MODEL))
 
 
 @lru_cache(maxsize=1)
@@ -414,54 +416,33 @@ def system_voices():
 
 
 def synthesize(turns, guest_voice_map, out_dir):
-    """guest_voice_map: {speaker-lower: {"say": v, "kokoro": v}} for guests."""
+    """All tutorial, word and conversation speech uses English Kokoro voices."""
+    import tts_kokoro
     os.makedirs(out_dir, exist_ok=True)
-    for f in os.listdir(out_dir):  # clear stale audio from previous backend
-        if f.startswith("turn_"):
-            os.remove(os.path.join(out_dir, f))
-    if kokoro_available():
-        vmap = {c["name"].lower(): c["kokoro_voice"] for c in ROSTER["characters"]}
-        for name, v in guest_voice_map.items():
-            vmap[name] = v["kokoro"]
-        job = {"turns": turns, "voice_map": vmap,
-               "lang_map": {n: kokoro_lang(v) for n, v in vmap.items()},
-               "default_voice": "af_sarah", "out_dir": out_dir}
-        job_path = os.path.join(out_dir, "job.json")
-        with open(job_path, "w", encoding="utf-8") as f:
-            json.dump(job, f, ensure_ascii=False)
-        res = subprocess.run([KOKORO_PY, os.path.join(ROOT, "tts_kokoro.py"), job_path],
-                             capture_output=True, text=True)
-        if res.returncode == 0:
-            os.remove(job_path)
-            return [line for line in res.stdout.split() if line.endswith(".wav")]
-        print("kokoro failed, falling back to say:\n" + res.stderr[-800:])
-
-    if sys.platform == 'win32':
-        from windows_speech import synthesize as windows_synthesize
-        return windows_synthesize(turns, out_dir)
-    if not shutil.which('say') or not shutil.which('afconvert'):
-        # Non-macOS installations without Kokoro can still read generated stories.
-        return []
-    vmap = {c["name"].lower(): c["voice"] for c in ROSTER["characters"]}
-    for name, v in guest_voice_map.items():
-        vmap[name] = v["say"]
-    files = []
-    for i, t in enumerate(turns):
-        voice = vmap.get(t["speaker"].lower(), "Samantha")
-        aiff = os.path.join(out_dir, "turn_%02d.aiff" % i)
-        m4a = os.path.join(out_dir, "turn_%02d.m4a" % i)
-        available = system_voices()
-        voice = voice if voice in available else next((v for v, lang in available.items() if lang.startswith('en_')), None)
-        command = ['say'] + (['-v', voice] if voice else [])
-        subprocess.run(command + ['-o', aiff, t['text']], check=True)
-        subprocess.run(["afconvert", "-f", "m4af", "-d", "aac", aiff, m4a],
-                       check=True, capture_output=True)
-        os.remove(aiff)
-        files.append(os.path.basename(m4a))
-    return files
+    vmap = {c['name'].lower(): c['kokoro_voice'] for c in ROSTER['characters']}
+    vmap.update({name:v['kokoro'] for name,v in guest_voice_map.items()})
+    for voice in vmap.values():
+        kokoro_lang(voice)
+    if tts_kokoro.available():
+        files=[]
+        for i, turn in enumerate(turns):
+            name='turn_%02d.wav' % i
+            tts_kokoro.speak(turn['text'], os.path.join(out_dir,name), vmap.get(turn['speaker'].lower(),'af_sarah'))
+            files.append(name)
+        return files
+    if os.path.isfile(KOKORO_PY) and os.path.isfile(KOKORO_MODEL):
+        job={'turns':turns,'voice_map':vmap,'out_dir':out_dir}
+        job_path=os.path.join(out_dir,'job.json')
+        with open(job_path,'w',encoding='utf-8') as f:
+            json.dump(job,f)
+        result=subprocess.run([KOKORO_PY,os.path.join(ROOT,'tts_kokoro.py'),job_path],capture_output=True,text=True,timeout=600)
+        if result.returncode:
+            raise RuntimeError('Kokoro 配音失败：'+result.stderr[-300:])
+        os.remove(job_path)
+        return [line for line in result.stdout.split() if line.endswith('.wav')]
+    raise RuntimeError('Kokoro 配音资源缺失，请重新安装完整版本。')
 
 
-# ---------------------------------------------------------------- main
 def generate(targets, seed=None):
     rng = random.Random(seed)
     con = db()
@@ -478,17 +459,21 @@ def generate(targets, seed=None):
             "say": guest["voice"], "kokoro": guest["kokoro_voice"]}
     scene = rng.choice(SCENES["scenes"])
     messages = build_messages(cast, guest, hidden, scene, targets)
+    single = os.environ.get('MAIDCAFE_SINGLE') == '1'
+    if single:
+        messages.append({'role':'user','content':'This is a single-word card. Use only the selected target as new vocabulary. Write 2–4 short turns, at most 10 words per turn. Keep every other word very common and concrete. No subplot.'})
+    if os.environ.get('MAIDCAFE_TUTORIAL') == '1':
+        messages.append({'role':'user', 'content':'This is the first five-word tutorial. Write only 2–4 very short turns, at most 8 words each. Use plain beginner English, simple coffee-shop greetings, and all target words. No metaphors, difficult vocabulary or subplots.'})
 
-    # 开工先插占位行：前端靠 status 展示分步进度
-    # writing(第N稿) -> tts(配音中) -> done；异常 -> error(带原因)
-    cur = con.execute(
-        "insert into dialogues(ts, scene, characters, target_words, turns, report, status)"
-        " values(?,?,?,?,?,?,?)",
-        (time.time(), scene,
-         json.dumps([c["name"] for c in cast] + ([guest["name"]] if guest else [])),
-         json.dumps(targets), "[]", json.dumps({"progress": "warming up"}),
-         "writing"))
-    did = cur.lastrowid
+    supplied_id = os.environ.get('MAIDCAFE_DIALOGUE_ID')
+    if supplied_id:
+        did = int(supplied_id)
+        con.execute('update dialogues set scene=?,characters=? where id=?',
+                    (scene, json.dumps([c['name'] for c in cast] + ([guest['name']] if guest else [])), did))
+    else:
+        cur = con.execute('insert into dialogues(ts,scene,characters,target_words,turns,report,status) values(?,?,?,?,?,?,?)',
+                          (time.time(),scene,json.dumps([c['name'] for c in cast]),json.dumps(targets),'[]','{}','writing'))
+        did = cur.lastrowid
     con.commit()
 
     try:
@@ -515,6 +500,8 @@ def generate(targets, seed=None):
             ok = (not report["missing_targets"] and not report["banned_address"]
                   and (not known or (not report["dense_turns"]
                        and report["known_ratio"] >= KNOWN_RATIO_TARGET)))
+            if single:
+                ok = ok and 2 <= len(turns) <= 4 and (not known or not report['unknown_words'])
             # 达标稿无条件采用；分数只在不达标的稿之间比（每句 2 个生词的轻扣分
             # 可能让达标稿分数低于不达标稿——10-14 读码时发现）
             if ok or best is None or (not report["missing_targets"], score(report)) > (not best[1]["missing_targets"], score(best[1])):
@@ -524,10 +511,14 @@ def generate(targets, seed=None):
             messages.append({"role": "assistant",
                              "content": json.dumps({"turns": turns})})
             messages.append(repair_message(report))
+            if single:
+                messages.append({'role':'user','content':'Use 2–4 short turns only. Replace every non-target unknown word listed above with easier words.'})
 
         turns, report = best
         if not turns or report["missing_targets"]:
             raise ValueError("这几稿没有完整用到点的词，请换一组或重试。")
+        if single and ((known and report['unknown_words']) or not 2 <= len(turns) <= 4):
+            raise ValueError('这段单词对话还不够简单，请再试一次。')
         con.execute(
             "update dialogues set turns=?, report=?, status='tts' where id=?",
             (json.dumps(turns, ensure_ascii=False), json.dumps(report), did))
