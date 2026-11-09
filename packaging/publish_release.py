@@ -96,12 +96,12 @@ def assemble(artifacts, output, commit, repository, run_url):
                     (labels[target], report['size'] / 1e6, base, report['filename']))
     body = notes + '\n\n' + '\n'.join(rows)
     body += ('\n\nMac 打开 DMG 后拖入 Applications；Windows 运行安装程序。无需 Python。'
-             '首次可直接试听、翻词卡；生成故事时点「故事设置 → 一键准备」。\n\n'
+             '首次可直接试听、翻词卡；生成故事时点「左下角菜单 → 设置 → 查看助手 → 一键准备」。\n\n'
              '轻量模型约 1.4 GB、标准约 2.5 GB；首次引擎 Mac 约 186 MB、Windows 约 1.6 GB。'
              '自动准备需 macOS 14+ / Windows 10 22H2+，建议至少 8 GB 内存；下载后可离线使用。\n\n'
              '当前安装包尚未完成发行签名/公证，首次打开可能出现系统来源提示。'
              'AI 生成的词义与语法仍需抽查。\n\n'
-             '三个安装包均经实际安装、原生窗口、内置词库、系统配音与助手引擎检查；'
+             '三个安装包均经实际安装、原生窗口、21,244 词基础词库、25 张背景、Kokoro 英语配音与助手引擎检查；'
              'Mac ARM / Windows 还实际下载并试运行轻量模型。'
              '附件提供源码、安装说明、词包、验证记录和 SHA-256 校验文件。\n\n')
     body += '[构建与测试记录](%s) · 源码 `%s`\n' % (run_url, commit)
@@ -127,7 +127,7 @@ def publish(repository, info, commit, files, body):
             if obj['type'] != 'commit' or obj['sha'] != commit:
                 raise ValueError('Existing version tag points to a different source commit')
         release = api(endpoint, 'POST', {'tag_name':info['tag'], 'target_commitish':commit,
-                      'name':'maidcafe ' + info['version'], 'body':body, 'draft':True,
+                      'name':'MaidCafe ' + info['version'], 'body':body, 'draft':True,
                       'prerelease':info['prerelease'], 'make_latest':'false'})
     expected = {p.name for p in files}
     if any(a['name'] not in expected for a in release.get('assets', [])):
