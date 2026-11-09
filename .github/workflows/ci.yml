@@ -9,8 +9,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: ubuntu-latest, python: '3.9'}
-          - {os: ubuntu-latest, python: '3.12'}
+          - {os: ubuntu-24.04, python: '3.9'}
+          - {os: ubuntu-24.04, python: '3.12'}
           - {os: macos-15, python: '3.12'}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
@@ -32,7 +32,7 @@ jobs:
           path: tests.log
           retention-days: 14
   ui:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
