@@ -191,7 +191,8 @@ def generate(s, payload):
         cmd = ([sys.executable, '--generate', json.dumps(words)] if getattr(sys, 'frozen', False)
                else [sys.executable, os.path.join(s.ROOT, 'dialogue.py'), '--words', ','.join(words)])
         env = dict(os.environ, MAIDCAFE_MODEL=setup['model'], MAIDCAFE_OLLAMA_BASE=s.ai_runtime.OLLAMA_BASE,
-                   MAIDCAFE_DIALOGUE_ID=str(did), MAIDCAFE_TUTORIAL='1' if tutorial else '0')
+                   MAIDCAFE_DIALOGUE_ID=str(did), MAIDCAFE_TUTORIAL='1' if tutorial else '0',
+                   MAIDCAFE_SINGLE='1' if payload.get('single') else '0')
         Path(s.LOG_DIR).mkdir(parents=True, exist_ok=True)
         opts = {'creationflags':subprocess.CREATE_NO_WINDOW} if os.name=='nt' else {'start_new_session':True}
         try:

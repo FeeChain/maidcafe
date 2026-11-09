@@ -87,4 +87,3 @@ export function resolvePage(s,page){
  if(['exam','exam-result'].includes(page))return !s.exam?'exam-select':s.exam.done?'exam-result':'exam';
  return ['history','player','library','settings','exam-select'].includes(page)?page:safeResume(s);
 }
-

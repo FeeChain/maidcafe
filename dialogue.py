@@ -105,7 +105,8 @@ class Lemma:
     def lemma(self, token):
         if token in self.cache:
             return self.cache[token]
-        out = token
+        from inflections import lemma
+        out = lemma(token)
         if self.con:
             row = self.con.execute(
                 "select exchange from stardict where word = ?", (token,)).fetchone()
@@ -374,7 +375,7 @@ def call_ollama(messages):
     payload = json.dumps({
         "model": MODEL, "messages": messages, "stream": False,
         "format": "json", "think": False,
-        "options": {"temperature": 0.9, "num_predict": 1200, "num_ctx": 4096},
+        "options": {"temperature": 0.9, "num_predict": 450 if os.environ.get("MAIDCAFE_SINGLE")=="1" or os.environ.get("MAIDCAFE_TUTORIAL")=="1" else 1200, "num_ctx": 4096},
     }).encode("utf-8")
     req = urllib.request.Request(
         OLLAMA_URL, data=payload, headers={"Content-Type": "application/json"})
@@ -458,6 +459,9 @@ def generate(targets, seed=None):
             "say": guest["voice"], "kokoro": guest["kokoro_voice"]}
     scene = rng.choice(SCENES["scenes"])
     messages = build_messages(cast, guest, hidden, scene, targets)
+    single = os.environ.get('MAIDCAFE_SINGLE') == '1'
+    if single:
+        messages.append({'role':'user','content':'This is a single-word card. Use only the selected target as new vocabulary. Write 2–4 short turns, at most 10 words per turn. Keep every other word very common and concrete. No subplot.'})
     if os.environ.get('MAIDCAFE_TUTORIAL') == '1':
         messages.append({'role':'user', 'content':'This is the first five-word tutorial. Write only 2–4 very short turns, at most 8 words each. Use plain beginner English, simple coffee-shop greetings, and all target words. No metaphors, difficult vocabulary or subplots.'})
 
@@ -496,6 +500,8 @@ def generate(targets, seed=None):
             ok = (not report["missing_targets"] and not report["banned_address"]
                   and (not known or (not report["dense_turns"]
                        and report["known_ratio"] >= KNOWN_RATIO_TARGET)))
+            if single:
+                ok = ok and 2 <= len(turns) <= 4 and (not known or not report['unknown_words'])
             # 达标稿无条件采用；分数只在不达标的稿之间比（每句 2 个生词的轻扣分
             # 可能让达标稿分数低于不达标稿——10-14 读码时发现）
             if ok or best is None or (not report["missing_targets"], score(report)) > (not best[1]["missing_targets"], score(best[1])):
@@ -505,10 +511,14 @@ def generate(targets, seed=None):
             messages.append({"role": "assistant",
                              "content": json.dumps({"turns": turns})})
             messages.append(repair_message(report))
+            if single:
+                messages.append({'role':'user','content':'Use 2–4 short turns only. Replace every non-target unknown word listed above with easier words.'})
 
         turns, report = best
         if not turns or report["missing_targets"]:
             raise ValueError("这几稿没有完整用到点的词，请换一组或重试。")
+        if single and ((known and report['unknown_words']) or not 2 <= len(turns) <= 4):
+            raise ValueError('这段单词对话还不够简单，请再试一次。')
         con.execute(
             "update dialogues set turns=?, report=?, status='tts' where id=?",
             (json.dumps(turns, ensure_ascii=False), json.dumps(report), did))

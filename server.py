@@ -648,6 +648,9 @@ def word_info(word):
     导入）退回 ECDICT——否则它们在生词本和学习卡上是空白释义（10-13 真机抓到）。"""
     lw = word.lower()
     w = WORD_INDEX.get(lw) or STARTER_WORDS.get(lw)
+    if not w:
+        from inflections import lemma
+        w = WORD_INDEX.get(lemma(lw))
     if w:
         return {"word": word, "phonetic": w.get("phonetic", ""),
                 "definition": (w.get("definition") or "")[:200],

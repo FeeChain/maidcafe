@@ -12,6 +12,6 @@
 
 ## 内置基础词库与配音（0.4.0）
 
-`vocabulary.json` 从本机已有 ECDICT 数据库提取 21,244 个词：含考试标签的英文词，或 COCA 词频前 20,000 的英文词；只保留单词、释义、音标、标签与排序字段。来源 https://github.com/skywind3000/ECDICT ，MIT 许可证见 `licenses/ECDICT-MIT.txt`。构建不包含用户导入的第三方 Anki 大包。`tutorial.json` 是本项目原创的五词教学。
+`vocabulary.json` 从本机已有 ECDICT 数据库提取 21,244 个词：含考试标签的英文词，或 COCA 词频前 20,000 的英文词；只保留单词、释义、音标、标签与排序字段。来源 https://github.com/skywind3000/ECDICT ，MIT 许可证见 `licenses/ECDICT-MIT.txt`。构建不包含用户导入的第三方 Anki 大包。`inflections.json` 保留同一 ECDICT 来源的 27,811 个词形还原条目，帮助对话校验把 tables / washing 识别为 table / wash；同样采用 MIT 许可。`tutorial.json` 是本项目原创的五词教学。
 
 Kokoro v1.0 英语模型与声音从 thewh1teagle/kokoro-onnx 官方发布下载，构建阶段按 `packaging/prepare_speech.py` 的 SHA-256 验证；权重文件不加入 Git 源码。模型来源 https://huggingface.co/hexgrad/Kokoro-82M ，Apache 2.0，见 `licenses/Kokoro-APACHE-2.0.txt`。安装包内置运行库与权重。所有新语音仅使用 af/am/bf/bm 英语音色，不调用系统语音作为后备。

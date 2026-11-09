@@ -44,8 +44,8 @@ class TestTokenize(unittest.TestCase):
         self.assertEqual(dialogue.tokenize("Momo's cup, it's FINE-ish!"),
                          ["momo", "cup", "it", "fine", "ish"])
 
-    def test_lemma_identity_without_ecdict(self):
-        self.assertEqual(LEM.lemma("running"), "running")
+    def test_bundled_lemma_without_external_ecdict(self):
+        self.assertEqual(LEM.lemma("running"), "run")
 
 
 class TestVerifier(unittest.TestCase):
@@ -72,12 +72,12 @@ class TestVerifier(unittest.TestCase):
         self.assertEqual(r["known_ratio"], 1.0)
         self.assertEqual(r["missing_targets"], [])
 
-    def test_inflection_needs_lemma_db(self):
+    def test_inflection_uses_bundled_or_external_mapping(self):
         # 记录真实语义：校验器只靠 Lemma 还原词形（无前缀规则）。
-        # 无 ECDICT -> praised 不命中 praise（missing）；有词形映射 -> 命中。
+        # 内置词形索引与外部 ECDICT 都能让 praised 命中 praise。
         r = self._v(turns("Haruka praised the tidy shelf"), ["praise"],
                     {"tidy", "shelf", "haruka"})
-        self.assertEqual(r["missing_targets"], ["praise"])
+        self.assertEqual(r["missing_targets"], [])
 
         class StubLemma:
             def lemma(self, tok):
@@ -428,6 +428,12 @@ class TestVoicesAndSetting(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 dialogue.synthesize([{'speaker':'Momo','text':'Hello.'}],{},os.path.join(TMP,'no_tts'))
 
+    def test_bundled_inflections_work_without_full_dictionary(self):
+        lem=dialogue.Lemma(os.path.join(TMP,'no-large-dictionary.db'))
+        self.assertEqual(lem.lemma('washing'),'wash')
+        self.assertEqual(lem.lemma('tables'),'table')
+        self.assertEqual(lem.lemma('children'),'child')
+
     def test_hong_kong_setting(self):
         cast, guest, hid = dialogue.build_cast(random.Random(2))
         system = dialogue.build_messages(cast, guest, hid, "s", ["tea"])[0]["content"]
@@ -516,6 +522,16 @@ class TestGenerationGate(unittest.TestCase):
                 con.close()
                 self.assertEqual(status, 'done')
                 self.assertFalse(json.loads(report)['personalized'])
+
+    def test_single_card_rejects_additional_unknown_words(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'MAIDCAFE_SINGLE':'1'}):
+            with patch.object(dialogue,'DB_PATH',os.path.join(tmp,'dialogue.db')), \
+                 patch.object(dialogue,'get_known_set',return_value={'coffee'}), \
+                 patch.object(dialogue,'call_ollama',return_value=turns('The analyst studies zymurgy.','Coffee is good.')), \
+                 patch.object(dialogue,'synthesize') as tts:
+                with self.assertRaisesRegex(ValueError,'不够简单'):
+                    dialogue.generate(['analyst'],seed=1)
+                tts.assert_not_called()
 
     def test_missing_targets_never_reach_tts(self):
         with tempfile.TemporaryDirectory() as tmp:
