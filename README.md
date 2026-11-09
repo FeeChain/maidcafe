@@ -1,205 +1,118 @@
 <div align="center">
 
-<img src="static/art/A1_logo.png" width="130" alt="maidcafe logo">
+# MaidCafe
 
-# maidcafe ☕
+**一杯咖啡，一组单词，姐姐们的一段小故事。**
 
-**[下载 Mac / Windows 桌面版](https://github.com/FeeChain/maidcafe/releases)** <!-- desktop-download-cta -->
+在女仆咖啡馆里学英语。翻开词卡，把想学的词交给本地 AI，听它们出现在新的日常对话中。
 
-**一间记得你认识哪些单词的女仆咖啡厅。**
+[**下载 Mac / Windows**](https://github.com/FeeChain/maidcafe/releases) · [看看怎么玩](#从入座到下一杯咖啡) · [单词与复习原理](design/WORD_LIFECYCLE.md)
 
-背了几千个单词，还是听不出、拼不对？<br>
-maidcafe 把你想学的词，<br>
-现场编成一段只属于你的咖啡厅日常对话——全部在你自己的电脑上完成。
+<img src=".github/assets/welcome.webp" width="960" alt="MaidCafe 欢迎页：Suzu 在咖啡馆门口端着咖啡迎接你">
 
-[![构建与发布](https://github.com/FeeChain/maidcafe/actions/workflows/pipeline.yml/badge.svg)](https://github.com/FeeChain/maidcafe/actions/workflows/pipeline.yml)
-![Python](https://img.shields.io/badge/python-3.9%2B-blue)
-![Local First](https://img.shields.io/badge/data-100%25%20local-brightgreen)
-![License](https://img.shields.io/badge/license-AGPL--3.0-orange)
-
-<img src="static/cafe/scenes/window-seat-v3.webp" width="820" alt="欢迎光临">
+[![构建与发布](https://github.com/FeeChain/maidcafe/actions/workflows/pipeline.yml/badge.svg?branch=main)](https://github.com/FeeChain/maidcafe/actions/workflows/pipeline.yml) [![Release](https://img.shields.io/github/v/release/FeeChain/maidcafe?include_prereleases&label=桌面版&color=835d4c)](https://github.com/FeeChain/maidcafe/releases) [![AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-bb9672)](LICENSE)
 
 </div>
 
----
+## 下载，入座
 
 <!-- desktop-downloads:start -->
-## 下载桌面版
-
-**[点击这里下载最新 Mac / Windows 安装包](https://github.com/FeeChain/maidcafe/releases)**
-
-| 你的电脑 | 在最新发布页选择的文件 |
+| 你的电脑 | 下载 0.4.0 预览版 |
 |---|---|
-| Mac M 系列 | 文件名以 `macOS-arm64.dmg` 结尾 |
-| Intel Mac | 文件名以 `macOS-x86_64.dmg` 结尾 |
-| Windows 64 位 | 文件名以 `Windows-x64-Setup.exe` 结尾 |
+| Mac · Apple Silicon / M 系列 | [下载 DMG · 426 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.4.0-preview/maidcafe-0.4.0-preview-macOS-arm64.dmg) |
+| Mac · Intel | [下载 DMG · 435 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.4.0-preview/maidcafe-0.4.0-preview-macOS-x86_64.dmg) |
+| Windows · 64 位 | [下载安装程序 · 389 MB](https://github.com/FeeChain/maidcafe/releases/download/v0.4.0-preview/maidcafe-0.4.0-preview-Windows-x64-Setup.exe) |
 
-安装包约 20–25 MB，发布页顶部有各系统的直接下载按钮。无需 Python 或命令行。先体验内置词卡和试听，生成自己的故事只需在软件内点「故事设置 → 一键准备」；引擎和模型会自动下载、校验和配置，支持暂停续传。轻量模型约 1.4 GB、标准约 2.5 GB，首次还需下载引擎；自动准备需要 macOS 14+ / Windows 10 22H2+。当前为未完成发行签名的预览版，首次打开可能出现系统来源提示；[安装说明与更新记录](https://github.com/FeeChain/maidcafe/releases)。
+**无需 Python、终端或 API 密钥。** Mac 打开 DMG 后拖入 Applications；Windows 按安装向导操作。
+
+安装包内置 **21,244 词基础词库、25 张咖啡馆背景和 Kokoro 英语配音**。安装后就能测试、听词和学习。AI 故事助手在软件内「左下角菜单 → 设置 → 查看助手 → 一键准备」下载并配置，已有本地 Ollama 也可直接选用。
+
+轻量故事模型约 1.4 GB，标准约 2.5 GB；首次下载引擎另需 Mac 约 186 MB / Windows 约 1.6 GB。准备完成后可离线运行。Mac 需 macOS 14+，Windows 建议 Windows 10 22H2+ / Windows 11，并安装 [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)。
+
+当前仍为预览版，尚未完成 Apple Developer ID 公证和 Windows 发行签名，首次打开可能出现来源提示。操作方法、文件大小与 SHA-256 见 [发布页](https://github.com/FeeChain/maidcafe/releases) 和包内《开始使用》。
 <!-- desktop-downloads:end -->
 
-人物与配图：[当前定妆规范](design/characters/v1/使用说明.txt) · [素材与提示词](static/cafe/README.md)。
+## 从入座到下一杯咖啡
 
-## 它解决什么问题
+**认识彼此** → **找到起点** → **五词体验** → **一组学习** → **听一段故事，或继续下一组**
 
-大多数背单词软件在**考你**；maidcafe 在**陪你听**。
+第一次可以选择自己已经熟练掌握的词汇档位，也可以做二分、抽样或完整测试。选择 CET4 表示已经掌握四级词汇，之后从 CET6 开始。测试随时保存续接。
 
-- **"看得懂，听不出"**——传统软件只测"认不认识字形"。这里的校准是听音优先：
-  先放发音，你判断听没听出来，再看词形判断能否想起词义。两个词汇量，分开算。
-- **"例句永远那两句"**——每次复习，你的生词都被现场编进一段**全新的**对话。
-  同一个词，昨天出现在雨夜的打烊闲聊里，今天出现在店长核对排班的办公室里。
-- **"数据在别人服务器上"**——LLM、TTS、词库、学习记录，全部本地。
-  不联网也能用，你的学习数据永远不出你的电脑。
+正式学习默认每组 20 个词，先过到期复习，再学新词。先听、翻开，再选「学会了」或「再学一次」。没记住的词留下重学，20 个可以逐渐变成 5 个、1 个。整组都学会后，就能继续。
 
-## 怎么玩
+<img src=".github/assets/learning.webp" width="960" alt="MaidCafe 学习页：左侧咖啡馆场景、右侧词卡和四个胶囊按钮">
 
-**① 入座**：欢迎页说明玩法，窗边菜单有一段可以离线播放的招待对话。无需先测词汇量，也不用先下载词库。
+**想听这个词怎么用，就生成一段对话。** 单词下方可以生成只围绕当前目标词的短对白；组末可以随机选 3 / 5 词，或自己勾选最多 5 词。剩几个就用几个，每次生成都保留，可反复听。生成和播放均由你决定。
 
-**② 点单**：输入 1–5 个英文词或短语，让女仆们把它们编进日常故事。也可以先翻内置词卡，翻开的词自动攒进下一杯对话，1 个词就能开始。
+英文随播放显示，目标词高亮，点词可查释义。配音统一使用 Kokoro 英音／美音。词库、按天整理的对话历史、设置与主动考试，都收在左下角菜单里。
 
-**③ 跟听**：本地 Ollama 写稿，代码检查目标词覆盖和周边词难度，不合格时尝试重写。遗漏目标词的稿件会停止并提示重试。配音后逐轮听、逐轮揭晓，点词查看释义。词义是否自然准确仍取决于模型，自动校验不能替代内容抽查。
+<img src=".github/assets/dialogue.webp" width="960" alt="MaidCafe 对话播放器：英文对白随播放显示，单词高亮并可点击查词">
 
-**④ 回想**：自己决定什么时候回想，只出本次见过的词。先想意思，再揭晓，选择「想起来了」或「还想再听」。保存成功后才前进，已通过的词进入间隔复习。每份数量由你定，无打卡和连续天数要求。
+## 一间会记住你的咖啡馆
 
-可选的「调一调听力难度」先问听音，再问看词，分别记录。无录音的词只测阅读，不生成听力成绩。
-
-迎宾、学习、听故事与休息各有三种场景，进入阶段时轮换，翻词和播放中保持静止。设置里的「店里的风景」可以选择固定配图或安静阅读。五位店员的完整立绘与场景图随安装包提供，离线也能看到。
-
-<div align="center">
-<img src="static/cafe/scenes/rainy-table.webp" width="720" alt="窗边的空桌">
-</div>
-
-## 店里的规矩
-
-> **自主回想**（由你发起，从不弹窗逼你打分）· **不倍速**（自然语速就是训练）·
-> **不催**（不打卡、不连胜、不推送，躺平是客人的权利）· **不累计**（没有"欠了
-> 三天的任务"，每次打开都是新的一份）· **关掉就是收工**（不点任何按钮直接关，
-> 每次已确认的回想都已保存，尚未提交的判断会留给下次）
-
-## 店员
-
-<img src="static/cafe/cast/momo-full-v3.webp" width="230" align="right" alt="Momo">
-
-五位性格各异的女仆轮班：沉稳的店长、招牌店员 **Momo**（右图）、
-毒舌的后厨、冒失的新人、认真的实习生。
-
-- 每场对话按**人数纪律**随机成局（双人日常最多，全员到齐是稀有场面）
-- 每位女仆都有 **10% 概率触发的隐藏面**——某天你会听到平时元气的
-  Momo 突然安静下来
-- 30% 概率有**熟客来店**：嘴硬心软的 Old Tom、每次点同一杯的上班族 Mr. Sato、
-  话特别多的 Anna……五位熟客性格和声音都固定，越听越熟
-- 场景库涵盖大厅、雨夜、后厨、办公室，同词不同景
-
-角色人设、场景与乱入概率都在 `roster.json` / `scenes.json`，改起来就是改 JSON。
-
-<br clear="right">
-
-## 快速开始
-
-维护者更新与发布流程见 [RELEASING.md](RELEASING.md)：PR 自动测试与打包，版本升级合入 main 后自动验证并发布。
-
-### 桌面预览：Mac 与 Windows
-
-桌面版使用独立窗口，内置 Python、界面、入门词库和试听录音。Mac 打开 `.dmg` 后拖入 Applications；Windows 运行 `Windows-x64-Setup.exe` 按向导安装。从开始菜单/应用程序打开即可，无需终端。
-
-安装包在 [GitHub Releases](https://github.com/FeeChain/maidcafe/releases) 公开下载，无需 GitHub 账号。提供 Mac Apple Silicon、Mac Intel、Windows x64。当前为未完成签名/公证的预览版。
-
-第一次可以直接听招待、翻词卡。想生成自己的故事，在「故事设置」点「一键准备」：软件下载官方 Ollama 引擎、校验文件、下载模型、试运行，成功后自动配置。可暂停并续传，已有本地 Ollama 会复用；进阶设置仍可选择自己的模型。不需要自己装引擎、敲命令或填写密钥。
-
-轻量模型约 **1.4 GB**，标准模型约 **2.5 GB**；引擎首次下载 Mac 约 **186 MB**、Windows 约 **1.6 GB**。自动准备需要 macOS 14+ 或 Windows 10 22H2+，建议至少 8 GB 内存；低于 16 GB 默认推荐轻量助手。下载前显示大小并检查磁盘空间。下载后可离线使用，首次写故事及 CPU 运行可能较慢。引擎来自 [Ollama 官方发行](https://github.com/ollama/ollama/releases)，模型来自官方模型库。
-
-Mac/Windows 优先使用已配置的 Kokoro，否则使用系统英语语音；没有可用配音时仍可阅读故事。
-
-设置中的「词库与学习记录」支持导入 Anki 词包、导出记录，在没有学习记录的安装中恢复备份。备份包含进度和故事文字，不含词库、模型或录音。Mac 数据目录是 `~/Library/Application Support/maidcafe/`，Windows 是 `%LOCALAPPDATA%\maidcafe\`；替换应用不会覆盖记录。Windows 需要 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。
-
-维护者构建：Python 3.12 环境安装 `requirements-desktop.txt`，运行 `python packaging/build_desktop.py`；Windows 另需 Inno Setup 6。验证实际程序可运行 `python packaging/smoke_desktop.py <可执行文件路径>`。发布前完成签名、公证，并抽查生成内容。
-
-### 从源代码运行
-
-核心**零依赖**，Python 3.9+ 即可跑起来：
-
-```bash
-# 启动后打开 http://localhost:8770
-python3 server.py
-```
-
-项目已附带「窗边的第一杯」24 词入门包，含原创中英释义/例句与合成录音。无 Ollama 时仍可试听和翻卡。下载入口在窗边菜单与设置页，标准 `.apkg` 也可导入 Anki，制作说明见 [resources/README.md](resources/README.md)。
-
-自己的 `.apkg` 可在设置中导入，也可放进 `decks/`，重启后加载。新增、替换同名包或移除包都会更新缓存。源代码版已有的个人词库与学习记录仍使用原路径；迁移到桌面版可导出记录再恢复。
-
-### 完整体验（对话生成 + 高质量 TTS）还需要
-
-```bash
-# 本地 LLM（对话生成引擎）
-ollama list  # 找到本机可用模型的完整名称
-# 把下面的名称替换成 list 中的实际名称，再启动
-MAIDCAFE_MODEL="你的模型名称" python3 server.py
-
-# 词频/考纲数据（难度分块 + 词形还原用）
-#   下载 ECDICT sqlite 版，解压出 stardict.db 放到 data/
-#   https://github.com/skywind3000/ECDICT/releases
-
-# 词根词缀表（可选；同为 ECDICT 项目，MIT。不装则释义卡不显示词根）
-curl -L -o data/wordroot.txt https://raw.githubusercontent.com/skywind3000/ECDICT/master/wordroot.txt
-
-# Kokoro TTS（可选但强烈建议；不装则回落 macOS say）
-uv venv --python 3.12 .venv-tts
-uv pip install --python .venv-tts/bin/python kokoro-onnx soundfile
-#   下载 kokoro-v1.0.onnx 与 voices-v1.0.bin 放到 data/
-#   https://github.com/thewh1teagle/kokoro-onnx/releases
-```
-
-## 按键与鼠标
-
-| 场景 | 操作 |
+| 咖啡馆里的体验 | 实际怎么做 |
 |---|---|
-| 学习词卡 | Space 显示，再按下一张，K 重听 |
-| 主动回想 | Space 揭晓释义，再用 F「想起来了」或 J「还想再听」 |
-| 可选校准 | F 肯定、J 否定，先听音再看词，K 重听 |
-| 输入框、按钮 | 使用原生键盘行为，Tab 移动焦点，Space/Enter 激活已聚焦按钮 |
-| 弹窗 | Tab 在弹窗内移动，Esc 关闭并回到原控件 |
+| 每组换个风景 | 25 张背景，当前组翻卡、重学和重新打开时保持一致 |
+| 五位不同的店员 | Momo、Haruka、Shizuku、Suzu、Aoi，各有固定人设、声音与隐藏性格 |
+| 新的单词语境 | 本地 AI 根据目标词与已知词范围写稿，检查覆盖和难度，必要时重写 |
+| 记住学过的词 | 首次学会进入复习档，按照既有权重模型安排后续复习 |
+| 自己决定节奏 | 没有打卡、连胜或催学通知；退出后保留当前词卡和测试进度 |
+| 记录留在本机 | 词库、生成、配音与学习数据库都在你的电脑上；支持导入和备份 |
 
-无录音只判断阅读。鼠标点按钮和键盘操作结果一致。
+主动考试只查看本次掌握情况，**不改变复习记录**。完整规则、公式、代码入口和与旧设计的差异，请看 [单词生命周期核对](design/WORD_LIFECYCLE.md)。AI 的自然度和词义准确性仍需要内容抽查，程序不会把自动校验当成完整的语义保证。
 
-## 引擎盖下面
+## 自己的词，也能带进来
 
-- **从边界外扩**：8,900+ 词按考纲段位 + 词频排成一条线、切成 100 词的块。
-  探针定位你的边界块之后，边界内=已知，新词严格按难度从边界向外供给——
-  你学的每个词都是"踮脚够得着"的那个。
-- **generate → verify → repair**：LLM 负责写，**纯代码**负责验（目标词齐不齐、
-  周边词汇已知占比、人数纪律），不合格把违规项喂回去重写，最多四稿取最优。
-- **复习听的是全新对话**：不是把例句再放一遍，而是让这个词在新语境里
-  再遇见你一次（编码变异优于机械重复——这是本地 LLM 才给得起的独门武器）。
-- **测试**：120 个自动化用例四层覆盖（单元 / 对话管线 / HTTP 契约 / Playwright
-  真浏览器全点击），双系统双 Python 版本 CI。
+在菜单中打开「词库与生词本」，可查词、添加词、导入文字词表或兼容的 Anki `.apkg` 词包。
 
-## 项目结构
+[原创 24 词入门包](resources/window-seat.apkg) · [词库、模型与素材来源](resources/README.md) · [人物定妆规范](design/characters/v1/使用说明.txt)
 
+学习记录可以从设置中导出，并在没有学习记录的安装中恢复。备份包含学习进度、词卡位置、设置与故事文本；词包、模型和配音文件需要另行保留。
+
+<details>
+<summary><strong>本地数据在哪里？</strong></summary>
+
+- Mac：`~/Library/Application Support/maidcafe/`
+- Windows：`%LOCALAPPDATA%\maidcafe\`
+- 替换应用不会覆盖个人数据目录。
+
+</details>
+
+<details>
+<summary><strong>开发与自行构建</strong></summary>
+
+建议使用 Python 3.12 和虚拟环境：
+
+```sh
+python -m pip install -r requirements-desktop.txt
+python packaging/prepare_speech.py
+python desktop.py
 ```
-server.py      # stdlib HTTP 服务 + SQLite（校准/会话/生词本全部接口）
-deckparse.py   # .apkg 词库解析（zip + SQLite + 媒体清单）
-dialogue.py    # 对话生成闭环（Ollama + 校验器 + 修复循环 + TTS 调度）
-tts_kokoro.py  # Kokoro 合成 worker（跑在 .venv-tts 里）
-roster.json    # 女仆角色库（人设卡 + 隐藏面 + 音色映射）
-scenes.json    # 场景与乱入概率
-static/        # 主页 + 校准页 + 听力室（vanilla JS，无框架）
-FLOW.md        # 产品流程宪法（状态机 + 不变量）
-tests/         # 四层自动化测试
+
+也可运行 `python server.py`，打开 `http://localhost:8770`。AI 模型可在界面中准备；源代码启动时可通过 `MAIDCAFE_MODEL` 选择现有模型。完整 ECDICT 数据库与词根表是可选扩充，基础词库和词形还原已内置。
+
+```sh
+python packaging/run_checks.py
+python -m pip install -r requirements-dev.txt
+python -m playwright install chromium
+node tests/test_domain.mjs
+python tests/test_ui.py
+python packaging/build_desktop.py
 ```
 
-## 路线图
+PR 自动执行核心、界面与三平台安装检查；新版本合入 main 后自动验证并发布。详见 [RELEASING.md](RELEASING.md)。
 
-- [x] 探针式词汇量测定（动态折半 + 盲测档案）
-- [x] 开门即学的主流程（现抓一份 · 篮子煮对话 · 考试落库）
-- [ ] 画稿全量上线（首批已就位，持续更新中）
-- [ ] 统计页 · 词表导入导出 · 纯文本词库
-- [ ] 跨平台打包（桌面免费）
-- [ ] Web 版（无 LLM 依赖的轻量线上版）
+| 代码 | 用途 |
+|---|---|
+| `static/cafe-ui/` | 正式界面与学习流程 |
+| `cafe.py` | 页面状态、原子保存、队列与生成接口 |
+| `server.py` | 词库、难度段、原有 SRS 与本地服务 |
+| `dialogue.py` / `tts_kokoro.py` | 本地写稿、校验、修复与英语配音 |
+| `roster.json` / `scenes.json` | 店员、熟客与场景 |
+| `packaging/` / `tests/` | 安装包、发布和回归验证 |
 
-## License
+</details>
 
-AGPL-3.0 · 词库与词典数据（ECDICT）、TTS 模型（Kokoro）各按其原始协议，
-不随本仓库分发。
+代码采用 [AGPL-3.0](LICENSE)。内置 ECDICT 数据采用 MIT；Kokoro 模型采用 Apache 2.0，分发许可保存在 [resources/licenses](resources/licenses)。用户自行导入的词包不随项目再分发。
 
-<div align="center">
-<sub>☕ 欢迎光临，客人。今天也请慢用。</sub>
-</div>
+<div align="center"><sub>我会一直记得，你喜欢坐的地方的。常来哦。</sub></div>

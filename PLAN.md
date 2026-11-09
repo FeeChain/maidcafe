@@ -2,11 +2,11 @@
 
 - [x] 品牌 MaidCafe；25 张同组稳定、换组轮换背景。20 张新图已生成、人工检查并优化为 WebP；原图保留 outputs/maidcafe-backgrounds-v6。
 - [x] 原型 UI 接入真实词库、SQLite 状态、SRS、测试、AI 生成、Kokoro、导入／备份。13 项新数据库回归、8 条生产 UI 旅程已通过；真实 AI 教学对话 3 句与 Kokoro 音频通过。
-- [ ] 自动化检查、三平台安装包、GitHub Actions 发布；安装已发布 Mac 包（此前授权）。
-- [ ] 发布后美化 GitHub README 首页。
-- [ ] 从最终代码提取词段／首次学会／复习／失败规则，与旧设计逐项对照。
+- [x] 自动化检查、三平台安装包、GitHub Actions 发布；已发布 0.4.0-preview，源码 dbaf55e，main 验证运行 42680766852 成功。已下载并校验发布的 Mac ARM 包，安装到 /Applications/maidcafe.app，原生窗口、25 张背景及 Kokoro 配音通过。
+- [x] 发布后重做 GitHub README：首页大图、三个安装入口、真实界面截图、折叠开发说明。
+- [x] design/WORD_LIFECYCLE.md 从最终代码提取词段、首次学会、复习、失败与每日首次规则；与旧 main 的 7 个 SRS 核心函数逐一比较完全一致。
 
-当前正式代码工作分支 codex/maidcafe-approved-ui-20261110；来源 main a1ef1b1；最近已发布 0.3.2-preview，当前源码 0.4.0-preview。原型目录 ../maidcafe-ui-prototype；背景原图 outputs/maidcafe-backgrounds-v6；用户个人 Chrome 必须每次申请，本次使用独立测试浏览器和 CLI 即可。
+正式版本通过 PR #2 合入 main；来源 a1ef1b1；发布版本 0.4.0-preview，源码 dbaf55e。本机旧应用与学习数据库备份位于 outputs/maidcafe-upgrade-backup-20261110；发布包与本机验证记录位于 outputs/releases/0.4.0-preview。原型目录 ../maidcafe-ui-prototype；背景原图 outputs/maidcafe-backgrounds-v6；用户个人 Chrome 必须每次申请，本次使用独立测试浏览器和 CLI 即可。
 
 ---
 
