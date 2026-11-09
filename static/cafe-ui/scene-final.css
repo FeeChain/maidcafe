@@ -141,3 +141,5 @@ html[data-layout=b] .wide-room.quiet :is(.work-hero-art,.group-art-frame) {displ
  html[data-layout=b] .wide-room .word-row .pill {display:none;}
 }
 @media(max-width:360px){html[data-layout=b] .wide-room .workroom{padding-left:18px;padding-right:18px;}}
+
+.guest-avatar{display:grid;place-items:center;border-radius:50%;background:#e5d4bd;color:#704f43;font:600 18px Georgia,serif;flex-shrink:0}
