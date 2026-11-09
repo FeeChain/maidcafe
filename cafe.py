@@ -61,9 +61,11 @@ def snapshot(s):
                      key=lambda w: (records[w]['weight'], s.word_rank(w), w))
         mastery = {w: dict(known=r['state'] in ('learning', 'graduated'), seen=(r['last'] or now)*1000,
                            retryTomorrow=bool(r['state'] == 'lapsed' and s.same_day(r['last'], now)),
-                           state=r['state'], weight=r['weight']) for w, r in records.items()}
+                           studied=True, state=r['state'], weight=r['weight']) for w, r in records.items()}
         for w, (status, ts) in marks.items():
-            mastery.setdefault(w, dict(known=status in (3, 4), seen=ts*1000, state='known' if status in (3, 4) else 'new'))
+            mastery.setdefault(w, dict(known=status in (3, 4), seen=ts*1000,
+                                       studied=bool((state or {}).get('mastery', {}).get(w, {}).get('studied')),
+                                       state='known' if status in (3, 4) else 'new'))
         return dict(state=state, revision=(state or {}).get('revision', 0), words=words,
                     dueIds=due, mastery=mastery,
                     recent=[w for w, _ in sorted(marks.items(), key=lambda item: item[1][1], reverse=True)][:100],
@@ -109,6 +111,7 @@ def commit(s, payload):
         if payload.get('revision') != revision:
             raise RuntimeError('另一个窗口更新了学习记录，请重新读取后继续。')
         intent = payload.get('intent') or {}
+        studied_id = None
         if intent.get('action') == 'judge' and previous and previous.get('welcomeComplete') and not previous.get('replayTutorial'):
             group = previous.get('learning') or {}
             after = candidate.get('learning') or {}
@@ -116,6 +119,7 @@ def commit(s, payload):
             if not group.get('revealed') or group.get('done') or index >= len(group.get('ids', [])):
                 raise ValueError('请先翻开当前词卡。')
             word_id = group['ids'][index]
+            studied_id = word_id
             passed = intent.get('known') == 'yes'
             expected = copy.deepcopy(group)
             expected['passed'] = [w for w in group['passed'] if w != word_id] + ([word_id] if passed else [])
@@ -143,6 +147,8 @@ def commit(s, payload):
                 con.execute('insert into marks(word,status,ts,src) values(?,?,?,?) on conflict(word) do update set status=excluded.status,ts=excluded.ts,src=excluded.src',
                             (answer['id'], status, time.time(), 'scan' if assessment['method']=='full' else 'probe'))
         state = copy.deepcopy(candidate)
+        if studied_id:
+            state.setdefault('mastery', {}).setdefault(studied_id, {})['studied'] = True
         # Dialogue content is canonical in its own table, never copied from the browser.
         state['dialogues'] = []
         state['revision'] = revision+1

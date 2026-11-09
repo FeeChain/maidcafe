@@ -32,7 +32,7 @@ export function makeQueue(state,words){
 export function startQueue(state,words){state.queue=makeQueue(state,words);state.queueIndex=0;state.learning=state.queue.length?createGroup(state.queue[0].ids,state.queue[0].kind,`batch-${++state.serial}`):null;}
 export function recordStudy(state,pass,now=Date.now()){
  const id=judgeGroup(state.learning,pass);if(!id)return;
- state.mastery[id]={known:!!pass,seen:now};state.recent=[id,...state.recent.filter(x=>x!==id)].slice(0,100);
+ state.mastery[id]={known:!!pass,studied:true,seen:now};state.recent=[id,...state.recent.filter(x=>x!==id)].slice(0,100);
 }
 export function advanceQueue(state){
  if(!canAdvance(state.learning))return false;

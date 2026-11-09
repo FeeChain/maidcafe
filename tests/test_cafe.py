@@ -59,6 +59,7 @@ class CafeTests(unittest.TestCase):
         self.grade(False)
         self.assertEqual(self.rows('word_srs'),[])
         self.assertFalse(cafe.snapshot(server)['mastery']['coffee']['known'])
+        self.assertTrue(cafe.snapshot(server)['mastery']['coffee']['studied'])
 
     def test_failed_commit_never_advances_or_grades(self):
         before=self.rows('kv');self.s['learning']['index']=2
@@ -126,5 +127,6 @@ class CafeTests(unittest.TestCase):
         self.s['assessment']={'done':True,'method':'sample','answers':[{'id':'coffee','heard':False,'known':True},{'id':'cup','heard':True,'known':True}]}
         self.commit(dict(action='assessment-answer'))
         self.assertEqual({r[0]:r[1] for r in self.rows('marks')},{'coffee':2,'cup':3})
+        self.assertFalse(any(m['studied'] for m in cafe.snapshot(server)['mastery'].values()))
 
 if __name__=='__main__':unittest.main(verbosity=2)

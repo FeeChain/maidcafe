@@ -126,6 +126,9 @@ class CafeUI(unittest.TestCase):
         self.click('return-study');self.click('menu');self.click('tool','[data-page="library"]')
         self.click('add-word');self.page.locator('#new-word').fill('moonlight');self.click('save-word')
         self.assertIn('moonlight',self.snapshot()['recent'])
+        self.click('return-study');self.click('menu');self.click('tool','[data-page="exam-select"]')
+        self.assertEqual(self.page.locator('[data-exam-id]').count(),1)
+        self.assertEqual(self.page.locator('[data-exam-id="moonlight"]').count(),0)
         self.click('return-study');index=self.snapshot()['learning']['index']
         self.page.route('**/api/cafe/state',lambda route:route.fulfill(status=503,json={'error':'保存暂时不可用'}))
         self.click('reveal');self.assertEqual(self.screen(),'error')
