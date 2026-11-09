@@ -49,8 +49,7 @@ class CafeUI(unittest.TestCase):
         except subprocess.TimeoutExpired:self.proc.kill();self.proc.wait()
     def click(self,action,selector=''):
         self.page.locator('[data-action="'+action+'"]'+selector).click()
-        self.page.wait_for_function('!document.querySelector(".app-shell[data-screen=error]")') if False else None
-        self.page.wait_for_timeout(70)
+        self.page.wait_for_function('window.__maidcafe && !__maidcafe.isSaving()')
     def snapshot(self):return self.page.evaluate('__maidcafe.snapshot()')
     def screen(self):return self.snapshot()['page']
     def choose_level(self):

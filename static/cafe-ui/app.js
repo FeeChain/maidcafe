@@ -288,7 +288,7 @@ async function boot(){
    }
   }
   go(resolvePage(S,S.page||safeResume(S)),{replace:true});sceneArt();await save();
-  window.__maidcafe={snapshot:()=>structuredClone(S),audioState:()=>({time:audio?.currentTime||0,paused:audio?.paused,ready:audio?.readyState,src:audio?.src}),version:data.version};
+  window.__maidcafe={isSaving:()=>saving,snapshot:()=>structuredClone(S),audioState:()=>({time:audio?.currentTime||0,paused:audio?.paused,ready:audio?.readyState,src:audio?.src}),version:data.version};
   if(data.dialogues.some(d=>['writing','tts'].includes(d.status)))refreshDialogues();
  }catch(error){ui.bootFailed=true;S.errorMessage=error.message;S.errorReturn='welcome';S.page='error';render();}
 }
