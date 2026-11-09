@@ -95,6 +95,9 @@ class CafeTests(unittest.TestCase):
         self.commit();self.grade(True)
         self.assertEqual(self.rows('word_srs'),before)
         self.assertEqual(self.s['learning']['passed'],['coffee'])
+        self.assertTrue(cafe.snapshot(server)['mastery']['coffee']['retryTomorrow'])
+        with patch('cafe.time.time',return_value=time.time()+86400):
+            self.assertFalse(cafe.snapshot(server)['mastery']['coffee']['retryTomorrow'])
 
     def test_readd_graduate_returns_to_new_pool(self):
         con=server.db();server.srs_upsert_learning(con,'coffee',5,30,time.time());con.execute("update word_srs set state='graduated'");con.commit();con.close()

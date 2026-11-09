@@ -26,7 +26,7 @@ export function makeQueue(state,words){
  const due=state.dueIds.filter(id=>bank.some(w=>w.id===id));
  const explicit=bank.filter(w=>state.mastery[w.id]&&!state.mastery[w.id].known);
  const eligible=new Set([...explicit,...allowed].map(w=>w.id));
- const fresh=bank.filter(w=>eligible.has(w.id)&&!due.includes(w.id)&&!state.mastery[w.id]?.known).map(w=>w.id);
+ const fresh=bank.filter(w=>eligible.has(w.id)&&!due.includes(w.id)&&!state.mastery[w.id]?.known&&!state.mastery[w.id]?.retryTomorrow).map(w=>w.id);
  const queue=[];for(const [kind,ids] of [['old',due],['new',fresh]])for(const g of chunks(ids,state.settings.size))queue.push({kind,ids:g});return queue;
 }
 export function startQueue(state,words){state.queue=makeQueue(state,words);state.queueIndex=0;state.learning=state.queue.length?createGroup(state.queue[0].ids,state.queue[0].kind,`batch-${++state.serial}`):null;}

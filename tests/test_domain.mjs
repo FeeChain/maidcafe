@@ -5,6 +5,9 @@ const bank=Array.from({length:305},(_,i)=>({id:'w'+i,word:'w'+i,rank:i,tier:Math
 const words=[...Array.from({length:5},(_,i)=>({id:'t'+i,tutorial:true})),...bank];
 const s=D.freshState();s.level=0;s.dueIds=bank.slice(0,45).map(w=>w.id);
 let q=D.makeQueue(s,words);assert.deepEqual(q.slice(0,4).map(g=>[g.kind,g.ids.length]),[['old',20],['old',20],['old',5],['new',20]]);
+const daily=D.freshState();daily.level=0;daily.mastery.w0={known:false,retryTomorrow:true};
+assert(!D.makeQueue(daily,words).some(g=>g.ids.includes('w0')));
+daily.mastery.w0.retryTomorrow=false;assert(D.makeQueue(daily,words).some(g=>g.ids.includes('w0')));
 let g=D.createGroup(bank.slice(0,20).map(w=>w.id));for(let i=0;i<20;i++)D.judgeGroup(g,i<15);
 assert(!D.canAdvance(g));D.retryGroup(g);assert.equal(g.ids.length,5);for(let i=0;i<5;i++)D.judgeGroup(g,i<4);D.retryGroup(g);assert.equal(g.ids.length,1);assert.equal(D.randomTargets(g,5).length,1);assert.equal(D.chosenTargets(g,['w0','w19']).join(), 'w19');D.judgeGroup(g,true);assert(D.canAdvance(g));
 for(const method of ['binary','sample','full'])for(const known of [true,false]){

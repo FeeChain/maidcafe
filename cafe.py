@@ -60,6 +60,7 @@ def snapshot(s):
                       and r['weight'] <= s.REVIEW_LINE and not s.same_day(r['last'], now)),
                      key=lambda w: (records[w]['weight'], s.word_rank(w), w))
         mastery = {w: dict(known=r['state'] in ('learning', 'graduated'), seen=(r['last'] or now)*1000,
+                           retryTomorrow=bool(r['state'] == 'lapsed' and s.same_day(r['last'], now)),
                            state=r['state'], weight=r['weight']) for w, r in records.items()}
         for w, (status, ts) in marks.items():
             mastery.setdefault(w, dict(known=status in (3, 4), seen=ts*1000, state='known' if status in (3, 4) else 'new'))
